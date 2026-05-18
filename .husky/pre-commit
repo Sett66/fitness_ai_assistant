@@ -1,0 +1,2 @@
+# 提交前：仅对「已暂存」文件跑 ESLint + Prettier（全仓 turbo lint 仍由 CI/本地手动执行）
+pnpm exec lint-staged
