@@ -1,0 +1,24 @@
+{
+  "name": "@fitness/mobile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "bare React Native（Android 优先，M4 实装）",
+  "license": "UNLICENSED",
+  "scripts": {
+    "lint": "echo \"@fitness/mobile: M1 占位\" && exit 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"@fitness/mobile: M1 占位\" && exit 0",
+    "clean": "rimraf .turbo dist android/.gradle android/build android/app/build",
+    "start": "echo \"M1 占位：M4 启动 metro\" && exit 0",
+    "android": "echo \"M1 占位：M4 启动\" && exit 0"
+  },
+  "dependencies": {
+    "@fitness/shared": "workspace:*",
+    "@fitness/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@fitness/config": "workspace:*",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.5.4"
+  }
+}

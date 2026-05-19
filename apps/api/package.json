@@ -1,0 +1,28 @@
+{
+  "name": "@fitness/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NestJS 模块化单体（HTTP + Worker + Cron 三入口，M2 实装）",
+  "license": "UNLICENSED",
+  "main": "./src/index.ts",
+  "scripts": {
+    "build": "echo \"@fitness/api: M1 占位，M2 用 nest build\" && exit 0",
+    "lint": "echo \"@fitness/api: M1 占位\" && exit 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"@fitness/api: M1 占位\" && exit 0",
+    "clean": "rimraf dist .turbo",
+    "start:api": "echo \"M1 占位：M2 启动 HTTP 服务\" && exit 0",
+    "start:worker": "echo \"M1 占位：M2 启动 BullMQ worker\" && exit 0",
+    "start:cron": "echo \"M1 占位：M2 启动 cron\" && exit 0"
+  },
+  "dependencies": {
+    "@fitness/db": "workspace:*",
+    "@fitness/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@fitness/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.5.4"
+  }
+}
