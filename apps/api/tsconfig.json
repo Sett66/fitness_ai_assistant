@@ -4,8 +4,9 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {}
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules", ".turbo"]
+  "exclude": ["dist", "node_modules", ".turbo", "test"]
 }

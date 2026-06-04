@@ -1,43 +1,48 @@
 # @fitness/api
 
-NestJS 模块化单体。**同 codebase / 三启动入口**（HTTP / BullMQ Worker / Cron），共享所有 `*.module.ts` 与 Prisma client。
+NestJS 模块化单体。**同 codebase / 三启动入口**（HTTP / BullMQ Worker / Cron），共享 Prisma 与领域模块。
 
-> **状态：M1 占位**
->
-> - 真实实现见 **M2**：auth / users / exercises / foods / media / ai-tasks 框架，worker 跑通空任务，Swagger 可看
-> - **M3**：在 worker 中接入 `@fitness/ai-core`
+> **状态：M2 HTTP MVP ✅ · M3 AI Worker ✅ · Coach 对话（ADR 0007）✅**
 
-## 计划目录结构（M2 落地）
+## 启动
+
+```powershell
+pnpm --filter api start:api      # HTTP :3000，Swagger /swagger
+pnpm --filter api start:worker   # BullMQ：MEAL_VISION、PLAN_GENERATE_*、COACH 副作用等
+pnpm --filter api start:cron     # 定时任务（当前多为占位）
+```
+
+环境：`apps/api/.env`（由 `load-api-env.ts` 加载）；需 `DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`（AI 功能）、Docker 中 Postgres/Redis/MinIO。
+
+## 模块概览
+
+| 模块              | 说明                                                |
+| ----------------- | --------------------------------------------------- |
+| auth / users      | 注册登录、档案、力量等级                            |
+| exercises / foods | 库查询                                              |
+| uploads           | 预签名上传（`clientPublicEndpoint` 供模拟器/真机）  |
+| ai-tasks          | 异步任务投递与轮询                                  |
+| meal-logs         | 饮食日志与 daily-summary                            |
+| plans             | 计划 CRUD、训练打卡 sessions                        |
+| **conversations** | 多轮会话；`POST .../messages/stream` SSE Coach CHAT |
+
+## 目录结构
 
 详见 `docs/ARCHITECTURE.md` §3.
 
 ```
 src/
-├── main.ts                  # HTTP 服务入口（监听 3000）
-├── worker.ts                # BullMQ worker 入口（不开 HTTP）
-├── schedule.ts              # @nestjs/schedule cron 入口
-├── app.module.ts            # 根模块
-├── common/                  # filters / interceptors / decorators / pipes(ZodValidationPipe) / guards
-├── config/                  # @nestjs/config schema + 校验
-├── infra/                   # prisma / queue / storage / logger / llm
-└── modules/                 # auth / users / exercises / foods / workouts / plans / nutrition / media / ai-tasks / dashboard
-    └── workers/             # BullMQ Processors
+├── main.ts / worker.ts / schedule.ts
+├── app.module.ts
+├── common/          # filters, guards, Zod parse
+├── config/
+├── infra/           # prisma, queue, storage
+├── domain/          # user-context, plan-persistence, conversation-side-effect
+└── modules/         # 各 HTTP 模块 + workers/ai-task.processor.ts
 ```
 
-## M2 依赖清单（届时添加，**M1 不要装**）
+## 相关文档
 
-- `@nestjs/{common,core,platform-express,config,swagger,schedule}`
-- `nestjs-zod` / `nestjs-pino` / `pino`
-- `argon2` / `passport` / `passport-jwt` / `passport-local`
-- `bullmq` / `ioredis`
-- `@aws-sdk/client-s3` / `@aws-sdk/s3-request-presigner`
-
-## TODO（M2/M3）
-
-- [ ] HTTP 启动 + Swagger
-- [ ] auth 模块（注册 / 登录 / 刷新 / 撤销）
-- [ ] users / profile / strength-levels 模块
-- [ ] media presigned 上传链路
-- [ ] ai-tasks 任务投递 + 状态查询
-- [ ] worker.ts 注册 BullMQ Processor
-- [ ] schedule.ts 注册 mesocycle 复盘 cron
+- [`docs/HANDOFF-M2.md`](../../docs/HANDOFF-M2.md)
+- [`docs/HANDOFF-M3.md`](../../docs/HANDOFF-M3.md)
+- [`docs/adr/0007-coach-conversation-and-chat.md`](../../docs/adr/0007-coach-conversation-and-chat.md)

@@ -1,0 +1,105 @@
+# Fitness AI Assistant · 本地基础设施
+# 用法（在仓库根目录执行）：
+#   docker compose -f docker/docker-compose.yml up -d
+#
+# 说明：
+# - 三个服务在同一自定义 bridge 网络内，主机名即 service 名（postgres / redis / minio）。
+# - 变量可从仓库根目录的 .env 注入（执行 compose 时的工作目录通常是仓库根）。
+
+name: fitness
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fitness-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fitness}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fitness}
+      POSTGRES_DB: ${POSTGRES_DB:-fitness}
+    volumes:
+      - fitness_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "${POSTGRES_USER:-fitness}" -d "${POSTGRES_DB:-fitness}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - fitness
+
+  redis:
+    image: redis:7-alpine
+    container_name: fitness-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - fitness_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - fitness
+
+  minio:
+    image: minio/minio:latest
+    container_name: fitness-minio
+    restart: unless-stopped
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio12345678}
+    command: ["server", "/data", "--console-address", ":9001"]
+    volumes:
+      - fitness_miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - fitness
+
+  # MinIO 官方镜像不会自动建 bucket；用 mc 在启动后创建 media（HANDOFF §4 第 4 坑）
+  minio-init:
+    image: minio/mc:latest
+    container_name: fitness-minio-init
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio12345678}
+    networks:
+      - fitness
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        i=0
+        until mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"; do
+          i=$$((i + 1))
+          if [ "$$i" -ge 30 ]; then echo 'minio-init: 连接 MinIO 超时'; exit 1; fi
+          sleep 2
+        done
+        mc mb --ignore-existing "local/${MINIO_BUCKET:-media}"
+        echo "MinIO bucket \"${MINIO_BUCKET:-media}\" 已就绪"
+
+volumes:
+  fitness_pgdata:
+  fitness_redisdata:
+  fitness_miniodata:
+
+networks:
+  fitness:
+    name: fitness_net
+    driver: bridge

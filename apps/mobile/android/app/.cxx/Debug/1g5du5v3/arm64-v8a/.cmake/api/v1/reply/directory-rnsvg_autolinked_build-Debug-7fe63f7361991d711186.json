@@ -1,0 +1,12 @@
+{
+  "backtraceGraph": {
+    "commands": [],
+    "files": [],
+    "nodes": []
+  },
+  "installers": [],
+  "paths": {
+    "build": "rnsvg_autolinked_build",
+    "source": "E:/fitness/apps/mobile/node_modules/react-native-svg/android/src/main/jni"
+  }
+}

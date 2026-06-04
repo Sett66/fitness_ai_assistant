@@ -1,0 +1,47 @@
+/**
+ * 业务错误码（ARCH §8.2）。
+ *
+ * 命名约定：`<DOMAIN>_<KIND>`，UPPER_SNAKE。
+ * 后续每加一类业务错误就在这里登记一行 + 在 i18n/zh-CN.ts 配中文。
+ */
+export const ERROR_CODE_VALUES = [
+  // 通用
+  'INTERNAL_ERROR',
+  'VALIDATION_FAILED',
+  'NOT_FOUND',
+  'FORBIDDEN',
+  'UNAUTHORIZED',
+  'RATE_LIMITED',
+
+  // 鉴权
+  'AUTH_INVALID_CREDENTIALS',
+  'AUTH_TOKEN_EXPIRED',
+  'AUTH_TOKEN_INVALID',
+  'AUTH_REFRESH_REVOKED',
+  'AUTH_REGISTER_PHONE_TAKEN',
+
+  // 用户 / 档案
+  'USER_NOT_FOUND',
+  'PROFILE_INCOMPLETE',
+
+  // 媒体
+  'MEDIA_NOT_FOUND',
+  'MEDIA_UPLOAD_FAILED',
+  'MEDIA_TOO_LARGE',
+  'MEDIA_MIME_REJECTED',
+
+  // AI 任务
+  'AI_TASK_NOT_FOUND',
+  'AI_TASK_LIMIT_EXCEEDED',
+  'AI_TASK_PARSE_FAILED',
+
+  // Coach 对话
+  'CONVERSATION_NOT_FOUND',
+
+  // 计划 / 打卡
+  'PLAN_NOT_FOUND',
+  'PLAN_IN_PROGRESS',
+  'WORKOUT_NOT_FOUND',
+] as const;
+
+export type ErrorCode = (typeof ERROR_CODE_VALUES)[number];

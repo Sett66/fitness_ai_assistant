@@ -2,10 +2,13 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "@fitness/config/tsconfig.react-native.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": ".",
     "noEmit": true,
-    "types": []
+    "types": ["nativewind/types"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["dist", "node_modules", ".turbo", "android", "ios"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "index.js", "nativewind-env.d.ts"],
+  "exclude": ["node_modules", "android", "ios"]
 }

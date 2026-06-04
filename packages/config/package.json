@@ -1,0 +1,38 @@
+{
+  "name": "@fitness/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "共享开发配置：TypeScript / ESLint / Prettier",
+  "license": "UNLICENSED",
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.node.json",
+    "tsconfig.react-native.json",
+    "eslint.base.cjs",
+    "prettier.config.cjs"
+  ],
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.node.json": "./tsconfig.node.json",
+    "./tsconfig.react-native.json": "./tsconfig.react-native.json",
+    "./eslint.base.cjs": "./eslint.base.cjs",
+    "./prettier.config.cjs": "./prettier.config.cjs"
+  },
+  "scripts": {
+    "lint": "echo \"@fitness/config: 仅配置包，无需 lint\" && exit 0",
+    "typecheck": "echo \"@fitness/config: 仅配置包，无需 typecheck\" && exit 0",
+    "test": "echo \"@fitness/config: 无测试\" && exit 0",
+    "clean": "rimraf .turbo"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "~5.5.4",
+    "typescript-eslint": "^8.19.0"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1"
+  }
+}

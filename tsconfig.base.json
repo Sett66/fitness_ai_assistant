@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "useDefineForClassFields": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@fitness/shared": ["./packages/shared/src/index.ts"],
+      "@fitness/shared/*": ["./packages/shared/src/*"],
+      "@fitness/db": ["./packages/db/src/index.ts"],
+      "@fitness/db/*": ["./packages/db/src/*"],
+      "@fitness/ui": ["./packages/ui/src/index.ts"],
+      "@fitness/ui/*": ["./packages/ui/src/*"],
+      "@fitness/ai-core": ["./packages/ai-core/src/index.ts"],
+      "@fitness/ai-core/*": ["./packages/ai-core/src/*"]
+    }
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/build",
+    "**/.turbo",
+    "**/coverage",
+    "**/android",
+    "**/ios"
+  ]
+}

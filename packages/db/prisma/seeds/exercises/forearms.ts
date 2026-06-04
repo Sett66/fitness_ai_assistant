@@ -1,0 +1,63 @@
+import {
+  ExerciseDifficulty,
+  ExerciseEquipment,
+  PrimaryMuscle,
+  type Prisma,
+} from '../../../src/generated';
+
+export const FOREARMS_EXERCISES: Prisma.ExerciseCreateManyInput[] = [
+  {
+    nameZh: '正握腕弯举',
+    nameEn: 'Wrist Curl',
+    primaryMuscle: PrimaryMuscle.FOREARMS,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.DUMBBELL,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '反握腕弯举',
+    nameEn: 'Reverse Wrist Curl',
+    primaryMuscle: PrimaryMuscle.FOREARMS,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.DUMBBELL,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '农夫行走',
+    nameEn: 'Farmer Walk',
+    primaryMuscle: PrimaryMuscle.FOREARMS,
+    secondaryMuscles: [PrimaryMuscle.BACK, PrimaryMuscle.ABS],
+    equipment: ExerciseEquipment.DUMBBELL,
+    difficulty: ExerciseDifficulty.INTERMEDIATE,
+    isPreset: true,
+  },
+  {
+    nameZh: '杠铃正握弯举',
+    nameEn: 'Reverse Barbell Curl',
+    primaryMuscle: PrimaryMuscle.FOREARMS,
+    secondaryMuscles: [PrimaryMuscle.BICEPS],
+    equipment: ExerciseEquipment.BARBELL,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '挂片指捏',
+    nameEn: 'Plate Pinch Hold',
+    primaryMuscle: PrimaryMuscle.FOREARMS,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.OTHER,
+    difficulty: ExerciseDifficulty.INTERMEDIATE,
+    isPreset: true,
+  },
+  {
+    nameZh: '绳索腕弯举',
+    nameEn: 'Cable Wrist Curl',
+    primaryMuscle: PrimaryMuscle.FOREARMS,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.CABLE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+];

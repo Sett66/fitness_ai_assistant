@@ -1,0 +1,52 @@
+{
+  "name": "@fitness/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "端到端共享：Zod schemas / 类型 / 枚举 / 常量 / 错误码 / 中文文案",
+  "license": "UNLICENSED",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "default": "./dist/schemas/index.js"
+    },
+    "./enums": {
+      "types": "./dist/enums/index.d.ts",
+      "default": "./dist/enums/index.js"
+    },
+    "./constants": {
+      "types": "./dist/constants/index.d.ts",
+      "default": "./dist/constants/index.js"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "default": "./dist/errors/index.js"
+    },
+    "./i18n": {
+      "types": "./dist/i18n/zh-CN.d.ts",
+      "default": "./dist/i18n/zh-CN.js"
+    }
+  },
+  "scripts": {
+    "build": "rimraf tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"@fitness/shared: 暂无测试\" && exit 0",
+    "clean": "rimraf dist .turbo tsconfig.build.tsbuildinfo tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "zod": "~3.23.8"
+  },
+  "devDependencies": {
+    "@fitness/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.5.4"
+  }
+}

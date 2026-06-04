@@ -1,0 +1,15 @@
+export const queryKeys = {
+  me: ['me'] as const,
+  profile: ['profile'] as const,
+  strengthLevels: ['strength-levels'] as const,
+  dailySummary: (date: string) => ['daily-summary', date] as const,
+  mealLogs: (date?: string) => ['meal-logs', date ?? 'all'] as const,
+  plans: (type?: string) => ['plans', type ?? 'all'] as const,
+  plan: (id: string) => ['plan', id] as const,
+  aiTask: (id: string) => ['ai-task', id] as const,
+  workoutSessions: ['workout-sessions'] as const,
+  exercises: ['exercises'] as const,
+  foods: (limit?: number) => ['foods', limit ?? 100] as const,
+  coachConversations: ['coach-conversations'] as const,
+  coachConversation: (id: string) => ['coach-conversation', id] as const,
+};

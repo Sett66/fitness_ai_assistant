@@ -1,0 +1,73 @@
+import {
+  ExerciseDifficulty,
+  ExerciseEquipment,
+  PrimaryMuscle,
+  type Prisma,
+} from '../../../src/generated';
+
+/** 有氧 / 综合类，供计划含 cardio 时使用 */
+export const OTHER_EXERCISES: Prisma.ExerciseCreateManyInput[] = [
+  {
+    nameZh: '跑步机跑步',
+    nameEn: 'Treadmill Running',
+    primaryMuscle: PrimaryMuscle.OTHER,
+    secondaryMuscles: [PrimaryMuscle.QUADS, PrimaryMuscle.CALVES],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '椭圆机',
+    nameEn: 'Elliptical',
+    primaryMuscle: PrimaryMuscle.OTHER,
+    secondaryMuscles: [PrimaryMuscle.QUADS],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '划船机',
+    nameEn: 'Rowing Machine',
+    primaryMuscle: PrimaryMuscle.OTHER,
+    secondaryMuscles: [PrimaryMuscle.BACK, PrimaryMuscle.QUADS],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '动感单车',
+    nameEn: 'Stationary Bike',
+    primaryMuscle: PrimaryMuscle.OTHER,
+    secondaryMuscles: [PrimaryMuscle.QUADS],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '跳绳',
+    nameEn: 'Jump Rope',
+    primaryMuscle: PrimaryMuscle.OTHER,
+    secondaryMuscles: [PrimaryMuscle.CALVES],
+    equipment: ExerciseEquipment.OTHER,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '开合跳',
+    nameEn: 'Jumping Jack',
+    primaryMuscle: PrimaryMuscle.OTHER,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.BODYWEIGHT,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '波比跳',
+    nameEn: 'Burpee',
+    primaryMuscle: PrimaryMuscle.OTHER,
+    secondaryMuscles: [PrimaryMuscle.CHEST, PrimaryMuscle.QUADS],
+    equipment: ExerciseEquipment.BODYWEIGHT,
+    difficulty: ExerciseDifficulty.INTERMEDIATE,
+    isPreset: true,
+  },
+];

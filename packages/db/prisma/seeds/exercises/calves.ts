@@ -1,0 +1,63 @@
+import {
+  ExerciseDifficulty,
+  ExerciseEquipment,
+  PrimaryMuscle,
+  type Prisma,
+} from '../../../src/generated';
+
+export const CALVES_EXERCISES: Prisma.ExerciseCreateManyInput[] = [
+  {
+    nameZh: '站姿提踵',
+    nameEn: 'Standing Calf Raise',
+    primaryMuscle: PrimaryMuscle.CALVES,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '坐姿提踵',
+    nameEn: 'Seated Calf Raise',
+    primaryMuscle: PrimaryMuscle.CALVES,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '腿举机提踵',
+    nameEn: 'Leg Press Calf Raise',
+    primaryMuscle: PrimaryMuscle.CALVES,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '单腿提踵',
+    nameEn: 'Single-Leg Calf Raise',
+    primaryMuscle: PrimaryMuscle.CALVES,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.BODYWEIGHT,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+  {
+    nameZh: '驴式提踵',
+    nameEn: 'Donkey Calf Raise',
+    primaryMuscle: PrimaryMuscle.CALVES,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.MACHINE,
+    difficulty: ExerciseDifficulty.INTERMEDIATE,
+    isPreset: true,
+  },
+  {
+    nameZh: '史密斯机提踵',
+    nameEn: 'Smith Machine Calf Raise',
+    primaryMuscle: PrimaryMuscle.CALVES,
+    secondaryMuscles: [],
+    equipment: ExerciseEquipment.BARBELL,
+    difficulty: ExerciseDifficulty.BEGINNER,
+    isPreset: true,
+  },
+];

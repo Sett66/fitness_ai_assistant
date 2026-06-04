@@ -1,0 +1,33 @@
+{
+  "name": "@fitness/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "RN 通用组件库（NativeWind，M4 实装）",
+  "license": "UNLICENSED",
+  "main": "./src/index.tsx",
+  "types": "./src/index.tsx",
+  "scripts": {
+    "lint": "echo \"@fitness/ui: lint via mobile\" && exit 0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "echo \"@fitness/ui: 暂无测试\" && exit 0",
+    "clean": "rimraf .turbo dist"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-native": ">=0.82"
+  },
+  "dependencies": {
+    "@fitness/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@fitness/config": "workspace:*",
+    "@types/react": "^19.2.0",
+    "lucide-react-native": "^1.16.0",
+    "nativewind": "^4.1.23",
+    "react": "19.2.0",
+    "react-native": "0.83.9",
+    "react-native-svg": "^15.11.2",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.5.4"
+  }
+}

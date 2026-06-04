@@ -1,0 +1,644 @@
+// =================================================================
+// Fitness AI Assistant · Prisma Schema
+// 一一对应 docs/ARCHITECTURE.md §4 数据模型草案。
+//
+// 约定（PRD §5.4）：
+// - 主键统一：PRD 写 cuid2；Prisma 5.22 仅支持无参 cuid()（为 @default(cuid())）
+//   若必须 cuid2，可在 M2 用 @paralleldrive/cuid2 + 手动传 id（另写 ADR）
+// - 软删除字段 deletedAt: DateTime?（运行时拦截由 src/client.ts 的 extension 实现）
+// - 时间字段统一 UTC 存储
+// - 所有用户产生内容关联 userId 并加索引
+//
+// 单位：长度 cm、体重 kg、营养素 g、能量 kcal、时间 sec / ms / 完整 DateTime
+// =================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =================================================================
+// Enums
+// =================================================================
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Goal {
+  MUSCLE_GAIN
+  FAT_LOSS
+  MAINTAIN
+}
+
+enum PrimaryMuscle {
+  CHEST
+  BACK
+  SHOULDER
+  BICEPS
+  TRICEPS
+  QUADS
+  HAMSTRINGS
+  GLUTES
+  CALVES
+  ABS
+  FOREARMS
+  OTHER
+}
+
+enum ExerciseEquipment {
+  BARBELL
+  DUMBBELL
+  MACHINE
+  CABLE
+  BODYWEIGHT
+  KETTLEBELL
+  BAND
+  OTHER
+}
+
+enum ExerciseDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum FoodSource {
+  OFFICIAL
+  USER
+  AI_ESTIMATE
+}
+
+enum PlanType {
+  WORKOUT
+  MEAL
+}
+
+enum PlanStatus {
+  PENDING
+  GENERATING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum MealLogSource {
+  MANUAL
+  VISION
+}
+
+enum ItemSourceTag {
+  OFFICIAL
+  USER
+  AI_ESTIMATE
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+  DELETED
+}
+
+enum AiTaskType {
+  PLAN_GENERATE_WORKOUT
+  PLAN_GENERATE_MEAL
+  MEAL_VISION
+  COACH_CHAT
+  MESOCYCLE_REVIEW
+  REPORT_ANALYZE
+}
+
+enum AiTaskStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+enum ReactionKind {
+  LIKE
+  FIRE
+  CLAP
+  HEART
+}
+
+// =================================================================
+// Account & Profile
+// =================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  phone         String    @unique
+  passwordHash  String
+  displayName   String?
+  avatarMediaId String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  avatarMedia     Media?          @relation("UserAvatar", fields: [avatarMediaId], references: [id])
+  profile         Profile?
+  strengthLevels  StrengthLevel[]
+  sessions        Session[]
+  customExercises Exercise[]
+  customFoods     Food[]
+  plans           Plan[]
+  workouts        WorkoutSession[]
+  mealLogs        MealLog[]
+  media           Media[]
+  aiRuns          AiRun[]
+  conversations   Conversation[]
+  posts           Post[]
+  comments        Comment[]
+  reactions       Reaction[]
+  partnerProfile  PartnerProfile?
+
+  @@index([deletedAt])
+}
+
+model Profile {
+  userId        String   @id
+  gender        Gender
+  birthDate     DateTime
+  heightCm      Float
+  weightKg      Float
+  trainingYears Float    @default(0)
+  goal          Goal
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model StrengthLevel {
+  id               String   @id @default(cuid())
+  userId           String
+  exerciseId       String
+  oneRm            Float?
+  workingWeightKg  Float?
+  maxReps          Int?
+  loadAdjustmentKg Float?
+  recordedAt       DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@unique([userId, exerciseId])
+  @@index([userId, recordedAt])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String
+  deviceLabel      String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// =================================================================
+// Catalog · Exercise & Food
+// =================================================================
+
+model Exercise {
+  id               String             @id @default(cuid())
+  nameZh           String
+  nameEn           String?
+  primaryMuscle    PrimaryMuscle
+  secondaryMuscles PrimaryMuscle[]    @default([])
+  equipment        ExerciseEquipment
+  difficulty       ExerciseDifficulty
+  isPreset         Boolean            @default(false)
+  ownerUserId      String?
+  mediaUrl         String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  deletedAt        DateTime?
+
+  ownerUser        User?             @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  strengthLevels   StrengthLevel[]
+  workoutPlanItems WorkoutPlanItem[]
+  workoutSets      WorkoutSet[]
+
+  @@index([primaryMuscle])
+  @@index([ownerUserId])
+  @@index([isPreset])
+  @@index([deletedAt])
+}
+
+model Food {
+  id             String     @id @default(cuid())
+  nameZh         String
+  nameEn         String?
+  // 每 100 g 营养（PRD §5.2 仅用公制）
+  per100gKcal    Float
+  per100gProtein Float
+  per100gCarbs   Float
+  per100gFat     Float
+  per100gFiber   Float?
+  per100gSodium  Float?
+  source         FoodSource @default(OFFICIAL)
+  ownerUserId    String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+
+  ownerUser    User?         @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  mealLogItems MealLogItem[]
+
+  @@index([nameZh])
+  @@index([source])
+  @@index([ownerUserId])
+  @@index([deletedAt])
+}
+
+// =================================================================
+// Plan · Workout + Meal（mesocycle = 4 周）
+// =================================================================
+
+model Plan {
+  id             String     @id @default(cuid())
+  userId         String
+  type           PlanType
+  mesocycleWeeks Int        @default(4)
+  startDate      DateTime
+  endDate        DateTime
+  status         PlanStatus @default(PENDING)
+  aiRunId        String?    @unique
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiRun       AiRun?           @relation(fields: [aiRunId], references: [id])
+  workoutDays WorkoutPlanDay[]
+  mealDays    MealPlanDay[]
+
+  @@index([userId, type, status])
+  @@index([userId, startDate])
+  @@index([deletedAt])
+}
+
+model WorkoutPlanDay {
+  id      String  @id @default(cuid())
+  planId  String
+  weekIdx Int
+  dayIdx  Int
+  title   String
+  restDay Boolean @default(false)
+
+  plan            Plan              @relation(fields: [planId], references: [id], onDelete: Cascade)
+  items           WorkoutPlanItem[]
+  workoutSessions WorkoutSession[]
+
+  @@unique([planId, weekIdx, dayIdx])
+}
+
+model WorkoutPlanItem {
+  id               String  @id @default(cuid())
+  workoutPlanDayId String
+  exerciseId       String
+  itemIdx          Int     @default(0)
+  plannedSets      Int
+  plannedReps      Int
+  plannedWeightKg  Float?
+  plannedRestSec   Int     @default(90)
+  notes            String?
+
+  day      WorkoutPlanDay @relation(fields: [workoutPlanDayId], references: [id], onDelete: Cascade)
+  exercise Exercise       @relation(fields: [exerciseId], references: [id])
+
+  @@index([workoutPlanDayId, itemIdx])
+}
+
+model MealPlanDay {
+  id           String @id @default(cuid())
+  planId       String
+  weekIdx      Int
+  dayIdx       Int
+  totalKcal    Float
+  macroProtein Float
+  macroCarbs   Float
+  macroFat     Float
+  macroFiber   Float?
+  macroSodium  Float?
+
+  plan  Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  items MealPlanItem[]
+
+  @@unique([planId, weekIdx, dayIdx])
+}
+
+model MealPlanItem {
+  id            String   @id @default(cuid())
+  mealPlanDayId String
+  meal          MealType
+  dishName      String
+  // 食材列表：[{ foodId?, dishName?, grams }]，由 shared 的 MealPlanIngredientSchema 校验
+  ingredients   Json
+  cookingMethod String?
+  kcal          Float
+  macroProtein  Float
+  macroCarbs    Float
+  macroFat      Float
+  macroFiber    Float?
+  macroSodium   Float?
+
+  day MealPlanDay @relation(fields: [mealPlanDayId], references: [id], onDelete: Cascade)
+
+  @@index([mealPlanDayId, meal])
+}
+
+// =================================================================
+// Workout · Session & Set（打卡）
+// =================================================================
+
+model WorkoutSession {
+  id           String    @id @default(cuid())
+  userId       String
+  plannedDayId String?
+  performedAt  DateTime
+  durationSec  Int?
+  mood         String?
+  note         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plannedDay WorkoutPlanDay? @relation(fields: [plannedDayId], references: [id])
+  sets       WorkoutSet[]
+
+  @@index([userId, performedAt])
+  @@index([plannedDayId])
+  @@index([deletedAt])
+}
+
+model WorkoutSet {
+  id             String  @id @default(cuid())
+  sessionId      String
+  exerciseId     String
+  setIdx         Int
+  actualReps     Int
+  actualWeightKg Float
+  rir            Int?
+  isCompleted    Boolean @default(false)
+
+  session  WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise       @relation(fields: [exerciseId], references: [id])
+
+  @@unique([sessionId, setIdx])
+  @@index([exerciseId])
+}
+
+// =================================================================
+// Nutrition · MealLog & Item
+// =================================================================
+
+model MealLog {
+  id           String        @id @default(cuid())
+  userId       String
+  takenAt      DateTime
+  mealType     MealType
+  source       MealLogSource @default(MANUAL)
+  imageMediaId String?
+  totalKcal    Float
+  macroProtein Float
+  macroCarbs   Float
+  macroFat     Float
+  macroFiber   Float?
+  macroSodium  Float?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imageMedia Media?        @relation(fields: [imageMediaId], references: [id])
+  items      MealLogItem[]
+
+  @@index([userId, takenAt])
+  @@index([deletedAt])
+}
+
+model MealLogItem {
+  id           String        @id @default(cuid())
+  mealLogId    String
+  foodId       String?
+  dishName     String
+  grams        Float
+  kcal         Float
+  macroProtein Float
+  macroCarbs   Float
+  macroFat     Float
+  macroFiber   Float?
+  macroSodium  Float?
+  sourceTag    ItemSourceTag
+
+  mealLog MealLog @relation(fields: [mealLogId], references: [id], onDelete: Cascade)
+  food    Food?   @relation(fields: [foodId], references: [id])
+
+  @@index([mealLogId])
+  @@index([foodId])
+}
+
+// =================================================================
+// Media（presigned 上传，ARCH §6）
+// =================================================================
+
+model Media {
+  id          String      @id @default(cuid())
+  ownerUserId String
+  objectKey   String      @unique
+  mime        String
+  sizeBytes   Int
+  status      MediaStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+
+  ownerUser   User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  avatarUsers User[]    @relation("UserAvatar")
+  mealLogs    MealLog[]
+
+  @@index([ownerUserId, status])
+}
+
+// =================================================================
+// AI Runs（PRD §5.3、ARCH §5）
+// =================================================================
+
+model AiRun {
+  id               String       @id @default(cuid())
+  userId           String
+  taskType         AiTaskType
+  model            String
+  status           AiTaskStatus @default(QUEUED)
+  inputJson        Json
+  outputJson       Json?
+  errorMsg         String?
+  tokenIn          Int          @default(0)
+  tokenOut         Int          @default(0)
+  costCny          Decimal      @default(0) @db.Decimal(10, 4)
+  durationMs       Int          @default(0)
+  conversationId   String?
+  triggerMessageId String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  triggerMessage Message?    @relation("AiRunTriggerMessage", fields: [triggerMessageId], references: [id], onDelete: SetNull)
+  assistantMessage Message?  @relation("AiRunAssistantMessage")
+  plan         Plan?
+
+  @@index([userId, taskType, status])
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([conversationId])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MessageContentType {
+  TEXT
+  IMAGE
+  PLAN_CARD
+  MEAL_VISION_CARD
+  SYSTEM_NOTICE
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?  @db.VarChar(128)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+  aiRuns   AiRun[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, isDefault])
+}
+
+model Message {
+  id             String             @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  contentType    MessageContentType @default(TEXT)
+  content        String             @db.Text
+  metadata       Json?
+  aiRunId        String?            @unique
+  createdAt      DateTime           @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  aiRun        AiRun?       @relation("AiRunAssistantMessage", fields: [aiRunId], references: [id], onDelete: SetNull)
+  triggeredRuns AiRun[]     @relation("AiRunTriggerMessage")
+
+  @@index([conversationId, createdAt])
+}
+
+// =================================================================
+// Phase 2 占位（已建表，MVP 不开放对外 API）
+// =================================================================
+
+model Post {
+  id         String         @id @default(cuid())
+  userId     String
+  body       String
+  mediaIds   String[]       @default([])
+  visibility PostVisibility @default(PUBLIC)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  deletedAt  DateTime?
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  reactions Reaction[]
+
+  @@index([userId, createdAt])
+  @@index([visibility, createdAt])
+  @@index([deletedAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  body      String
+  parentId  String?
+  createdAt DateTime @default(now())
+
+  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+  @@index([userId])
+  @@index([parentId])
+}
+
+model Reaction {
+  postId    String
+  userId    String
+  kind      ReactionKind
+  createdAt DateTime     @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([postId, userId])
+  @@index([userId])
+}
+
+model PartnerProfile {
+  userId    String             @id
+  city      String
+  lng       Float
+  lat       Float
+  goal      Goal
+  level     ExerciseDifficulty
+  bio       String?
+  updatedAt DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([city, goal, level])
+}

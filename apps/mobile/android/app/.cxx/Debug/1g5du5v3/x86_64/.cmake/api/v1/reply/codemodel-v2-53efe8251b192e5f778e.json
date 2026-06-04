@@ -1,0 +1,222 @@
+{
+  "configurations": [
+    {
+      "directories": [
+        {
+          "build": ".",
+          "childIndexes": [1, 2, 3, 4, 5, 7, 8, 9],
+          "jsonFile": "directory-.-Debug-d0094a50bb2071803777.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "projectIndex": 0,
+          "source": ".",
+          "targetIndexes": [0]
+        },
+        {
+          "build": "rngesturehandler_codegen_autolinked_build",
+          "jsonFile": "directory-rngesturehandler_codegen_autolinked_build-Debug-9fc893c65cece0f6fe0f.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "parentIndex": 0,
+          "projectIndex": 0,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-gesture-handler/android/build/generated/source/codegen/jni",
+          "targetIndexes": [6]
+        },
+        {
+          "build": "RNImagePickerSpec_autolinked_build",
+          "jsonFile": "directory-RNImagePickerSpec_autolinked_build-Debug-65836195a0756c439d31.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "parentIndex": 0,
+          "projectIndex": 0,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-image-picker/android/build/generated/source/codegen/jni",
+          "targetIndexes": [3]
+        },
+        {
+          "build": "RNKeychainSpec_autolinked_build",
+          "jsonFile": "directory-RNKeychainSpec_autolinked_build-Debug-25e2a5c5463fa33424a0.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "parentIndex": 0,
+          "projectIndex": 0,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-keychain/android/build/generated/source/codegen/jni",
+          "targetIndexes": [4]
+        },
+        {
+          "build": "RNMmkvSpec_autolinked_build",
+          "jsonFile": "directory-RNMmkvSpec_autolinked_build-Debug-ffd37b24debe07a77a8d.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "parentIndex": 0,
+          "projectIndex": 0,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-mmkv/android/build/generated/source/codegen/jni",
+          "targetIndexes": [5]
+        },
+        {
+          "build": "RNMmkvSpec_cxxmodule_autolinked_build",
+          "childIndexes": [6],
+          "jsonFile": "directory-RNMmkvSpec_cxxmodule_autolinked_build-Debug-1a5959729be54119856a.json",
+          "minimumCMakeVersion": {
+            "string": "3.9.0"
+          },
+          "parentIndex": 0,
+          "projectIndex": 1,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-mmkv/android",
+          "targetIndexes": [2]
+        },
+        {
+          "build": "RNMmkvSpec_cxxmodule_autolinked_build/core",
+          "jsonFile": "directory-RNMmkvSpec_cxxmodule_autolinked_build.core-Debug-6ba9d70c69de860b00c4.json",
+          "minimumCMakeVersion": {
+            "string": "3.10.0"
+          },
+          "parentIndex": 5,
+          "projectIndex": 2,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-mmkv/MMKV/Core",
+          "targetIndexes": [1]
+        },
+        {
+          "build": "safeareacontext_autolinked_build",
+          "jsonFile": "directory-safeareacontext_autolinked_build-Debug-cb57d7d499db25c5e859.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "parentIndex": 0,
+          "projectIndex": 0,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-safe-area-context/android/src/main/jni",
+          "targetIndexes": [9]
+        },
+        {
+          "build": "rnscreens_autolinked_build",
+          "jsonFile": "directory-rnscreens_autolinked_build-Debug-6db18c519a4d558481e6.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "parentIndex": 0,
+          "projectIndex": 0,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-screens/android/src/main/jni",
+          "targetIndexes": [7]
+        },
+        {
+          "build": "rnsvg_autolinked_build",
+          "jsonFile": "directory-rnsvg_autolinked_build-Debug-7fe63f7361991d711186.json",
+          "minimumCMakeVersion": {
+            "string": "3.13"
+          },
+          "parentIndex": 0,
+          "projectIndex": 0,
+          "source": "E:/fitness/apps/mobile/node_modules/react-native-svg/android/src/main/jni",
+          "targetIndexes": [8]
+        }
+      ],
+      "name": "Debug",
+      "projects": [
+        {
+          "childIndexes": [1],
+          "directoryIndexes": [0, 1, 2, 3, 4, 7, 8, 9],
+          "name": "appmodules",
+          "targetIndexes": [0, 3, 4, 5, 6, 7, 8, 9]
+        },
+        {
+          "childIndexes": [2],
+          "directoryIndexes": [5],
+          "name": "ReactNativeMmkv",
+          "parentIndex": 0,
+          "targetIndexes": [2]
+        },
+        {
+          "directoryIndexes": [6],
+          "name": "core",
+          "parentIndex": 1,
+          "targetIndexes": [1]
+        }
+      ],
+      "targets": [
+        {
+          "directoryIndex": 0,
+          "id": "appmodules::@6890427a1f51a3e7e1df",
+          "jsonFile": "target-appmodules-Debug-d28487613bb24ceb8044.json",
+          "name": "appmodules",
+          "projectIndex": 0
+        },
+        {
+          "directoryIndex": 6,
+          "id": "core::@1b9a7d546b295b7d0867",
+          "jsonFile": "target-core-Debug-8b53cc56cb3233422a5f.json",
+          "name": "core",
+          "projectIndex": 2
+        },
+        {
+          "directoryIndex": 5,
+          "id": "react-native-mmkv::@4ae6a1e65d3e68ba0197",
+          "jsonFile": "target-react-native-mmkv-Debug-5d0411e02b8d6977a12d.json",
+          "name": "react-native-mmkv",
+          "projectIndex": 1
+        },
+        {
+          "directoryIndex": 2,
+          "id": "react_codegen_RNImagePickerSpec::@f66ee9a2efecfb28bee4",
+          "jsonFile": "target-react_codegen_RNImagePickerSpec-Debug-4458b353d14a0291cd17.json",
+          "name": "react_codegen_RNImagePickerSpec",
+          "projectIndex": 0
+        },
+        {
+          "directoryIndex": 3,
+          "id": "react_codegen_RNKeychainSpec::@f9a2cb36ebca2de4baf9",
+          "jsonFile": "target-react_codegen_RNKeychainSpec-Debug-5289485bbd92cc767efc.json",
+          "name": "react_codegen_RNKeychainSpec",
+          "projectIndex": 0
+        },
+        {
+          "directoryIndex": 4,
+          "id": "react_codegen_RNMmkvSpec::@7541eabbae598da31a69",
+          "jsonFile": "target-react_codegen_RNMmkvSpec-Debug-7afc88ff3ffe4171360f.json",
+          "name": "react_codegen_RNMmkvSpec",
+          "projectIndex": 0
+        },
+        {
+          "directoryIndex": 1,
+          "id": "react_codegen_rngesturehandler_codegen::@39f233abcd2c728bc6ec",
+          "jsonFile": "target-react_codegen_rngesturehandler_codegen-Debug-d77bc02c9ccce0b54ac1.json",
+          "name": "react_codegen_rngesturehandler_codegen",
+          "projectIndex": 0
+        },
+        {
+          "directoryIndex": 8,
+          "id": "react_codegen_rnscreens::@25bcbd507e98d3a854ad",
+          "jsonFile": "target-react_codegen_rnscreens-Debug-05622bab7fe0fb967607.json",
+          "name": "react_codegen_rnscreens",
+          "projectIndex": 0
+        },
+        {
+          "directoryIndex": 9,
+          "id": "react_codegen_rnsvg::@4f40eb209d0c0b4a3b65",
+          "jsonFile": "target-react_codegen_rnsvg-Debug-e4097e2603f4b0c14366.json",
+          "name": "react_codegen_rnsvg",
+          "projectIndex": 0
+        },
+        {
+          "directoryIndex": 7,
+          "id": "react_codegen_safeareacontext::@7984cd80db47aa7b952a",
+          "jsonFile": "target-react_codegen_safeareacontext-Debug-a1e6ea5bb82ca71a7709.json",
+          "name": "react_codegen_safeareacontext",
+          "projectIndex": 0
+        }
+      ]
+    }
+  ],
+  "kind": "codemodel",
+  "paths": {
+    "build": "E:/fitness/apps/mobile/android/app/.cxx/Debug/1g5du5v3/x86_64",
+    "source": "E:/fitness/apps/mobile/node_modules/react-native/ReactAndroid/cmake-utils/default-app-setup"
+  },
+  "version": {
+    "major": 2,
+    "minor": 3
+  }
+}

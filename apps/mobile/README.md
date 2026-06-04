@@ -1,61 +1,63 @@
 # @fitness/mobile
 
-bare React Native（Android 优先；保留 iOS 代码但不构建）。
+bare React Native 0.83.9（Android 优先；保留 iOS 代码但不构建）。
 
-> **状态：M1 占位**
->
-> 真实实现见 **M4**。
+> **状态：M4 MVP + Coach（ADR 0007）**
 
 ## 硬约束
 
-- **严禁 Expo 任何包**（HANDOFF §4 第 6 坑）。本项目走 bare RN 路线
-- 不要在 M1 阶段 `npx @react-native-community/cli init`（HANDOFF §4 第 7 坑）。
-  RN 在 monorepo 内初始化需要单独调 metro / babel，到时候单开一份 ADR
-- `tsconfig.json` 暂时 `"types": []` 占位，**M4 装 RN 依赖后**改回 `["react-native"]`
+- **严禁 Expo** 任何包
+- AI 走 HTTP（Coach CHAT 为 **SSE 流式**；计划/识图为任务投递 + 轮询），禁止客户端直连 LLM Key（ADR 0003）
+- 契约以 `@fitness/shared` Zod 为准
 
-## 计划目录结构（M4 落地）
+## 本地启动
 
-详见 `docs/ARCHITECTURE.md` §3.
+```powershell
+# 根目录
+pnpm install
+pnpm --filter @fitness/shared build
+pnpm --filter @fitness/db build
 
-```
-src/
-├── app/                     # 入口 + 全局 Provider 装配（App.tsx / providers.tsx / navigation/）
-├── features/                # feature-based 业务模块
-│   ├── auth/
-│   ├── profile/
-│   ├── workout/             # 打卡 + 计时器
-│   ├── plan/                # 训练 + 饮食计划
-│   ├── nutrition/           # 食物识别 + 饮食日志
-│   ├── dashboard/
-│   └── (phase2)/            # social / report 占位
-├── api/                     # fetch wrapper + TanStack Query hooks
-├── store/                   # Zustand stores
-├── storage/                 # MMKV + Keychain 封装
-├── theme/                   # NativeWind theme tokens
-├── lib/                     # 工具函数
-└── i18n/                    # 当前仅引 packages/shared 中文
+# API（另开终端）
+pnpm --filter api start:worker
+pnpm --filter api start:api
+
+# Metro + Android
+pnpm --filter @fitness/mobile start
+pnpm --filter @fitness/mobile android
 ```
 
-## M4 依赖清单（届时添加，**M1 不要装**）
+Android 模拟器 API 地址：`http://10.0.2.2:3000/v1`（见 `src/env.ts`）。MinIO 预签名 URL 由 API 按 `clientPublicEndpoint` 签发，**客户端不可改写 host**（会破坏签名）。
 
-- `react` / `react-native` (≥ 0.76 with New Architecture)
-- `nativewind` + `tailwindcss`
-- `@react-navigation/{native,native-stack,bottom-tabs}`
-- `@tanstack/react-query`
-- `zustand`
-- `react-native-mmkv` / `react-native-keychain`
-- `react-hook-form` + `@hookform/resolvers`
-- `@sentry/react-native`
-- `react-native-reusables` (rn-primitives)
-- `lucide-react-native`
+### 常见问题
 
-## TODO（M4）
+| 现象                                   | 原因 / 处理                                                                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 相册选图后 `Network request failed`    | 已修复：XHR 读取 `content://` URI                                                                                         |
+| 上传 403 `SignatureDoesNotMatch`       | 预签名 URL 不能改 host；Android 模拟器会自动传 `clientPublicEndpoint=http://10.0.2.2:9000` 给 API 签发                    |
+| 识别任务 FAILED「download multimodal」 | Qwen 需公网可访问图片；开发期在 `apps/api/.env` 设 `S3_PUBLIC_ENDPOINT`（模拟器 `http://10.0.2.2:9000`，真机用局域网 IP） |
+| 真机连不上 API                         | 把 `src/env.ts` 中 base URL 改为电脑局域网 IP（如 `http://192.168.x.x:3000/v1`）                                          |
+| Coach 流式卡顿                         | 长回复 Markdown 全量重渲染；非 SSE 节流                                                                                   |
 
-- [ ] `npx @react-native-community/cli init` 初始化（**先写 ADR 说明 monorepo 内 RN 初始化的 metro / babel 改动**）
-- [ ] Auth 流（注册 / 登录 / refresh）
-- [ ] 档案填写
-- [ ] 训练打卡 + 组间计时器（含离线兜底）
-- [ ] 计划展示
-- [ ] 食物识别 UI（拍照 / 选图 / 结果回填）
-- [ ] 仪表盘
-- [ ] Sentry 接入
+## 目录
+
+见 `docs/ARCHITECTURE.md` §3 与 ADR [`0006-monorepo-react-native.md`](../../docs/adr/0006-monorepo-react-native.md)、[`0007-coach-conversation-and-chat.md`](../../docs/adr/0007-coach-conversation-and-chat.md)。
+
+## 功能
+
+- [x] Auth（注册 / 登录 / Keychain + 401 refresh）
+- [x] 档案与力量等级
+- [x] 仪表盘（今日营养 + 训练概览；**无**首页体重卡片）
+- [x] 训练计划（AI 生成 + 列表 / 详情）
+- [x] 训练打卡 + 组间计时器 + MMKV 草稿
+- [x] 餐照识别（presign 上传 + MEAL_VISION 轮询）
+- [x] 饮食日志 + 手动记餐（`ManualMealSheet`）
+- [x] Onboarding 末步生成训练 + 饮食双计划
+- [x] **Coach Tab**（多会话、SSE 流式对话、Markdown 表格、生成计划/识图/记餐）
+- [x] Social Tab 占位
+- [x] `@fitness/ui` 基础组件 + NativeWind
+
+## 依赖版本
+
+- react-native **0.83.9**（≥ 0.82）
+- react **19.2.0**

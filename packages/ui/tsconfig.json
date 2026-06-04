@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@fitness/config/tsconfig.react-native.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "noEmit": true,
+    "types": ["nativewind/types"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "nativewind-env.d.ts"]
+}

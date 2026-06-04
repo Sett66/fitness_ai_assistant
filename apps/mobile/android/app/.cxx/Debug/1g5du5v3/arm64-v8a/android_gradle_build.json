@@ -1,0 +1,123 @@
+{
+  "buildFiles": [
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-gesture-handler\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-image-picker\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-keychain\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-mmkv\\android\\build\\generated\\source\\codegen\\jni\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-mmkv\\android\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-mmkv\\MMKV\\Core\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-safe-area-context\\android\\src\\main\\jni\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-screens\\android\\src\\main\\jni\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native-svg\\android\\src\\main\\jni\\CMakeLists.txt",
+    "E:\\fitness\\apps\\mobile\\node_modules\\react-native\\ReactAndroid\\cmake-utils\\default-app-setup\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "D:\\AndroidStudioSdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "E:\\fitness\\apps\\mobile\\android\\app\\.cxx\\Debug\\1g5du5v3\\arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "D:\\AndroidStudioSdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "E:\\fitness\\apps\\mobile\\android\\app\\.cxx\\Debug\\1g5du5v3\\arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "appmodules::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "appmodules",
+      "output": "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libappmodules.so",
+      "runtimeFiles": [
+        "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact-native-mmkv.so",
+        "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact_codegen_safeareacontext.so",
+        "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact_codegen_rnscreens.so",
+        "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact_codegen_rnsvg.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\b85f62a599074afc3b2ec6cfb7884973\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.arm64-v8a\\libfbjni.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so"
+      ]
+    },
+    "core::@1b9a7d546b295b7d0867": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "core",
+      "output": "E:\\fitness\\apps\\mobile\\android\\app\\.cxx\\Debug\\1g5du5v3\\arm64-v8a\\RNMmkvSpec_cxxmodule_autolinked_build\\core\\libcore.a"
+    },
+    "react-native-mmkv::@4ae6a1e65d3e68ba0197": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react-native-mmkv",
+      "output": "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact-native-mmkv.so",
+      "runtimeFiles": [
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\b85f62a599074afc3b2ec6cfb7884973\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.arm64-v8a\\libfbjni.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so"
+      ]
+    },
+    "react_codegen_RNImagePickerSpec::@f66ee9a2efecfb28bee4": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react_codegen_RNImagePickerSpec"
+    },
+    "react_codegen_RNKeychainSpec::@f9a2cb36ebca2de4baf9": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react_codegen_RNKeychainSpec"
+    },
+    "react_codegen_RNMmkvSpec::@7541eabbae598da31a69": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react_codegen_RNMmkvSpec"
+    },
+    "react_codegen_rngesturehandler_codegen::@39f233abcd2c728bc6ec": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react_codegen_rngesturehandler_codegen"
+    },
+    "react_codegen_rnscreens::@25bcbd507e98d3a854ad": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react_codegen_rnscreens",
+      "output": "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact_codegen_rnscreens.so",
+      "runtimeFiles": [
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\b85f62a599074afc3b2ec6cfb7884973\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.arm64-v8a\\libfbjni.so"
+      ]
+    },
+    "react_codegen_rnsvg::@4f40eb209d0c0b4a3b65": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react_codegen_rnsvg",
+      "output": "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact_codegen_rnsvg.so",
+      "runtimeFiles": [
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\b85f62a599074afc3b2ec6cfb7884973\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.arm64-v8a\\libfbjni.so"
+      ]
+    },
+    "react_codegen_safeareacontext::@7984cd80db47aa7b952a": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "react_codegen_safeareacontext",
+      "output": "E:\\fitness\\apps\\mobile\\android\\app\\build\\intermediates\\cxx\\Debug\\1g5du5v3\\obj\\arm64-v8a\\libreact_codegen_safeareacontext.so",
+      "runtimeFiles": [
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\b85f62a599074afc3b2ec6cfb7884973\\transformed\\fbjni-0.7.0\\prefab\\modules\\fbjni\\libs\\android.arm64-v8a\\libfbjni.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\jsi\\libs\\android.arm64-v8a\\libjsi.so",
+        "C:\\Users\\HP\\.gradle\\caches\\9.0.0\\transforms\\ee0fd08b707d246b41493f63af7587f7\\transformed\\react-android-0.83.9-debug\\prefab\\modules\\reactnative\\libs\\android.arm64-v8a\\libreactnative.so"
+      ]
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "D:\\AndroidStudioSdk\\ndk\\27.1.12297006\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe",
+      "cppCompilerExecutable": "D:\\AndroidStudioSdk\\ndk\\27.1.12297006\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": ["cpp"]
+}
