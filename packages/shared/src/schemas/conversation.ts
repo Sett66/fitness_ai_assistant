@@ -6,6 +6,7 @@ import {
   MessageRoleSchema,
 } from '../enums/conversation';
 import { MealTypeSchema } from '../enums/plan';
+import { CoachToolTraceItemSchema, LocationContextSchema } from './agent';
 import { DateTimeSchema, IdSchema } from './_common';
 import { CreateMealLogSchema } from './nutrition';
 import { WorkoutPlanPreferencesSchema } from './plan';
@@ -78,6 +79,7 @@ export const CreateCoachMessageSchema = z
     action: CoachActionSchema,
     actionParams: CoachActionParamsSchema.optional(),
     timezoneOffsetMinutes: z.number().int().min(-720).max(840).optional(),
+    locationContext: LocationContextSchema.optional(),
   })
   .superRefine((val, ctx) => {
     if (val.action === 'CHAT' && (typeof val.content !== 'string' || !val.content.trim())) {
@@ -139,6 +141,7 @@ export const CoachStreamDoneEventSchema = z.object({
   assistantMessageId: IdSchema,
   userMessageId: IdSchema,
   suggestedActions: CoachChatOutputSchema.shape.suggestedActions,
+  toolTrace: z.array(CoachToolTraceItemSchema).optional(),
   usage: z
     .object({
       tokenIn: z.number(),

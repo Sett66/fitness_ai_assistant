@@ -84,16 +84,14 @@ export class S3StorageService {
     }
   }
 
-  /** path-style 公开 URL（头像展示；依赖 S3_PUBLIC_ENDPOINT 或 S3_ENDPOINT） */
+  /** path-style 公开 URL（头像展示；依赖 S3_PUBLIC_ENDPOINT �?S3_ENDPOINT�?*/
   getPublicUrl(objectKey: string): string {
     const base = (this.publicEndpoint ?? this.endpoint).replace(/\/$/, '');
     return `${base}/${this.bucket}/${objectKey}`;
   }
 
   /**
-   * Worker 内直连 MinIO 读图并转为 data URL。
-   * 本地开发 MinIO 无公网地址时，Qwen-VL 无法拉取 presignGet URL，需内联传图。
-   */
+   * Worker 内直�?MinIO 读图并转�?data URL�?   * 本地开�?MinIO 无公网地址时，Qwen-VL 无法拉取 presignGet URL，需内联传图�?   */
   async getObjectAsDataUrl(objectKey: string, maxBytes = 10 * 1024 * 1024): Promise<string> {
     const meta = await this.head(objectKey);
     if (!meta.exists) {

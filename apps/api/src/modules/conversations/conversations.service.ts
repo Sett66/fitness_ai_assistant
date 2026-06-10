@@ -1,6 +1,6 @@
 import { AiCoreError, runCoachChatStream } from '@fitness/ai-core';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { type Queue } from 'bullmq';
 import type {
   AiTaskType,
@@ -25,6 +25,7 @@ import type { Prisma } from '@fitness/db';
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
+import { type AgentConfigService } from '../../config/agent-config.service';
 import { type UserContextService } from '../../domain/user-context.service';
 import { AI_TASK_QUEUE_NAME, type AiTaskJobPayload } from '../../infra/queue/queue.constants';
 import { type PrismaService } from '../../infra/prisma/prisma.service';
@@ -36,10 +37,13 @@ const DEFAULT_MESSAGE_LIMIT = 50;
 
 @Injectable()
 export class ConversationsService {
+  private readonly logger = new Logger(ConversationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mealLogs: MealLogsService,
     private readonly userContext: UserContextService,
+    private readonly agentConfig: AgentConfigService,
     @InjectQueue(AI_TASK_QUEUE_NAME) private readonly queue: Queue<AiTaskJobPayload>,
   ) {}
 
@@ -318,6 +322,12 @@ export class ConversationsService {
       userMessageId: userMessage.id,
       pendingAssistantMessageId: pendingAssistant.id,
     });
+
+    if (this.agentConfig.isCoachAgentEnabled()) {
+      this.logger.debug(
+        'COACH_AGENT_ENABLED=true，本轮仍走 runCoachChatStream（LangGraph 切换见 AGENT-06）',
+      );
+    }
 
     try {
       const history = await this.loadCoachChatHistory(conversationId);

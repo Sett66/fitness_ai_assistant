@@ -38,7 +38,7 @@ docs/ARCHITECTURE.md
 | ID              | 文档                                       | Wave | 类型 | 阻塞       | 状态    |
 | --------------- | ------------------------------------------ | ---- | ---- | ---------- | ------- |
 | AGENT-01        | [AGENT-01.md](./AGENT-01.md)               | W0   | HITL | —          | ✅ Done |
-| AGENT-02        | [AGENT-02.md](./AGENT-02.md)               | W1   | AFK  | 01         |         |
+| AGENT-02        | [AGENT-02.md](./AGENT-02.md)               | W1   | AFK  | 01         | ✅ Done |
 | AGENT-03        | [AGENT-03.md](./AGENT-03.md)               | W1   | AFK  | 01, 02     |         |
 | AGENT-04        | [AGENT-04.md](./AGENT-04.md)               | W1   | AFK  | 02         |         |
 | AGENT-05        | [AGENT-05.md](./AGENT-05.md)               | W1   | AFK  | 01, 02     |         |

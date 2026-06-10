@@ -18,7 +18,7 @@ import { type PrismaService } from '../../infra/prisma/prisma.service';
 
 const PRESIGN_TTL_SEC = 15 * 60;
 
-/** scope → URL 路径前缀 */
+/** scope �?URL 路径前缀 */
 const scopePrefix: Record<UploadScope, string> = {
   MEAL_PHOTO: 'meal',
   EXERCISE_MEDIA: 'exercise',

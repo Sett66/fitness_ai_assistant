@@ -77,7 +77,7 @@ export class UsersService {
     return profile;
   }
 
-  /** 全量 upsert（首建 / 完整覆盖共用同一契约） */
+  /** 全量 upsert（首�?/ 完整覆盖共用同一契约�?*/
   async putProfile(user: JwtUserPayload, body: unknown): Promise<Profile> {
     const data = parseWith(CreateProfileSchema, body);
     return this.prisma.client.profile.upsert({

@@ -75,7 +75,7 @@ flowchart TD
 | **估时**       | 1 天                                          |
 | **详细文档**   | [**AGENT-02.md**](./issues/agent/AGENT-02.md) |
 
-摘要：shared Zod（Location、ToolName、SSE tool 事件）、`COACH_AGENT_ENABLED` 环境变量；**不改**运行时行为。**可立即开工。**
+摘要：shared Zod（Location、ToolName、SSE tool 事件）、`COACH_AGENT_ENABLED` 环境变量；**不改**运行时行为。**✅ 已完成。**
 
 ---
 

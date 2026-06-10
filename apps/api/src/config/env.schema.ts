@@ -14,6 +14,7 @@ export const envValidationSchema = Joi.object({
   S3_BUCKET: Joi.string().required(),
   S3_FORCE_PATH_STYLE: Joi.boolean().truthy('true').falsy('false').default(true),
   S3_PUBLIC_ENDPOINT: Joi.string().optional().allow('', null),
+  COACH_AGENT_ENABLED: Joi.string().valid('true', 'false').default('false'),
 });
 
 export type EnvShape = {
@@ -30,6 +31,7 @@ export type EnvShape = {
   S3_BUCKET: string;
   S3_FORCE_PATH_STYLE: boolean;
   S3_PUBLIC_ENDPOINT?: string;
+  COACH_AGENT_ENABLED: 'true' | 'false';
 };
 
 function parseOptionalUrl(value: string | undefined): string | undefined {
@@ -53,5 +55,6 @@ export function mapEnv(env: NodeJS.ProcessEnv): EnvShape {
     S3_BUCKET: env.S3_BUCKET ?? '',
     S3_FORCE_PATH_STYLE: forceRaw === 'true',
     S3_PUBLIC_ENDPOINT: parseOptionalUrl(env.S3_PUBLIC_ENDPOINT),
+    COACH_AGENT_ENABLED: env.COACH_AGENT_ENABLED === 'true' ? 'true' : 'false',
   };
 }

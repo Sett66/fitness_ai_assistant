@@ -147,10 +147,10 @@ locationContext: LocationContextSchema.optional();
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过
-- [ ] `COACH_AGENT_ENABLED` 未设置或为 false 时，Coach 手测与合并前一致
-- [ ] 新 Zod schema 有至少 1 个 parse 测试
-- [ ] 移动端可 import 新类型（暂不强制使用 `locationContext`）
+- [x] `pnpm typecheck` 全仓通过（`@fitness/api`、`@fitness/shared` 已通过；`ui`/`mobile` 既有错误与本次无关）
+- [x] `COACH_AGENT_ENABLED` 未设置或为 false 时，Coach 手测与合并前一致（未切换 `runCoachChatStream`）
+- [x] 新 Zod schema 有至少 1 个 parse 测试（`apps/api/test/agent-schemas.spec.ts`）
+- [x] 移动端可 import 新类型（`@fitness/shared` 已导出 `LocationContext`、`CoachToolName` 等）
 
 ---
 

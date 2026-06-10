@@ -60,7 +60,7 @@ export class PlanPersistenceService {
               ? item.exerciseId
               : this.resolveExerciseId(item.exerciseName, exerciseIndex);
           if (!exerciseId) {
-            this.logger.warn(`跳过未知动作：${item.exerciseName}`);
+            this.logger.warn(`跳过未知动作�?{item.exerciseName}`);
             continue;
           }
           await tx.workoutPlanItem.create({
@@ -115,7 +115,7 @@ export class PlanPersistenceService {
       const mealDays = expandMealPlanDays(generated.days, mesocycleWeeks);
       if (mealDays.length > generated.days.length) {
         this.logger.log(
-          `饮食计划由 ${generated.days.length} 天展开为 ${mealDays.length} 天（${mesocycleWeeks} 周）`,
+          `饮食计划�?${generated.days.length} 天展开�?${mealDays.length} 天（${mesocycleWeeks} 周）`,
         );
       }
 
