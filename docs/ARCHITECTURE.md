@@ -75,7 +75,8 @@
                   │   packages/ai-core     │
                   │ LangChain · LangGraph  │
                   │   ┌────────────────┐   │
-                  │   │ plan-generator │   │ ← DeepSeek-V3.2
+                  │   │ plan-generator │   │ ← DeepSeek
+                  │   │ coach-agent    │   │ ← ReAct + tools (ADR 0008)
                   │   │ meal-vision    │   │ ← Qwen-VL-Max
                   │   │ report-analyzer│   │ (Phase 2)
                   │   └────────────────┘   │
@@ -150,8 +151,13 @@ fitness-ai-assistant/
 │       │   │   ├── prisma/              # PrismaService（包装 packages/db）
 │       │   │   ├── queue/               # BullMQ 注册 + 队列名常量
 │       │   │   ├── storage/             # StorageProvider 接口 + Minio 实现
+│       │   │   ├── geo/                 # 高德 + Open-Meteo（ADR 0008）
 │       │   │   ├── logger/              # pino 配置
 │       │   │   └── llm/                 # LLMProvider 接口（适配 ai-core）
+│       │   ├── domain/                  # 领域服务（跨模块）
+│       │   │   ├── user-context.service.ts
+│       │   │   ├── agent-memory.service.ts   # UserAgentMemory（ADR 0008）
+│       │   │   └── agent/               # ToolRegistry、CoachAgentRunner
 │       │   ├── modules/                 # 业务模块（每模块: controller/service/dto）
 │       │   │   ├── auth/                # 注册/登录/refresh/Session 管理
 │       │   │   ├── users/               # 个人档案 / 身体数据
@@ -162,6 +168,7 @@ fitness-ai-assistant/
 │       │   │   ├── nutrition/           # 饮食日志 + 食物识别接入
 │       │   │   ├── media/               # /uploads/sign + /uploads/complete
 │       │   │   ├── ai-tasks/            # 任务投递 + 状态查询 + ai_runs
+│       │   │   ├── conversations/       # Coach 会话 + SSE（ADR 0007/0008）
 │       │   │   ├── dashboard/           # 聚合查询
 │       │   │   ├── (social)/            # Phase 2 预留：feed/posts/comments
 │       │   │   └── (reports)/           # Phase 2 预留：体检报告
@@ -213,12 +220,14 @@ fitness-ai-assistant/
 │   │   │   │   └── factory.ts           # model name → client
 │   │   │   ├── prompts/                 # 集中 Prompt 模板（PromptTemplate）
 │   │   │   ├── graphs/                  # LangGraph 状态机
-│   │   │   │   ├── plan-generator/      # 评估→训练→饮食→校验→retry
+│   │   │   │   ├── plan-generator/      # 训练/饮食计划 JSON 生成
+│   │   │   │   ├── coach-agent/         # ReAct + tool schema（执行在 api）
 │   │   │   │   └── (report-analyzer)/   # Phase 2
-│   │   │   ├── chains/                  # 单步 LangChain Chain
+│   │   │   ├── chains/                  # 单步 Chain
+│   │   │   │   ├── coach-chat/          # 流式聊天（flag 关闭时）
 │   │   │   │   └── meal-vision/         # 图片→JSON
 │   │   │   ├── parsers/                 # Zod 输出解析 + 重试
-│   │   │   ├── memory/                  # 会话/状态持久化 hook（接 Postgres）
+│   │   │   ├── memory/                  # format-memory-block 等（ADR 0008）
 │   │   │   └── index.ts
 │   │   ├── package.json
 │   │   └── tsconfig.json
@@ -256,7 +265,9 @@ fitness-ai-assistant/
 │       ├── 0001-monorepo-layout.md
 │       ├── 0002-rest-zod-contract.md
 │       ├── 0003-modular-monolith-with-worker.md
-│       └── 0004-presigned-upload.md
+│       ├── 0004-presigned-upload.md
+│       ├── 0007-coach-conversation-and-chat.md
+│       └── 0008-coach-agent-tools-and-memory.md
 │
 ├── scripts/
 │   ├── dev.ps1                          # Windows: 一键启动后端 + 数据库

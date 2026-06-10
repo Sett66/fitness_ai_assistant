@@ -1,4 +1,4 @@
-import type { WorkoutPlanDay } from '@fitness/shared';
+import type { MealPlanDay, WorkoutPlanDay } from '@fitness/shared';
 
 type PlanAnchor = {
   startDate: string | Date;
@@ -26,6 +26,33 @@ export function resolvePlanDayForDate(
   const dayIdx = dayOffset % 7;
 
   return workoutDays.find((d) => d.weekIdx === weekIdx && d.dayIdx === dayIdx) ?? null;
+}
+
+/** 从计划 startDate 起算日历日，映射到 weekIdx / dayIdx 对应的饮食日 */
+export function resolveMealPlanDayForDate(
+  plan: PlanAnchor,
+  mealDays: MealPlanDay[],
+  date: Date = new Date(),
+): MealPlanDay | null {
+  const start = new Date(plan.startDate);
+  start.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+
+  const dayOffset = Math.floor((target.getTime() - start.getTime()) / 86_400_000);
+  if (dayOffset < 0) return null;
+
+  const maxDays = plan.mesocycleWeeks * 7;
+  if (dayOffset >= maxDays) return null;
+
+  const weekIdx = Math.floor(dayOffset / 7);
+  const dayIdx = dayOffset % 7;
+
+  return mealDays.find((d) => d.weekIdx === weekIdx && d.dayIdx === dayIdx) ?? null;
+}
+
+export function formatMealPlanDayLabel(day: MealPlanDay): string {
+  return `W${day.weekIdx + 1} D${day.dayIdx + 1}`;
 }
 
 export function listPlanTrainingDays(workoutDays: WorkoutPlanDay[]): WorkoutPlanDay[] {

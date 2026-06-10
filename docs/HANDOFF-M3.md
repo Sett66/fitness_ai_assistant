@@ -1,6 +1,6 @@
 # 交接文档 · M3 阶段（AI 核心 / `packages/ai-core`）
 
-> **M3 已关闭（功能闭环）。当前阶段入口：** [`docs/HANDOFF-M4-REMAINING.md`](./HANDOFF-M4-REMAINING.md) · [`docs/HANDOFF-M4.md`](./HANDOFF-M4.md)。  
+> **M3 已关闭（功能闭环）。当前阶段入口：** [`docs/HANDOFF-M4.md`](./HANDOFF-M4.md)。  
 > 本文档保留 M3 范围与验收定义；会话增量见 [`docs/HANDOFF-M3-AGENT.md`](./HANDOFF-M3-AGENT.md)。M2 见 [`HANDOFF-M2.md`](./HANDOFF-M2.md)。
 
 ---
@@ -46,13 +46,13 @@ M2 已就绪（勿重做）：auth/users/exercises/foods/uploads、POST /v1/ai/t
 
 ## 1. Roadmap 进度
 
-| 阶段   | 状态                  | 说明                                                                                                                 |
-| ------ | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| M0–M1  | ✅                    | PRD、ARCH、monorepo、Prisma+seed、ADR 0001–0004、CI                                                                  |
-| **M2** | **✅**                | [`apps/api`](../../apps/api) HTTP MVP + Worker 桩；[`scripts/m2-acceptance.ps1`](../scripts/m2-acceptance.ps1) 19/19 |
-| **M3** | **✅**                | ai-core + Worker；见 [`HANDOFF-M3-AGENT.md`](./HANDOFF-M3-AGENT.md)                                                  |
-| **M4** | **✅ 主体 / ⬜ 收口** | [`apps/mobile`](../apps/mobile) + Coach；见 [`HANDOFF-M4-REMAINING.md`](./HANDOFF-M4-REMAINING.md)                   |
-| M5+    | ⬜                    | APK CI、Phase 2 等                                                                                                   |
+| 阶段   | 状态        | 说明                                                                                                                 |
+| ------ | ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| M0–M1  | ✅          | PRD、ARCH、monorepo、Prisma+seed、ADR 0001–0004、CI                                                                  |
+| **M2** | **✅**      | [`apps/api`](../../apps/api) HTTP MVP + Worker 桩；[`scripts/m2-acceptance.ps1`](../scripts/m2-acceptance.ps1) 19/19 |
+| **M3** | **✅**      | ai-core + Worker；见 [`HANDOFF-M3-AGENT.md`](./HANDOFF-M3-AGENT.md)                                                  |
+| **M4** | **⬜ 当前** | [`apps/mobile`](../apps/mobile) bare RN                                                                              |
+| M5+    | ⬜          | APK CI、Phase 2 等                                                                                                   |
 
 ---
 

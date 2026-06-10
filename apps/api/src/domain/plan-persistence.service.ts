@@ -3,6 +3,7 @@ import type { GeneratedMealPlan, GeneratedWorkoutPlan } from '@fitness/ai-core';
 import { DEFAULT_MESOCYCLE_WEEKS } from '@fitness/shared';
 
 import { type PrismaService } from '../infra/prisma/prisma.service';
+import { expandMealPlanDays } from './expand-meal-plan-days';
 
 @Injectable()
 export class PlanPersistenceService {
@@ -111,7 +112,14 @@ export class PlanPersistenceService {
         },
       });
 
-      for (const day of generated.days) {
+      const mealDays = expandMealPlanDays(generated.days, mesocycleWeeks);
+      if (mealDays.length > generated.days.length) {
+        this.logger.log(
+          `饮食计划由 ${generated.days.length} 天展开为 ${mealDays.length} 天（${mesocycleWeeks} 周）`,
+        );
+      }
+
+      for (const day of mealDays) {
         const planDay = await tx.mealPlanDay.create({
           data: {
             planId: plan.id,

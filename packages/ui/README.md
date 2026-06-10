@@ -2,7 +2,9 @@
 
 RN 通用组件库（react-native-reusables 落地 + NativeWind 主题）。
 
-> **状态：M4 已落地**（Button、Screen、图标等，供 `apps/mobile` 使用）
+> **状态：M1 占位**
+>
+> 真实实现见 **M4**。
 
 ## 计划目录结构（M4 落地）
 

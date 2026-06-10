@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, SectionList, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -36,6 +36,23 @@ export function PlanDetailScreen({ route }: Props) {
     }
     return map;
   }, [exercises.data?.items]);
+
+  const mealSections = useMemo(() => {
+    const mealDays = plan.data?.mealDays ?? [];
+    const sorted = [...mealDays].sort((a, b) => a.weekIdx - b.weekIdx || a.dayIdx - b.dayIdx);
+    const byWeek = new Map<number, typeof mealDays>();
+    for (const day of sorted) {
+      const list = byWeek.get(day.weekIdx) ?? [];
+      list.push(day);
+      byWeek.set(day.weekIdx, list);
+    }
+    return Array.from(byWeek.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([weekIdx, data]) => ({
+        title: `第 ${weekIdx + 1} 周`,
+        data,
+      }));
+  }, [plan.data?.mealDays]);
 
   const resolveExerciseName = (item: WorkoutPlanItemResponse) =>
     item.exerciseName ?? exerciseNameById.get(item.exerciseId) ?? '未知动作';
@@ -83,6 +100,8 @@ export function PlanDetailScreen({ route }: Props) {
   const isMealPlan = plan.data.type === 'MEAL';
   const workoutDays = plan.data.workoutDays ?? [];
   const mealDays = plan.data.mealDays ?? [];
+  const expectedMealDays = plan.data.mesocycleWeeks * 7;
+  const mealPlanIncomplete = isMealPlan && mealDays.length < expectedMealDays;
 
   return (
     <Screen>
@@ -95,10 +114,32 @@ export function PlanDetailScreen({ route }: Props) {
       </Subtitle>
 
       {isMealPlan ? (
-        <FlatList
-          data={mealDays}
+        <SectionList
+          sections={mealSections}
           keyExtractor={(d) => d.id}
-          contentContainerClassName="gap-3 pb-8"
+          contentContainerClassName="pb-8"
+          stickySectionHeadersEnabled={false}
+          ListHeaderComponent={
+            <View className="mb-3 gap-2">
+              <Subtitle>
+                共 {mealDays.length} 天菜单
+                {expectedMealDays > 0 ? ` · 完整周期 ${expectedMealDays} 天` : ''}
+              </Subtitle>
+              {mealPlanIncomplete ? (
+                <Card className="border-accent/40 bg-accent/10">
+                  <Subtitle>
+                    当前计划天数不完整，首页「今日饮食」可能无法匹配到今日。可在 Coach
+                    重新生成饮食计划以获取完整周菜单。
+                  </Subtitle>
+                </Card>
+              ) : null}
+            </View>
+          }
+          renderSectionHeader={({ section: { title } }) => (
+            <Text className="mb-2 mt-2 text-base font-bold text-foreground">{title}</Text>
+          )}
+          ItemSeparatorComponent={() => <View className="h-3" />}
+          SectionSeparatorComponent={() => <View className="h-2" />}
           ListFooterComponent={
             <Button
               title="删除计划"

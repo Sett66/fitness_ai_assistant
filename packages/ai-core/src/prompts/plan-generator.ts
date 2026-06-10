@@ -69,6 +69,8 @@ JSON 格式必须是：
 要求：
 - meal 只能是 BREAKFAST / LUNCH / DINNER / SNACK。
 - 使用公制 g / kcal。
+- 必须生成 weekIdx=0 且 dayIdx 0-6 共 7 个完整日菜单（每天 3-4 餐：早/午/晚，可加 SNACK）；7 天热量与宏量可有适度变化，避免完全复制粘贴。
+- mesocycleWeeks 字段与请求一致；days 数组只需包含第 1 周（weekIdx=0）的 7 天，不要重复写后续周。
 - 参考 profile、userContext.todayNutrition 中的目标热量与宏量，使每日 totalKcal 接近用户目标。
 - 不要返回 Markdown、解释文字或额外字段。
 `.trim();

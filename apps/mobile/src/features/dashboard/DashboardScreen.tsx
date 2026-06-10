@@ -20,8 +20,9 @@ import { CalorieCardsPlaceholder, CalorieCardsRow } from './components/CalorieCa
 import { CoachPlaceholderCard } from './components/CoachPlaceholderCard';
 import { DashboardHeader } from './components/DashboardHeader';
 import { TodayExerciseCard } from './components/TodayExerciseCard';
+import { TodayMealCard } from './components/TodayMealCard';
 import { WeekActivityStrip } from './components/WeekActivityStrip';
-import { resolvePlanDayForDate } from './utils/plan-day';
+import { resolveMealPlanDayForDate, resolvePlanDayForDate } from './utils/plan-day';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Dashboard'>,
@@ -40,12 +41,15 @@ export function DashboardScreen() {
 
   const me = useMe();
   const summary = useDailySummary(date);
-  const plans = usePlans('WORKOUT');
+  const workoutPlans = usePlans('WORKOUT');
+  const mealPlans = usePlans('MEAL');
   const sessions = useWorkoutSessions();
   const exercises = useExercises();
 
-  const activePlan = plans.data?.items.find((p) => p.status === 'ACTIVE');
-  const planDetail = usePlan(activePlan?.id);
+  const activeWorkoutPlan = workoutPlans.data?.items.find((p) => p.status === 'ACTIVE');
+  const activeMealPlan = mealPlans.data?.items.find((p) => p.status === 'ACTIVE');
+  const workoutPlanDetail = usePlan(activeWorkoutPlan?.id);
+  const mealPlanDetail = usePlan(activeMealPlan?.id);
 
   const exerciseNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -55,22 +59,29 @@ export function DashboardScreen() {
     return map;
   }, [exercises.data?.items]);
 
-  const todayPlanDay = useMemo(() => {
-    if (!activePlan || !planDetail.data?.workoutDays) return null;
-    return resolvePlanDayForDate(activePlan, planDetail.data.workoutDays, new Date());
-  }, [activePlan, planDetail.data?.workoutDays]);
+  const todayWorkoutDay = useMemo(() => {
+    if (!activeWorkoutPlan || !workoutPlanDetail.data?.workoutDays) return null;
+    return resolvePlanDayForDate(activeWorkoutPlan, workoutPlanDetail.data.workoutDays, new Date());
+  }, [activeWorkoutPlan, workoutPlanDetail.data?.workoutDays]);
+
+  const todayMealDay = useMemo(() => {
+    if (!activeMealPlan || !mealPlanDetail.data?.mealDays) return null;
+    return resolveMealPlanDayForDate(activeMealPlan, mealPlanDetail.data.mealDays, new Date());
+  }, [activeMealPlan, mealPlanDetail.data?.mealDays]);
 
   if (
     me.isLoading ||
     summary.isLoading ||
-    plans.isLoading ||
+    workoutPlans.isLoading ||
+    mealPlans.isLoading ||
     sessions.isLoading ||
-    (activePlan?.id && planDetail.isLoading)
+    (activeWorkoutPlan?.id && workoutPlanDetail.isLoading) ||
+    (activeMealPlan?.id && mealPlanDetail.isLoading)
   ) {
     return <LoadingScreen />;
   }
 
-  const workoutDays = planDetail.data?.workoutDays ?? [];
+  const workoutDays = workoutPlanDetail.data?.workoutDays ?? [];
   const sessionItems = sessions.data?.items ?? [];
 
   return (
@@ -98,14 +109,29 @@ export function DashboardScreen() {
         <SectionHeader title="本周训练" />
         <WeekActivityStrip sessions={sessionItems} planDays={workoutDays} />
 
-        <SectionHeader title="今日训练" />
+        <SectionHeader
+          title="今日训练"
+          actionLabel="我的计划"
+          onAction={() => navigation.navigate('PlanList')}
+        />
         <TodayExerciseCard
-          day={todayPlanDay}
-          hasActivePlan={Boolean(activePlan)}
+          day={todayWorkoutDay}
+          hasActivePlan={Boolean(activeWorkoutPlan)}
           exerciseNameById={exerciseNameById}
           onPressPlan={
-            activePlan
-              ? () => navigation.navigate('PlanDetail', { planId: activePlan.id })
+            activeWorkoutPlan
+              ? () => navigation.navigate('PlanDetail', { planId: activeWorkoutPlan.id })
+              : undefined
+          }
+        />
+
+        <SectionHeader title="今日饮食" />
+        <TodayMealCard
+          day={todayMealDay}
+          hasActivePlan={Boolean(activeMealPlan)}
+          onPressPlan={
+            activeMealPlan
+              ? () => navigation.navigate('PlanDetail', { planId: activeMealPlan.id })
               : undefined
           }
         />

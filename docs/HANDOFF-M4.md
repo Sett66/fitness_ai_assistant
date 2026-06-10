@@ -1,6 +1,6 @@
 # 交接文档 · M4 阶段（移动端 MVP / `apps/mobile`）
 
-> **M3 已关闭；M4 移动端 MVP + Coach（ADR 0007）主体已实装。** 收口清单见 [`HANDOFF-M4-REMAINING.md`](./HANDOFF-M4-REMAINING.md)；增量见 [`HANDOFF-M4-AGENT.md`](./HANDOFF-M4-AGENT.md)。M3 见 [`HANDOFF-M3.md`](./HANDOFF-M3.md)。
+> **M3 已功能闭环（可开工 M4）**。M3 范围与验收见 [`docs/HANDOFF-M3.md`](./HANDOFF-M3.md)；本会话增量见 [`docs/HANDOFF-M3-AGENT.md`](./HANDOFF-M3-AGENT.md)。**勿重复阅读 M1 [`HANDOFF.md`](./HANDOFF.md) 全文**，以本文件 + PRD + ARCHITECTURE + ADR 为准。
 
 ---
 
@@ -44,12 +44,12 @@ M3 已就绪（勿重做）：ai-core、Worker 真实 LLM、Plan 落库、meal-l
 
 ## 1. Roadmap 进度
 
-| 阶段   | 状态                  | 说明                                                                                         |
-| ------ | --------------------- | -------------------------------------------------------------------------------------------- |
-| M0–M2  | ✅                    | 见 [`HANDOFF-M2.md`](./HANDOFF-M2.md)                                                        |
-| **M3** | **✅ 功能闭环**       | AI Worker + ai-core；见 §2 遗留项                                                            |
-| **M4** | **✅ 主体 / ⬜ 收口** | `apps/mobile` MVP + Coach Tab；遗留见 [`HANDOFF-M4-REMAINING.md`](./HANDOFF-M4-REMAINING.md) |
-| M5+    | ⬜                    | APK CI、Phase 2 等                                                                           |
+| 阶段   | 状态            | 说明                                  |
+| ------ | --------------- | ------------------------------------- |
+| M0–M2  | ✅              | 见 [`HANDOFF-M2.md`](./HANDOFF-M2.md) |
+| **M3** | **✅ 功能闭环** | AI Worker + ai-core；见 §2 遗留项     |
+| **M4** | **⬜ 当前**     | `apps/mobile` bare RN MVP             |
+| M5+    | ⬜              | APK CI、Phase 2 等                    |
 
 ---
 
@@ -70,16 +70,16 @@ M3 已就绪（勿重做）：ai-core、Worker 真实 LLM、Plan 落库、meal-l
 
 ### 2.2 M3 遗留（不阻塞 M4）
 
-| 项                                    | 说明                                                                                                               |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **LangGraph.js**                      | 文档/ README 仍写 LangGraph；实现为单次 `generateJson` + Zod。扩图或写 ADR 说明等价策略。                          |
-| **LLM 解析重试**                      | 无自动 retry 节点；失败 → `FAILED` + BullMQ 重试。                                                                 |
-| **MESOCYCLE_REVIEW / REPORT_ANALYZE** | 枚举存在，Processor 未实现。                                                                                       |
-| **多轮对话**                          | ✅ ADR [`0007`](./adr/0007-coach-conversation-and-chat.md)：`Conversation` / `Message` + `COACH_CHAT` + SSE 流式。 |
-| **ADR 0005**                          | ✅ [`0005-m3-ai-context-and-execution.md`](./adr/0005-m3-ai-context-and-execution.md)                              |
-| **MEAL_VISION E2E**                   | 需 Qwen 能 **公网下载** 的图片 URL；本机 MinIO 仅 127.0.0.1 时需 `S3_PUBLIC_ENDPOINT` 或公网 `imageUrl`。          |
-| **PLAN_GENERATE_MEAL**                | 代码路径已有，验收脚本仅强测 WORKOUT。                                                                             |
-| **动作 seed**                         | 仅 5 个预设；计划里未匹配动作会跳过（日志 `跳过未知动作`）。                                                       |
+| 项                                    | 说明                                                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **LangGraph.js**                      | 文档/ README 仍写 LangGraph；实现为单次 `generateJson` + Zod。扩图或写 ADR 说明等价策略。                 |
+| **LLM 解析重试**                      | 无自动 retry 节点；失败 → `FAILED` + BullMQ 重试。                                                        |
+| **MESOCYCLE_REVIEW / REPORT_ANALYZE** | 枚举存在，Processor 未实现。                                                                              |
+| **多轮对话计划**                      | 无 `Conversation` 表；计划依赖 `inputJson.notes` + 自动 `userContext`。属 M3+ / 产品迭代。                |
+| **ADR 0005**                          | ✅ [`0005-m3-ai-context-and-execution.md`](./adr/0005-m3-ai-context-and-execution.md)                     |
+| **MEAL_VISION E2E**                   | 需 Qwen 能 **公网下载** 的图片 URL；本机 MinIO 仅 127.0.0.1 时需 `S3_PUBLIC_ENDPOINT` 或公网 `imageUrl`。 |
+| **PLAN_GENERATE_MEAL**                | 代码路径已有，验收脚本仅强测 WORKOUT。                                                                    |
+| **动作 seed**                         | 仅 5 个预设；计划里未匹配动作会跳过（日志 `跳过未知动作`）。                                              |
 
 ### 2.3 M3 验收勾选（HANDOFF-M3 §6）
 
@@ -113,49 +113,41 @@ M3 已就绪（勿重做）：ai-core、Worker 真实 LLM、Plan 落库、meal-l
 | 打卡      | `WorkoutSession` / `WorkoutSet` HTTP（若 M2 未暴露需补 API，见 §4）                                |
 | 营养      | 拍照 → `uploads/sign` → PUT MinIO → `MEAL_VISION` task → 展示 `items` + `advice` + `daily-summary` |
 | 饮食日志  | `GET/POST /v1/meal-logs`                                                                           |
-| 仪表盘    | 今日热量、训练完成度（**不含**首页「今日体重」独立卡片，见产品注）                                 |
-| **Coach** | 多轮对话、SSE 流式 CHAT、计划/识图/记餐入口（ADR 0007）                                            |
+| 仪表盘    | 今日热量、训练完成度（可先只接营养 API）                                                           |
 | UI        | NativeWind + `packages/ui`；禁止 Expo                                                              |
 
 ### 3.2 明确不做（M4）
 
-| 不做                            | 归属                                |
-| ------------------------------- | ----------------------------------- |
-| Expo                            | 禁止                                |
-| 客户端直连 DeepSeek / DashScope | 禁止（ADR 0003）                    |
-| **首页今日体重卡片**            | 产品决定不做；体重在档案 + 消耗估算 |
-| Phase 2 社交/报告 UI            | M6（Social Tab 当前为占位）         |
-| 商店上架 / 推送 SDK             | M5+                                 |
-| 重写 ai-core / Worker           | 仅修 bug                            |
+| 不做                            | 归属             |
+| ------------------------------- | ---------------- |
+| Expo                            | 禁止             |
+| 客户端直连 DeepSeek / DashScope | 禁止（ADR 0003） |
+| Phase 2 社交/报告 UI            | M6               |
+| 商店上架 / 推送 SDK             | M5+              |
+| 重写 ai-core / Worker           | 仅修 bug         |
 
 ---
 
 ## 4. M4 可依赖的后端 API（已实现）
 
-| 方法            | 路径                                                       | 用途                                                 |
-| --------------- | ---------------------------------------------------------- | ---------------------------------------------------- |
-| POST            | `/v1/auth/register` `login` `refresh`                      | Auth                                                 |
-| PUT/GET         | `/v1/users/me/profile`                                     | 档案                                                 |
-| POST/PATCH      | `/v1/users/me/strength-levels`                             | 力量                                                 |
-| GET             | `/v1/exercises` `/v1/foods`                                | 库                                                   |
-| POST            | `/v1/uploads/sign` `complete`                              | 餐照上传                                             |
-| POST            | `/v1/ai/tasks`                                             | 投递 AI（body: `taskType`, `model`, `inputJson`）    |
-| GET             | `/v1/ai/tasks/:id`                                         | 轮询；`result` 含计划或餐照 JSON                     |
-| GET/POST/DELETE | `/v1/meal-logs`                                            | 饮食日志                                             |
-| GET             | `/v1/meal-logs/daily-summary?date=&timezoneOffsetMinutes=` | 今日营养                                             |
-| GET/POST        | `/v1/conversations` …                                      | 会话列表 / 创建                                      |
-| GET             | `/v1/conversations/default`                                | 默认会话 + 最近 50 条消息                            |
-| GET             | `/v1/conversations/:id/messages`                           | 分页历史                                             |
-| POST            | `/v1/conversations/:id/messages`                           | 非流式消息（含 action → Worker 副作用）              |
-| POST            | `/v1/conversations/:id/messages/stream`                    | **SSE**：`accepted` / `delta` / `done`（Coach CHAT） |
-| GET             | `/v1/plans` …                                              | 计划列表 / 详情（移动端已用）                        |
+| 方法            | 路径                                                       | 用途                                              |
+| --------------- | ---------------------------------------------------------- | ------------------------------------------------- |
+| POST            | `/v1/auth/register` `login` `refresh`                      | Auth                                              |
+| PUT/GET         | `/v1/users/me/profile`                                     | 档案                                              |
+| POST/PATCH      | `/v1/users/me/strength-levels`                             | 力量                                              |
+| GET             | `/v1/exercises` `/v1/foods`                                | 库                                                |
+| POST            | `/v1/uploads/sign` `complete`                              | 餐照上传                                          |
+| POST            | `/v1/ai/tasks`                                             | 投递 AI（body: `taskType`, `model`, `inputJson`） |
+| GET             | `/v1/ai/tasks/:id`                                         | 轮询；`result` 含计划或餐照 JSON                  |
+| GET/POST/DELETE | `/v1/meal-logs`                                            | 饮食日志                                          |
+| GET             | `/v1/meal-logs/daily-summary?date=&timezoneOffsetMinutes=` | 今日营养                                          |
 
-### 4.1 后端补充说明
+### 4.1 可能需在 M4 补的后端（先查再写移动端）
 
-| 能力           | 现状                                                           |
-| -------------- | -------------------------------------------------------------- |
-| **训练打卡**   | `apps/api` plans 模块下 workout sessions HTTP 已暴露           |
-| **Coach 流式** | HTTP SSE 同步拉流；流结束后 `inferSuggestedActions` 第二次 LLM |
+| 能力                                         | 现状                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **训练打卡** `WorkoutSession` / `WorkoutSet` | Prisma 有表；**可能尚无 HTTP 模块** — M4 前用 `grep` 确认，缺则小步加 `apps/api` 模块 |
+| **查询 Plan 详情**                           | Plan 已落库；若无 `GET /v1/plans/:id`，移动端需补只读 API                             |
 
 ---
 
@@ -281,28 +273,24 @@ pnpm --filter api start:api
 ## 11. 关键文件索引
 
 ```
-apps/mobile/src/features/coach/   # Coach Tab、流式聊天、Markdown
-apps/mobile/src/app/navigation/  # 五 Tab（含 Social 占位）
+apps/mobile/                    # M4 主战场（当前占位）
 packages/ui/
-apps/api/src/modules/conversations/
 apps/api/src/modules/meal-logs/
-apps/api/src/modules/plans/
+apps/api/src/domain/
 apps/api/src/workers/ai-task.processor.ts
-packages/ai-core/src/chains/coach-chat/
-docs/adr/0007-coach-conversation-and-chat.md
+packages/shared/src/schemas/nutrition.ts
+packages/shared/src/utils/nutrition-tdee.ts
+packages/ai-core/
 scripts/m3-acceptance.ps1
-scripts/m4-acceptance.ps1
-docs/HANDOFF-M4-REMAINING.md
-docs/HANDOFF-M4-AGENT.md
+docs/HANDOFF-M3-AGENT.md
 ```
 
 ---
 
-_文档版本：v2 · 2026-06-04 · M4 主体完成，收口见 REMAINING_
+_文档版本：v1 · 2026-05-19 · M3 关闭，M4 开工入口_
 
 ### 修订记录
 
-| 日期       | 说明                                                 |
-| ---------- | ---------------------------------------------------- |
-| 2026-05-19 | 自 M3 功能闭环交接至 M4 mobile                       |
-| 2026-06-04 | M4 MVP + Coach；文档与 README 同步；体重卡片明确不做 |
+| 日期       | 说明                           |
+| ---------- | ------------------------------ |
+| 2026-05-19 | 自 M3 功能闭环交接至 M4 mobile |

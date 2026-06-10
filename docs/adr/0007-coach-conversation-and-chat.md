@@ -1,5 +1,7 @@
 # 0007 — Coach 统一入口：Conversation/Message 持久化与 COACH_CHAT
 
+> **Superseded（部分）**：[0008 — Coach 真 Agent](./0008-coach-agent-tools-and-memory.md) 取代本文 §2 关于「不做 LLM function-calling」的决策，并扩展 SSE 工具事件与记忆。本文其余部分（Conversation 模型、Worker 卡片、日限、显式 `action`）**仍然有效**。
+
 ## Context
 
 M4 移动端将 Plan Tab 与 Nutrition Tab 的 AI 能力合并为 **Coach Tab**（首页 + Coach + 打卡 + 社区占位 + 我的）。产品要求：
@@ -56,7 +58,7 @@ Worker 完成后由 `ConversationSideEffectService` 写入/更新 ASSISTANT Mess
 
 - **正面**：真多轮持久化；单一 AI 入口；Social Tab 占位不影响 MVP 闭环
 - **负面**：schema migration；Worker 需写回 Message；聊天与重任务 UX 仍依赖轮询
-- **后续**：SSE/WebSocket 推送、LLM 意图路由、LangGraph 编排
+- **后续**：~~SSE/WebSocket 推送、LLM 意图路由、LangGraph 编排~~ → SSE 流式与 LangGraph Agent 见 ADR 0008
 
 ## References
 

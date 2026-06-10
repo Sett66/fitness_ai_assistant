@@ -1,7 +1,7 @@
 # M4 及之前 · 未完成工作清单
 
 > **用途**：M4 收口、M3 遗留、文档与代码对齐。  
-> **更新日期**：2026-06-04  
+> **更新日期**：2026-06-04（M4 正式关闭：2026-06-04 验收通过）  
 > **已完成主体**：M0–M3；M4 移动端 MVP；**Coach（ADR 0007）** 含 SSE 流式聊天。  
 > **入口文档**：本文件 · [`HANDOFF-M4-AGENT.md`](./HANDOFF-M4-AGENT.md) · [`HANDOFF-M4.md`](./HANDOFF-M4.md) · 根 [`README.md`](../README.md)
 
@@ -59,12 +59,12 @@ pnpm --filter mobile start && pnpm --filter mobile android
 
 ### P0 — PRD MVP 缺口
 
-| #     | 工作项                       | 现状                                                                 | 建议做法                                                         |
-| ----- | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| M4-01 | **F4 饮食计划独立列表/详情** | 生成能力已有；独立 `PlanList` 饮食向展示 / `mealDays` 详情可能不完整 | 对齐 `PlanDetailScreen` 的 `mealDays`；`usePlans('MEAL')` 列表页 |
-| M4-02 | **手动饮食录入**             | ✅ Coach + `ManualMealSheet`；营养 Tab 是否入口齐全可自查            | 若仅 Coach 有入口，可在营养页补同一 Sheet                        |
-| M4-03 | **F6 仪表盘「今日体重」**    | **— 产品决定不做**                                                   | 体重仅在档案与 MET 消耗估算中使用；不做首页卡片/趋势             |
-| M4-04 | **首登生成双计划**           | ✅ `OnboardingPlanBootstrapScreen`                                   | 仅需回归失败提示与跳过策略                                       |
+| #     | 工作项                       | 现状                                                         | 建议做法                                             |
+| ----- | ---------------------------- | ------------------------------------------------------------ | ---------------------------------------------------- |
+| M4-01 | **F4 饮食计划独立列表/详情** | ✅ 手测 + `m4-acceptance` 覆盖 `GET /plans?type=MEAL` 与详情 | —                                                    |
+| M4-02 | **手动饮食录入**             | ✅ Coach + 营养 Tab `ManualMealSheet`                        | —                                                    |
+| M4-03 | **F6 仪表盘「今日体重」**    | **— 产品决定不做**                                           | 体重仅在档案与 MET 消耗估算中使用；不做首页卡片/趋势 |
+| M4-04 | **首登生成双计划**           | ✅ `OnboardingPlanBootstrapScreen` + 手测通过                | —                                                    |
 
 ### P1 — 体验与架构
 
@@ -150,12 +150,14 @@ pnpm --filter mobile start && pnpm --filter mobile android
 
 ## 6. M4 关闭定义（Done 检查表）
 
-- [ ] PRD §3.1 P0 可演示（F4 独立计划 UI 为主缺口；F6 体重卡片已明确不做）
-- [ ] `.\scripts\m4-acceptance.ps1` 通过
-- [ ] 真机/模拟器：注册 → 档案 → Onboarding 双计划 → 打卡 → Coach 流式对话 → 餐照 → 仪表盘摄入
-- [ ] （建议）有 Key 时 `m3-acceptance.ps1` 或 MEAL_VISION + PLAN_GENERATE_MEAL 手测
-- [x] 根 README + HANDOFF 与代码阶段一致（2026-06-04）
-- [ ] 勾选完成后将 Roadmap 标 M4 ✅、入口切 M5
+- [x] PRD §3.1 P0 可演示（F4 饮食计划 UI + 生成；F6 体重卡片不做）
+- [x] `.\scripts\m4-acceptance.ps1` 通过（需 API + Worker；COACH 需 DeepSeek 余额，可用 `-SkipCoachChat` 跳过）
+- [x] 真机/模拟器：注册 → 档案 → Onboarding 双计划 → 打卡 → Coach 流式对话 → 餐照 → 仪表盘摄入（手测 2026-06-04）
+- [ ] （建议）有 Key 时 `m3-acceptance.ps1` 或 MEAL_VISION + PLAN_GENERATE_MEAL 手测 — 归属 M5/回归，不阻塞 M4 关闭
+- [x] 根 README + HANDOFF 与代码阶段一致
+- [x] Roadmap 标 M4 ✅、入口切 M5（见根 README）
+
+**M4 遗留（不阻塞关闭）**：§2.1 P1/P2（离线打卡、食物库扩容、M4-10 脚本持续加强等）→ M5 或按需补齐。
 
 ---
 
@@ -174,4 +176,4 @@ scripts/m4-acceptance.ps1
 
 ---
 
-_清单版本：v2 · 2026-06-04_
+_清单版本：v3 · M4 已关闭 · 2026-06-04_
