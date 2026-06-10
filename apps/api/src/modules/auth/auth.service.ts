@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { type ConfigService } from '@nestjs/config';
-import { type JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import type { User } from '@fitness/db';
 import { ACCESS_TOKEN_TTL_SEC, REFRESH_TOKEN_TTL_SEC, errorMessagesZhCN } from '@fitness/shared';
@@ -13,7 +13,7 @@ import type {
 } from '@fitness/shared';
 
 import { BizException } from '../../common/exceptions/biz-exception';
-import { type PrismaService } from '../../infra/prisma/prisma.service';
+import { PrismaService } from '../../infra/prisma/prisma.service';
 
 const REFRESH_JWT_TYP = 'refresh' as const;
 

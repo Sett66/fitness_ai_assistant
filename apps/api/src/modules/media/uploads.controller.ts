@@ -4,7 +4,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-import { type UploadsService } from './uploads.service';
+import { UploadsService } from './uploads.service';
 
 @ApiTags('media')
 @ApiBearerAuth('access-token')

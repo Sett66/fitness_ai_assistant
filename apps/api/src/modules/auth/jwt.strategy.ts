@@ -1,6 +1,6 @@
 import type { Role } from '@fitness/db';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { type ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 

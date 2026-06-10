@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@fitness/db';
 import type { AiTaskType, MessageContentType } from '@fitness/shared';
 
-import { type PrismaService } from '../infra/prisma/prisma.service';
+import { PrismaService } from '../infra/prisma/prisma.service';
 
 @Injectable()
 export class ConversationSideEffectService {

@@ -25,11 +25,11 @@ import type { Prisma } from '@fitness/db';
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
-import { type AgentConfigService } from '../../config/agent-config.service';
-import { type UserContextService } from '../../domain/user-context.service';
+import { AgentConfigService } from '../../config/agent-config.service';
+import { UserContextService } from '../../domain/user-context.service';
 import { AI_TASK_QUEUE_NAME, type AiTaskJobPayload } from '../../infra/queue/queue.constants';
-import { type PrismaService } from '../../infra/prisma/prisma.service';
-import { type MealLogsService } from '../meal-logs/meal-logs.service';
+import { PrismaService } from '../../infra/prisma/prisma.service';
+import { MealLogsService } from '../meal-logs/meal-logs.service';
 
 export type SseEmitFn = (event: string, data: unknown) => void;
 

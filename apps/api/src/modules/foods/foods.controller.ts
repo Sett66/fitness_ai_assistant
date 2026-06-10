@@ -4,7 +4,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-import { type FoodsService } from './foods.service';
+import { FoodsService } from './foods.service';
 
 @ApiTags('foods')
 @ApiBearerAuth('access-token')

@@ -6,7 +6,7 @@ import type { JwtUserPayload } from '../../common/decorators/current-user.decora
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
 
-import { type ConversationsService } from './conversations.service';
+import { ConversationsService } from './conversations.service';
 
 @ApiTags('conversations')
 @ApiBearerAuth('access-token')

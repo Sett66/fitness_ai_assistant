@@ -5,7 +5,7 @@ import { LoginRequestSchema, RefreshRequestSchema, RegisterRequestSchema } from 
 import { Public } from '../../common/decorators/public.decorator';
 import { parseWith } from '../../common/zod/parse-with';
 
-import { type AuthService } from './auth.service';
+import { AuthService } from './auth.service';
 
 @ApiTags('auth')
 @Controller('auth')

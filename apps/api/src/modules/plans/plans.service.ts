@@ -17,7 +17,7 @@ import {
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
-import { type PrismaService } from '../../infra/prisma/prisma.service';
+import { PrismaService } from '../../infra/prisma/prisma.service';
 
 @Injectable()
 export class PlansService {

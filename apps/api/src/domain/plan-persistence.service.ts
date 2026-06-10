@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { GeneratedMealPlan, GeneratedWorkoutPlan } from '@fitness/ai-core';
 import { DEFAULT_MESOCYCLE_WEEKS } from '@fitness/shared';
 
-import { type PrismaService } from '../infra/prisma/prisma.service';
+import { PrismaService } from '../infra/prisma/prisma.service';
 import { expandMealPlanDays } from './expand-meal-plan-days';
 
 @Injectable()

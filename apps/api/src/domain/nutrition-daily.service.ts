@@ -10,7 +10,7 @@ import {
   type TdeeProfileInput,
 } from '@fitness/shared';
 
-import { type PrismaService } from '../infra/prisma/prisma.service';
+import { PrismaService } from '../infra/prisma/prisma.service';
 
 @Injectable()
 export class NutritionDailyService {

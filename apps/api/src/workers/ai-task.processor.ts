@@ -14,14 +14,14 @@ import type { MealType } from '@fitness/shared';
 import { MealVisionTaskInputSchema } from '@fitness/shared';
 import type { Job } from 'bullmq';
 
-import { type ConversationSideEffectService } from '../domain/conversation-side-effect.service';
-import { type NutritionDailyService } from '../domain/nutrition-daily.service';
-import { type PlanPersistenceService } from '../domain/plan-persistence.service';
-import { type UserContextService } from '../domain/user-context.service';
-import { type PrismaService } from '../infra/prisma/prisma.service';
-import { type S3StorageService } from '../infra/storage/s3-storage.service';
+import { ConversationSideEffectService } from '../domain/conversation-side-effect.service';
+import { NutritionDailyService } from '../domain/nutrition-daily.service';
+import { PlanPersistenceService } from '../domain/plan-persistence.service';
+import { UserContextService } from '../domain/user-context.service';
+import { PrismaService } from '../infra/prisma/prisma.service';
+import { S3StorageService } from '../infra/storage/s3-storage.service';
 import { AI_TASK_QUEUE_NAME, type AiTaskJobPayload } from '../infra/queue/queue.constants';
-import { type MealLogsService } from '../modules/meal-logs/meal-logs.service';
+import { MealLogsService } from '../modules/meal-logs/meal-logs.service';
 
 type AiTaskOutput = {
   outputJson: unknown;

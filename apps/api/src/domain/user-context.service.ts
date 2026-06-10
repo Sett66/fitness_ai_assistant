@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type { UserAiContext } from '@fitness/shared';
 import { WorkoutPlanPreferencesSchema } from '@fitness/shared';
 
-import { type PrismaService } from '../infra/prisma/prisma.service';
-import { type NutritionDailyService } from './nutrition-daily.service';
+import { PrismaService } from '../infra/prisma/prisma.service';
+import { NutritionDailyService } from './nutrition-daily.service';
 
 @Injectable()
 export class UserContextService {
@@ -67,13 +67,13 @@ export class UserContextService {
       activeWorkoutPlan: activeWorkout
         ? {
             id: activeWorkout.id,
-            summary: `训练计划 ${activeWorkout.mesocycleWeeks} 周，${activeWorkout.workoutDays.map((d) => d.title).join('、')}`,
+            summary: `???? ${activeWorkout.mesocycleWeeks} ??${activeWorkout.workoutDays.map((d) => d.title).join('?')}`,
           }
         : null,
       activeMealPlan: activeMeal
         ? {
             id: activeMeal.id,
-            summary: `饮食计划日均约 ${activeMeal.mealDays[0]?.totalKcal ?? '?'} kcal`,
+            summary: `??????? ${activeMeal.mealDays[0]?.totalKcal ?? '?'} kcal`,
           }
         : null,
       todayNutrition: todayNutrition ?? undefined,
@@ -100,7 +100,7 @@ export class UserContextService {
 
     const goal =
       ctx.profile?.goal != null
-        ? { MUSCLE_GAIN: '增肌', FAT_LOSS: '减脂', MAINTAIN: '维持' }[ctx.profile.goal]
+        ? { MUSCLE_GAIN: '??', FAT_LOSS: '??', MAINTAIN: '??' }[ctx.profile.goal]
         : undefined;
 
     const preferences =

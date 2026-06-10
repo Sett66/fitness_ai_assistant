@@ -18,8 +18,8 @@ import { errorMessagesZhCN } from '@fitness/shared';
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
-import { type NutritionDailyService } from '../../domain/nutrition-daily.service';
-import { type PrismaService } from '../../infra/prisma/prisma.service';
+import { NutritionDailyService } from '../../domain/nutrition-daily.service';
+import { PrismaService } from '../../infra/prisma/prisma.service';
 
 @Injectable()
 export class MealLogsService {

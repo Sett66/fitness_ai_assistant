@@ -4,7 +4,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
-import { type ExercisesService } from './exercises.service';
+import { ExercisesService } from './exercises.service';
 
 @ApiTags('exercises')
 @ApiBearerAuth('access-token')
