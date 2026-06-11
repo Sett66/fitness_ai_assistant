@@ -6,6 +6,7 @@ import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { envValidationSchema } from './config/env.schema';
 import { ApiExceptionFilter } from './common/filters/api-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { GeoModule } from './infra/geo/geo.module';
 import { FitnessQueueModule } from './infra/queue/fitness-queue.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -37,6 +38,7 @@ import { AppController } from './app.controller';
     }),
     PrismaModule,
     DomainModule,
+    GeoModule,
     FitnessQueueModule,
     AuthModule,
     UsersModule,

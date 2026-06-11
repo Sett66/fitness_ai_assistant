@@ -15,6 +15,13 @@ export const envValidationSchema = Joi.object({
   S3_FORCE_PATH_STYLE: Joi.boolean().truthy('true').falsy('false').default(true),
   S3_PUBLIC_ENDPOINT: Joi.string().optional().allow('', null),
   COACH_AGENT_ENABLED: Joi.string().valid('true', 'false').default('false'),
+  AMAP_WEB_KEY: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().required(),
+    otherwise: Joi.string().optional().allow('', null),
+  }),
+  AMAP_WEB_SECRET: Joi.string().optional().allow('', null),
+  OPEN_METEO_BASE_URL: Joi.string().uri().optional().allow('', null),
 });
 
 export type EnvShape = {
@@ -32,6 +39,9 @@ export type EnvShape = {
   S3_FORCE_PATH_STYLE: boolean;
   S3_PUBLIC_ENDPOINT?: string;
   COACH_AGENT_ENABLED: 'true' | 'false';
+  AMAP_WEB_KEY?: string;
+  AMAP_WEB_SECRET?: string;
+  OPEN_METEO_BASE_URL?: string;
 };
 
 function parseOptionalUrl(value: string | undefined): string | undefined {
@@ -56,5 +66,8 @@ export function mapEnv(env: NodeJS.ProcessEnv): EnvShape {
     S3_FORCE_PATH_STYLE: forceRaw === 'true',
     S3_PUBLIC_ENDPOINT: parseOptionalUrl(env.S3_PUBLIC_ENDPOINT),
     COACH_AGENT_ENABLED: env.COACH_AGENT_ENABLED === 'true' ? 'true' : 'false',
+    AMAP_WEB_KEY: parseOptionalUrl(env.AMAP_WEB_KEY),
+    AMAP_WEB_SECRET: parseOptionalUrl(env.AMAP_WEB_SECRET),
+    OPEN_METEO_BASE_URL: parseOptionalUrl(env.OPEN_METEO_BASE_URL),
   };
 }

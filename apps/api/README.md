@@ -36,9 +36,26 @@ src/
 ├── app.module.ts
 ├── common/          # filters, guards, Zod parse
 ├── config/
-├── infra/           # prisma, queue, storage
+├── infra/           # prisma, queue, storage, geo（高德 + Open-Meteo）
 ├── domain/          # user-context, plan-persistence, conversation-side-effect
 └── modules/         # 各 HTTP 模块 + workers/ai-task.processor.ts
+```
+
+## Geo 服务（AGENT-03）
+
+`infra/geo/` 提供 `AmapClient`（地理编码、周边健身房）与 `WeatherClient`（Open-Meteo 预报），供后续 `ToolRegistry` 注入。
+
+| 变量                  | 说明                                                             |
+| --------------------- | ---------------------------------------------------------------- |
+| `AMAP_WEB_KEY`        | 高德 Web 服务 Key（生产必填；`NODE_ENV=test` 可空，测试全 mock） |
+| `AMAP_WEB_SECRET`     | 可选；Key 类型需签名时填写                                       |
+| `OPEN_METEO_BASE_URL` | 可选，默认 `https://api.open-meteo.com`                          |
+
+手测（配置 Key 后，在 Node REPL 或临时脚本中）：
+
+```powershell
+pnpm --filter api test -- amap.client.spec
+# 或在 .env 填入 AMAP_WEB_KEY 后启动 API，由 AGENT-07 ToolRegistry 联调
 ```
 
 ## 相关文档
