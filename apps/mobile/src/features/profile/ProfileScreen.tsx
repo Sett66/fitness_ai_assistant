@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { Button, ErrorText, Input, Label, Screen, Subtitle, Title } from '@fitness/ui';
 import type { Gender, Goal } from '@fitness/shared';
 
 import { useLogout } from '../../api/endpoints/auth';
 import { useMe, usePatchProfile, useUpdateMe } from '../../api/endpoints/users';
+import { useLocationConsent } from '../location';
 import { AvatarPicker } from './components/AvatarPicker';
 import { BirthDateField, birthDateToIso, isoToBirthParts } from './components/BirthDateField';
 import { GenderSelect } from './components/GenderSelect';
@@ -25,6 +26,8 @@ export function ProfileScreen() {
   const logout = useLogout();
   const updateMe = useUpdateMe();
   const patchProfile = usePatchProfile();
+
+  const locationConsent = useLocationConsent();
 
   const [editSheet, setEditSheet] = useState<EditSheet>(null);
 
@@ -159,6 +162,34 @@ export function ProfileScreen() {
 
             <ProfileSectionCard title="运动表现" onEdit={() => setEditSheet('strength')}>
               <ProfileStrengthSummary />
+            </ProfileSectionCard>
+
+            <ProfileSectionCard title="位置权限">
+              <ProfileInfoRow
+                label="状态"
+                value={locationConsent.hasPermission ? '已授权' : '未授权'}
+              />
+              <View className="py-2">
+                <Subtitle>
+                  开启后，Coach
+                  可根据实时位置提供天气训练建议与周边健身房推荐。坐标仅用于对话内训练建议，不会分享给其他用户。
+                </Subtitle>
+              </View>
+              <View className="pt-2">
+                {locationConsent.hasPermission ? (
+                  <Button
+                    title="前往系统设置"
+                    variant="secondary"
+                    onPress={locationConsent.openSystemSettings}
+                  />
+                ) : (
+                  <Button
+                    title="开启位置权限"
+                    variant="primary"
+                    onPress={locationConsent.requestPermission}
+                  />
+                )}
+              </View>
             </ProfileSectionCard>
           </>
         ) : (

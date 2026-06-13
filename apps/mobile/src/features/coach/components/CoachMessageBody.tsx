@@ -61,18 +61,18 @@ const markdownStyles = {
   code_block: { color: '#FAFAFA', fontFamily: 'monospace' },
   /** 与正文同宽，仅顶线 + 行间分隔，不做独立卡片 */
   table: {
-    width: '100%',
+    width: '100%' as const,
     marginTop: 6,
     marginBottom: 8,
     borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
   thead: {},
-  tbody: { width: '100%' },
+  tbody: { width: '100%' as const },
   tr: {
     flexDirection: 'row' as const,
     alignItems: 'flex-start' as const,
-    width: '100%',
+    width: '100%' as const,
     borderBottomWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },

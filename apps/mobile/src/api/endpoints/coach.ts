@@ -28,6 +28,8 @@ import { presignRequestBody } from './media';
 
 import { queryKeys } from '../queryKeys';
 
+import { getLocationContext, shouldAttachLocation } from '../../features/location';
+
 import {
   AI_POLL_INTERVAL_MS,
   AI_POLL_TIMEOUT_MS,
@@ -107,12 +109,21 @@ export function useSendCoachChatStream() {
 
   return useMutation({
     mutationFn: async (params: { conversationId: string; content: string }) => {
+      // AGENT-04: 懒加载位置上下文
+      let locationContext: Record<string, unknown> | undefined;
+      if (shouldAttachLocation(params.content)) {
+        const ctx = await getLocationContext();
+        locationContext = ctx ?? undefined;
+      }
+
       const body = CreateCoachMessageSchema.parse({
         action: 'CHAT',
 
         content: params.content,
 
         timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES,
+
+        locationContext,
       });
 
       const streamStore = useCoachStreamStore.getState();

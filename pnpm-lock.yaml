@@ -182,6 +182,9 @@ importers:
       "@hookform/resolvers":
         specifier: ^5.0.1
         version: 5.2.2(react-hook-form@7.76.0(react@19.2.0))
+      "@react-native-community/geolocation":
+        specifier: ^3.4.0
+        version: 3.4.0(react-native@0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)
       "@react-native-documents/picker":
         specifier: ^12.0.1
         version: 12.0.1(react-native@0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)
@@ -2858,6 +2861,16 @@ packages:
       }
     engines: { node: ">=18" }
     hasBin: true
+
+  "@react-native-community/geolocation@3.4.0":
+    resolution:
+      {
+        integrity: sha512-bzZH89/cwmpkPMKKveoC72C4JH0yF4St5Ceg/ZM9pA1SqX9MlRIrIrrOGZ/+yi++xAvFDiYfihtn9TvXWU9/rA==,
+      }
+    engines: { node: ">=18.0.0" }
+    peerDependencies:
+      react: "*"
+      react-native: "*"
 
   "@react-native-documents/picker@12.0.1":
     resolution:
@@ -12572,6 +12585,11 @@ snapshots:
       - supports-color
       - typescript
       - utf-8-validate
+
+  "@react-native-community/geolocation@3.4.0(react-native@0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)":
+    dependencies:
+      react: 19.2.0
+      react-native: 0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0)
 
   "@react-native-documents/picker@12.0.1(react-native@0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)":
     dependencies:

@@ -184,6 +184,7 @@ export class ConversationsService {
           action: input.action,
           imageObjectKey: input.imageObjectKey ?? null,
           mealType: input.mealType ?? null,
+          ...(input.locationContext ? { locationContext: input.locationContext } : {}),
         },
       },
     });
@@ -281,7 +282,10 @@ export class ConversationsService {
         role: 'USER',
         contentType: 'TEXT',
         content: latestUserText,
-        metadata: { action: 'CHAT' },
+        metadata: {
+          action: 'CHAT',
+          ...(input.locationContext ? { locationContext: input.locationContext } : {}),
+        },
       },
     });
 
@@ -307,6 +311,7 @@ export class ConversationsService {
           content: latestUserText,
           conversationId,
           timezoneOffsetMinutes,
+          ...(input.locationContext ? { locationContext: input.locationContext } : {}),
         } as Prisma.InputJsonValue,
         conversationId,
         triggerMessageId: userMessage.id,
@@ -502,6 +507,7 @@ export class ConversationsService {
           content: input.content,
           conversationId,
           timezoneOffsetMinutes,
+          ...(input.locationContext ? { locationContext: input.locationContext } : {}),
         },
       };
     }

@@ -135,10 +135,10 @@ const body: CreateCoachMessageInput = {
 
 ## 6. Acceptance criteria
 
-- [ ] 授权后：发 CHAT（含「天气」）→ 服务端 `AiRun.inputJson` 含 `locationContext.lat/lng`
-- [ ] 拒绝权限：CHAT 仍成功，无 `locationContext`
-- [ ] `pnpm typecheck` 通过
-- [ ] Android 模拟器手测通过（设置模拟坐标）
+- [x] 授权后：发 CHAT（含「天气」）→ 服务端 `AiRun.inputJson` 含 `locationContext.lat/lng`
+- [x] 拒绝权限：CHAT 仍成功，无 `locationContext`
+- [x] `pnpm typecheck` 通过
+- [x] Android 模拟器手测通过（设置模拟坐标）
 
 ---
 
