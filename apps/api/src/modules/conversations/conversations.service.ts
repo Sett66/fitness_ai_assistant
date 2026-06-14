@@ -4,9 +4,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { type Queue } from 'bullmq';
 import type {
   AiTaskType,
+  CoachChatOutput,
   CoachMessageAcceptedResponse,
+  CoachToolTraceItem,
   ConversationWithMessages,
   CreateCoachMessageInput,
+  LocationContext,
   Message,
 } from '@fitness/shared';
 import {
@@ -26,6 +29,7 @@ import type { JwtUserPayload } from '../../common/decorators/current-user.decora
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { AgentConfigService } from '../../config/agent-config.service';
+import { CoachAgentRunner } from '../../domain/agent/coach-agent.runner';
 import { AgentMemoryService } from '../../domain/agent-memory.service';
 import { UserContextService } from '../../domain/user-context.service';
 import { AI_TASK_QUEUE_NAME, type AiTaskJobPayload } from '../../infra/queue/queue.constants';
@@ -46,6 +50,7 @@ export class ConversationsService {
     private readonly userContext: UserContextService,
     private readonly agentMemory: AgentMemoryService,
     private readonly agentConfig: AgentConfigService,
+    private readonly coachAgentRunner: CoachAgentRunner,
     @InjectQueue(AI_TASK_QUEUE_NAME) private readonly queue: Queue<AiTaskJobPayload>,
   ) {}
 
@@ -330,16 +335,30 @@ export class ConversationsService {
       pendingAssistantMessageId: pendingAssistant.id,
     });
 
-    if (this.agentConfig.isCoachAgentEnabled()) {
-      this.logger.debug(
-        'COACH_AGENT_ENABLED=true，本轮仍走 runCoachChatStream（LangGraph 切换见 AGENT-06）',
-      );
-    }
-
     try {
       const history = await this.loadCoachChatHistory(conversationId);
       const userCtx = await this.userContext.build(user.userId, { timezoneOffsetMinutes });
       const memoryFacts = await this.agentMemory.listForPrompt(user.userId);
+
+      if (this.agentConfig.isCoachAgentEnabled()) {
+        await this.runCoachAgentStreamPath({
+          user,
+          conversationId,
+          latestUserText,
+          history,
+          userCtx,
+          memoryFacts,
+          timezoneOffsetMinutes,
+          locationContext: input.locationContext,
+          pendingAssistantId: pendingAssistant.id,
+          userMessageId: userMessage.id,
+          runId: run.id,
+          startedAt,
+          model,
+          emit,
+        });
+        return;
+      }
 
       const stream = runCoachChatStream(
         { latestUserText, history, userContext: userCtx, memoryFacts },
@@ -355,38 +374,15 @@ export class ConversationsService {
       const finalResult = result.value;
       const suggestedActions = finalResult.suggestedActions ?? [];
 
-      await this.prisma.client.message.update({
-        where: { id: pendingAssistant.id },
-        data: {
-          contentType: 'TEXT',
-          content: finalResult.reply,
-          metadata: {
-            taskStatus: 'DONE',
-            taskType: 'COACH_CHAT',
-            suggestedActions,
-          } as Prisma.InputJsonValue,
-          aiRunId: run.id,
-        },
-      });
-
-      await this.prisma.client.aiRun.update({
-        where: { id: run.id },
-        data: {
-          status: 'DONE',
-          outputJson: {
-            reply: finalResult.reply,
-            suggestedActions,
-          } as Prisma.InputJsonValue,
-          tokenIn: finalResult.usage.tokenIn,
-          tokenOut: finalResult.usage.tokenOut,
-          costCny: finalResult.usage.costCny,
-          durationMs: Date.now() - startedAt,
-        },
-      });
-
-      await this.prisma.client.conversation.update({
-        where: { id: conversationId },
-        data: { updatedAt: new Date() },
+      await this.persistCoachChatSuccess({
+        pendingAssistantId: pendingAssistant.id,
+        userMessageId: userMessage.id,
+        runId: run.id,
+        conversationId,
+        reply: finalResult.reply,
+        suggestedActions,
+        usage: finalResult.usage,
+        startedAt,
       });
 
       emit('done', {
@@ -396,17 +392,13 @@ export class ConversationsService {
         usage: finalResult.usage,
       });
 
-      void this.agentMemory
-        .enqueueMemoryExtract(user.userId, {
-          conversationId,
-          userMessageId: userMessage.id,
-          assistantMessageId: pendingAssistant.id,
-          latestUserText,
-          assistantReply: finalResult.reply,
-        })
-        .catch((err: unknown) => {
-          this.logger.warn(`记忆抽取入队失败: ${this.toStreamErrorMessage(err)}`);
-        });
+      void this.enqueueMemoryExtractSafely(user, {
+        conversationId,
+        userMessageId: userMessage.id,
+        assistantMessageId: pendingAssistant.id,
+        latestUserText,
+        assistantReply: finalResult.reply,
+      });
     } catch (err: unknown) {
       const message = this.toStreamErrorMessage(err);
       const code =
@@ -432,6 +424,149 @@ export class ConversationsService {
 
       emit('error', { message, code });
     }
+  }
+
+  private async runCoachAgentStreamPath(params: {
+    user: JwtUserPayload;
+    conversationId: string;
+    latestUserText: string;
+    history: Awaited<ReturnType<ConversationsService['loadCoachChatHistory']>>;
+    userCtx: Awaited<ReturnType<UserContextService['build']>>;
+    memoryFacts: Awaited<ReturnType<AgentMemoryService['listForPrompt']>>;
+    timezoneOffsetMinutes: number;
+    locationContext?: LocationContext;
+    pendingAssistantId: string;
+    userMessageId: string;
+    runId: string;
+    startedAt: number;
+    model: string;
+    emit: SseEmitFn;
+  }): Promise<void> {
+    const runner = this.coachAgentRunner.run(
+      params.user.userId,
+      {
+        latestUserText: params.latestUserText,
+        history: params.history,
+        userContext: params.userCtx,
+        memoryFacts: params.memoryFacts,
+        locationContext: params.locationContext,
+        timezoneOffsetMinutes: params.timezoneOffsetMinutes,
+        conversationId: params.conversationId,
+      },
+      { model: params.model },
+    );
+
+    let finalReply = '';
+    let suggestedActions: CoachChatOutput['suggestedActions'] = [];
+    let usage = { tokenIn: 0, tokenOut: 0, costCny: 0 };
+    let toolTrace: CoachToolTraceItem[] = [];
+
+    for await (const event of runner) {
+      if (event.type === 'delta') {
+        finalReply = event.text;
+        params.emit('delta', { text: event.text });
+      } else if (event.type === 'tool_start') {
+        params.emit('tool_start', { name: event.name, label: event.label });
+      } else if (event.type === 'tool_end') {
+        params.emit('tool_end', { name: event.name, ok: event.ok, summary: event.summary });
+      } else if (event.type === 'done') {
+        finalReply = event.reply;
+        suggestedActions = event.suggestedActions ?? [];
+        usage = event.usage;
+        toolTrace = event.toolTrace;
+      }
+    }
+
+    await this.persistCoachChatSuccess({
+      pendingAssistantId: params.pendingAssistantId,
+      userMessageId: params.userMessageId,
+      runId: params.runId,
+      conversationId: params.conversationId,
+      reply: finalReply,
+      suggestedActions,
+      usage,
+      startedAt: params.startedAt,
+      toolTrace,
+    });
+
+    params.emit('done', {
+      assistantMessageId: params.pendingAssistantId,
+      userMessageId: params.userMessageId,
+      suggestedActions,
+      toolTrace,
+      usage,
+    });
+
+    void this.enqueueMemoryExtractSafely(params.user, {
+      conversationId: params.conversationId,
+      userMessageId: params.userMessageId,
+      assistantMessageId: params.pendingAssistantId,
+      latestUserText: params.latestUserText,
+      assistantReply: finalReply,
+    });
+  }
+
+  private async persistCoachChatSuccess(params: {
+    pendingAssistantId: string;
+    userMessageId: string;
+    runId: string;
+    conversationId: string;
+    reply: string;
+    suggestedActions: unknown;
+    usage: { tokenIn: number; tokenOut: number; costCny: number };
+    startedAt: number;
+    toolTrace?: CoachToolTraceItem[];
+  }): Promise<void> {
+    await this.prisma.client.message.update({
+      where: { id: params.pendingAssistantId },
+      data: {
+        contentType: 'TEXT',
+        content: params.reply,
+        metadata: {
+          taskStatus: 'DONE',
+          taskType: 'COACH_CHAT',
+          suggestedActions: params.suggestedActions,
+          ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
+        } as Prisma.InputJsonValue,
+        aiRunId: params.runId,
+      },
+    });
+
+    await this.prisma.client.aiRun.update({
+      where: { id: params.runId },
+      data: {
+        status: 'DONE',
+        outputJson: {
+          reply: params.reply,
+          suggestedActions: params.suggestedActions,
+          ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
+        } as Prisma.InputJsonValue,
+        tokenIn: params.usage.tokenIn,
+        tokenOut: params.usage.tokenOut,
+        costCny: params.usage.costCny,
+        durationMs: Date.now() - params.startedAt,
+      },
+    });
+
+    await this.prisma.client.conversation.update({
+      where: { id: params.conversationId },
+      data: { updatedAt: new Date() },
+    });
+  }
+
+  private enqueueMemoryExtractSafely(
+    user: JwtUserPayload,
+    input: {
+      conversationId: string;
+      userMessageId: string;
+      assistantMessageId: string;
+      latestUserText: string;
+      assistantReply: string;
+    },
+  ): void {
+    void this.agentMemory.enqueueMemoryExtract(user.userId, input).catch((err: unknown) => {
+      this.logger.warn(`记忆抽取入队失败: ${this.toStreamErrorMessage(err)}`);
+    });
   }
 
   private async loadCoachChatHistory(conversationId: string) {

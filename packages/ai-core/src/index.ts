@@ -10,7 +10,21 @@ export { parseJsonWithSchema } from './parsers/json-zod';
 export { runMealPlanGenerator, runWorkoutPlanGenerator } from './graphs/plan-generator';
 export { runCoachChat } from './chains/coach-chat';
 export { runCoachChatStream } from './chains/coach-chat/stream';
+export { inferSuggestedActions } from './chains/coach-chat/infer-suggested-actions';
 export { buildCoachSystemPrompt } from './chains/coach-chat/build-system-prompt';
+export {
+  createCoachAgentGraph,
+  runCoachAgentStream,
+  MAX_TOOL_ITERATIONS,
+} from './graphs/coach-agent';
+export type {
+  CoachAgentRunnerEvent,
+  CoachAgentStreamDoneEvent,
+  CreateCoachAgentGraphOptions,
+  InvokeToolFn,
+  RunCoachAgentStreamInput,
+  RunCoachAgentStreamOptions,
+} from './graphs/coach-agent';
 export { formatMemoryBlock } from './memory/format-memory-block';
 export { extractMemoryFacts } from './memory/extract-memory-facts';
 export type {
