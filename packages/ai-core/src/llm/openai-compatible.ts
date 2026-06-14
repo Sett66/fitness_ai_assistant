@@ -1,4 +1,10 @@
 import { AiCoreError } from '../errors';
+import type {
+  AgentChatMessage,
+  ChatWithToolsInput,
+  ChatWithToolsOutput,
+  ToolCall,
+} from './tool-types';
 import type { JsonChatClient, JsonChatInput, JsonChatOutput, LlmUsage } from './types';
 import type { TextChatInput, TextStreamChunk } from './stream-types';
 
@@ -12,7 +18,12 @@ type OpenAiCompatibleOptions = {
 };
 
 type ChatCompletionResponse = {
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+      tool_calls?: ToolCall[];
+    };
+  }>;
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -31,6 +42,53 @@ type StreamCompletionChunk = {
 
 export class OpenAiCompatibleJsonClient implements JsonChatClient {
   constructor(private readonly options: OpenAiCompatibleOptions) {}
+
+  async chatWithTools(input: ChatWithToolsInput): Promise<ChatWithToolsOutput> {
+    if (!this.options.apiKey) {
+      throw new AiCoreError(
+        'AI_CORE_MISSING_API_KEY',
+        `${this.options.providerName} API Key 未配置`,
+      );
+    }
+
+    const response = await fetch(`${this.options.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.options.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: input.model || this.options.defaultModel,
+        messages: input.messages,
+        tools: input.tools,
+        tool_choice: 'auto',
+        temperature: input.temperature ?? 0.3,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as ChatCompletionResponse;
+    if (!response.ok) {
+      throw new AiCoreError(
+        'AI_CORE_PROVIDER_ERROR',
+        `${this.options.providerName} 工具调用失败：${payload.error?.message ?? response.statusText}`,
+        payload,
+      );
+    }
+
+    const message = payload.choices?.[0]?.message;
+    if (!message) {
+      throw new AiCoreError('AI_CORE_PROVIDER_ERROR', `${this.options.providerName} 返回内容为空`);
+    }
+
+    return {
+      message: {
+        role: 'assistant',
+        content: message.content ?? null,
+        tool_calls: message.tool_calls,
+      },
+      usage: this.toUsage(payload),
+    };
+  }
 
   async generateJson(input: JsonChatInput): Promise<JsonChatOutput> {
     if (!this.options.apiKey) {
@@ -90,7 +148,7 @@ export class OpenAiCompatibleJsonClient implements JsonChatClient {
       },
       body: JSON.stringify({
         model: input.model || this.options.defaultModel,
-        messages: input.messages,
+        messages: input.messages as AgentChatMessage[],
         temperature: input.temperature ?? 0.7,
         stream: true,
         stream_options: { include_usage: true },

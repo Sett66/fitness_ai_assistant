@@ -21,11 +21,13 @@
   },
   "devDependencies": {
     "@fitness/config": "workspace:*",
+    "@react-navigation/native": "^7.1.6",
     "@types/react": "^19.2.0",
     "lucide-react-native": "^1.16.0",
     "nativewind": "^4.1.23",
     "react": "19.2.0",
     "react-native": "0.83.9",
+    "react-native-safe-area-context": "^5.5.2",
     "react-native-svg": "^15.11.2",
     "rimraf": "^6.0.1",
     "typescript": "~5.5.4"

@@ -1,8 +1,9 @@
+import type { AgentChatMessage } from './tool-types';
 import type { ChatMessage, JsonChatInput, JsonChatOutput, LlmUsage } from './types';
 
 export type TextChatInput = {
   model: string;
-  messages: ChatMessage[];
+  messages: AgentChatMessage[] | ChatMessage[];
   temperature?: number;
 };
 

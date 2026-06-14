@@ -1,21 +1,4 @@
-import { mmkv } from '../../storage/mmkv';
 import { shouldAttachLocation } from './shouldAttachLocation';
-
-jest.mock('../../storage/mmkv', () => ({
-  mmkv: {
-    getBoolean: jest.fn(),
-    set: jest.fn(),
-    delete: jest.fn(),
-    getString: jest.fn(),
-  },
-}));
-
-const getBooleanMock = mmkv.getBoolean as jest.Mock;
-
-beforeEach(() => {
-  jest.clearAllMocks();
-  getBooleanMock.mockReturnValue(false);
-});
 
 describe('shouldAttachLocation', () => {
   it('returns false for empty text', () => {
@@ -23,9 +6,9 @@ describe('shouldAttachLocation', () => {
     expect(shouldAttachLocation('   ')).toBe(false);
   });
 
-  it('returns true when user has opted in regardless of text', () => {
-    getBooleanMock.mockReturnValue(true);
-    expect(shouldAttachLocation('随便聊聊')).toBe(true);
+  it('returns false when user has opted in but text is not location-related', () => {
+    expect(shouldAttachLocation('随便聊聊')).toBe(false);
+    expect(shouldAttachLocation('我今日还能吃多少碳水')).toBe(false);
   });
 
   it.each([
