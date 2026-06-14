@@ -431,6 +431,9 @@ importers:
       "@fitness/config":
         specifier: workspace:*
         version: link:../config
+      "@react-navigation/native":
+        specifier: ^7.1.6
+        version: 7.2.4(react-native@0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)
       "@types/react":
         specifier: ^19.2.0
         version: 19.2.15
