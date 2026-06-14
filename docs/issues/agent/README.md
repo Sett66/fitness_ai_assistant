@@ -41,7 +41,7 @@ docs/ARCHITECTURE.md
 | AGENT-02        | [AGENT-02.md](./AGENT-02.md)               | W1   | AFK  | 01         | ✅ Done |
 | AGENT-03        | [AGENT-03.md](./AGENT-03.md)               | W1   | AFK  | 01, 02     |         |
 | AGENT-04        | [AGENT-04.md](./AGENT-04.md)               | W1   | AFK  | 02         |         |
-| AGENT-05        | [AGENT-05.md](./AGENT-05.md)               | W1   | AFK  | 01, 02     |         |
+| AGENT-05        | [AGENT-05.md](./AGENT-05.md)               | W1   | AFK  | 01, 02     | ✅ Done |
 | AGENT-06        | [AGENT-06.md](./AGENT-06.md)               | W2   | AFK  | 02, 05     |         |
 | AGENT-07        | [AGENT-07.md](./AGENT-07.md)               | W3   | AFK  | 03, 04, 06 |         |
 | AGENT-08        | [AGENT-08.md](./AGENT-08.md)               | W3   | AFK  | 06         |         |

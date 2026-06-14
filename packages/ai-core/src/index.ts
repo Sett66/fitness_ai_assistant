@@ -10,6 +10,15 @@ export { parseJsonWithSchema } from './parsers/json-zod';
 export { runMealPlanGenerator, runWorkoutPlanGenerator } from './graphs/plan-generator';
 export { runCoachChat } from './chains/coach-chat';
 export { runCoachChatStream } from './chains/coach-chat/stream';
+export { buildCoachSystemPrompt } from './chains/coach-chat/build-system-prompt';
+export { formatMemoryBlock } from './memory/format-memory-block';
+export { extractMemoryFacts } from './memory/extract-memory-facts';
+export type {
+  ExtractMemoryFactsInput,
+  ExtractMemoryFactsResult,
+} from './memory/extract-memory-facts';
+export type { AgentMemoryPatch } from '@fitness/shared';
+export type { BuildCoachSystemPromptInput } from './chains/coach-chat/build-system-prompt';
 export type { CoachChatOutput, RunCoachChatInput } from './chains/coach-chat';
 export type { CoachChatStreamChunk, CoachChatStreamResult } from './chains/coach-chat/stream';
 export type {

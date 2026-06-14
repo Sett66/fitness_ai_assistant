@@ -160,11 +160,48 @@ async function seedOfficialFoods(): Promise<void> {
   console.log(`  + 插入官方食物 ${createdFd.count} 条`);
 }
 
+async function seedDemoAgentMemory(): Promise<void> {
+  const demoUser = await prisma.user.findFirst({
+    where: { phone: '13800138000', deletedAt: null },
+    select: { id: true },
+  });
+  if (!demoUser) {
+    console.log('  - demo 用户不存在，跳过长期记忆 seed');
+    return;
+  }
+
+  const seeds = [
+    { key: 'injury_knee', value: '避免深蹲类动作', confidence: 0.9 },
+    { key: 'travel_city', value: '常出差上海', confidence: 0.85 },
+  ];
+
+  let written = 0;
+  for (const item of seeds) {
+    await prisma.userAgentMemory.upsert({
+      where: { userId_key: { userId: demoUser.id, key: item.key } },
+      create: {
+        userId: demoUser.id,
+        key: item.key,
+        value: item.value,
+        confidence: item.confidence,
+      },
+      update: {
+        value: item.value,
+        confidence: item.confidence,
+      },
+    });
+    written += 1;
+  }
+
+  console.log(`  + demo 用户长期记忆 ${written} 条`);
+}
+
 async function main(): Promise<void> {
   console.log('seed 开始');
 
   await seedPresetExercises();
   await seedOfficialFoods();
+  await seedDemoAgentMemory();
 
   console.log('seed 完成');
 }

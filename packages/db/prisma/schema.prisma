@@ -123,6 +123,7 @@ enum AiTaskType {
   PLAN_GENERATE_MEAL
   MEAL_VISION
   COACH_CHAT
+  MEMORY_EXTRACT
   MESOCYCLE_REVIEW
   REPORT_ANALYZE
 }
@@ -174,6 +175,7 @@ model User {
   mealLogs        MealLog[]
   media           Media[]
   aiRuns          AiRun[]
+  agentMemories   UserAgentMemory[]
   conversations   Conversation[]
   posts           Post[]
   comments        Comment[]
@@ -641,4 +643,23 @@ model PartnerProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([city, goal, level])
+}
+
+// =================================================================
+// Coach Agent · 长期记忆（ADR 0008 §3）
+// =================================================================
+
+model UserAgentMemory {
+  userId          String
+  key             String   @db.VarChar(64)
+  value           String   @db.VarChar(512)
+  confidence      Float    @default(0.8)
+  sourceMessageId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, key])
+  @@index([userId, updatedAt])
 }

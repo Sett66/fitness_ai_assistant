@@ -7,6 +7,7 @@
 | **Blocked by** | [AGENT-01](./AGENT-01.md), [AGENT-02](./AGENT-02.md) |
 | **Blocks**     | AGENT-06                                             |
 | **估时**       | 2–3 天                                               |
+| **状态**       | ✅ Done（2026-06-14）                                |
 
 ---
 
@@ -115,17 +116,23 @@ AGENT-06 改为 Agent Runner 同一拼接逻辑。**勿重复实现两处**—�
 
 #### 处理逻辑 `extractMemoryFacts`
 
-- 调用 DeepSeek **单次** `generateJson`，prompt 要求输出 `{ facts: AgentMemoryFact[] }`，最多 3 条/轮
-- 仅当 confidence ≥ 0.6 时 upsert
+- 调用 DeepSeek **单次** `generateJson`，prompt 要求输出 `{ patches: AgentMemoryPatch[] }`，最多 3 条/轮
+- patch：`action: upsert | remove`；`confidence ≥ 0.6` 时执行（`AgentMemoryService.applyPatches`）
+- 用户明确否定旧记忆 → `remove`；修正/补充 → 同 key `upsert`；模糊表述（如「好像恢复了」）→ 通常 `upsert` 更新 value
 - 失败：打日志，**不**改 Assistant Message 状态
+
+#### 队列实现（已落地）
+
+- 复用 `AI_TASK_QUEUE`，job 名 `memory_extract`（低优先级）
+- 创建 `AiTaskType.MEMORY_EXTRACT` 的 `AiRun` 记录，用于日限统计与审计
 
 #### 日限
 
 每用户每 day 最多抽取 N 次（如 30，与 COACH_CHAT 同量级），防刷。
 
-### 4.6 Seed（验收用）
+### 4.6 Seed（验收用，可选）
 
-在 `packages/db/prisma/seed.ts` **或** migration 后脚本，为 demo 用户写入 1–2 条记忆（可选，不破坏生产逻辑）。
+`packages/db/prisma/seed.ts` 可为 demo 用户（`13800138000`）写入示例记忆。**验收以对话抽取为准**，seed 非必须。
 
 ---
 
@@ -145,10 +152,12 @@ AGENT-06 改为 Agent Runner 同一拼接逻辑。**勿重复实现两处**—�
 
 ## 6. Acceptance criteria
 
-- [ ] migration 成功；同 `userId+key` upsert 更新 `value`
-- [ ] seed/手工插入后，Coach 回复能体现记忆（如问「我膝盖能做深蹲吗」）
-- [ ] 抽取 job 失败不影响当轮 SSE `done`
-- [ ] 无向量表、无 embedding 依赖
+- [x] migration 成功；同 `userId+key` upsert 更新 `value`
+- [x] 对话抽取后 Coach 回复能体现记忆（跨会话验证：如肩膀伤病）
+- [x] 抽取 job 失败不影响当轮 SSE `done`
+- [x] 无向量表、无 embedding 依赖
+
+**验收记录（2026-06-14）**：用户对话抽取 `injury_shoulder`；新会话可读；状态变化触发 `memory_extract`（worker 日志 `upsert N / remove M`）。
 
 ---
 
@@ -174,8 +183,10 @@ pnpm --filter api start:api
 
 ## 9. 交付物 / 下游
 
-| 交付物                             | 消费者                             |
-| ---------------------------------- | ---------------------------------- |
-| `AgentMemoryService.listForPrompt` | AGENT-06 system prompt             |
-| `formatMemoryBlock`                | ai-core Graph                      |
-| extract job                        | 运维观察 `ai_runs` 外的新 job 日志 |
+| 交付物                             | 消费者                              |
+| ---------------------------------- | ----------------------------------- |
+| `AgentMemoryService.listForPrompt` | AGENT-06 system prompt              |
+| `AgentMemoryService.applyPatches`  | extract job                         |
+| `formatMemoryBlock`                | ai-core Graph                       |
+| `buildCoachSystemPrompt`           | 流式 / Agent Runner 共享            |
+| extract job（`memory_extract`）    | Worker 日志、`AiRun` MEMORY_EXTRACT |

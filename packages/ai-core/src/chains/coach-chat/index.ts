@@ -1,8 +1,7 @@
 import { LLM_MODELS } from '@fitness/shared';
 import { createDeepSeekClient } from '../../llm/deepseek';
 import type { ChatMessage, JsonChatClient, LlmUsage } from '../../llm/types';
-import { COACH_SYSTEM_PROMPT } from '../../prompts/coach-system';
-import { buildCoachContextBlock } from './context';
+import { buildCoachSystemPrompt } from './build-system-prompt';
 import { parseCoachChatOutput } from './parse-coach-output';
 import { RunCoachChatInputSchema, type CoachChatOutput, type RunCoachChatInput } from './schema';
 
@@ -17,12 +16,15 @@ export const runCoachChat = async (
   options?: { model?: string; client?: JsonChatClient },
 ): Promise<CoachChatResult> => {
   const parsed = RunCoachChatInputSchema.parse(input);
-  const contextBlock = buildCoachContextBlock(parsed.userContext);
 
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${COACH_SYSTEM_PROMPT}\n\n【用户上下文】\n${contextBlock}`,
+      content: buildCoachSystemPrompt({
+        userContext: parsed.userContext,
+        memoryFacts: parsed.memoryFacts,
+        mode: 'json',
+      }),
     },
     ...parsed.history.map((item) => ({
       role: (item.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',

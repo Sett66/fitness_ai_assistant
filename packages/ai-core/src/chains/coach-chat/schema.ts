@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CoachChatOutputSchema, UserAiContextSchema } from '@fitness/shared';
+import { AgentMemoryFactSchema, CoachChatOutputSchema, UserAiContextSchema } from '@fitness/shared';
 
 export const CoachChatHistoryItemSchema = z.object({
   role: z.enum(['USER', 'ASSISTANT']),
@@ -11,6 +11,7 @@ export const RunCoachChatInputSchema = z.object({
   latestUserText: z.string().min(1).max(4000),
   history: z.array(CoachChatHistoryItemSchema).max(20),
   userContext: UserAiContextSchema,
+  memoryFacts: z.array(AgentMemoryFactSchema).max(20).optional(),
 });
 export type RunCoachChatInput = z.infer<typeof RunCoachChatInputSchema>;
 

@@ -26,6 +26,7 @@ import type { JwtUserPayload } from '../../common/decorators/current-user.decora
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { AgentConfigService } from '../../config/agent-config.service';
+import { AgentMemoryService } from '../../domain/agent-memory.service';
 import { UserContextService } from '../../domain/user-context.service';
 import { AI_TASK_QUEUE_NAME, type AiTaskJobPayload } from '../../infra/queue/queue.constants';
 import { PrismaService } from '../../infra/prisma/prisma.service';
@@ -43,6 +44,7 @@ export class ConversationsService {
     private readonly prisma: PrismaService,
     private readonly mealLogs: MealLogsService,
     private readonly userContext: UserContextService,
+    private readonly agentMemory: AgentMemoryService,
     private readonly agentConfig: AgentConfigService,
     @InjectQueue(AI_TASK_QUEUE_NAME) private readonly queue: Queue<AiTaskJobPayload>,
   ) {}
@@ -337,9 +339,10 @@ export class ConversationsService {
     try {
       const history = await this.loadCoachChatHistory(conversationId);
       const userCtx = await this.userContext.build(user.userId, { timezoneOffsetMinutes });
+      const memoryFacts = await this.agentMemory.listForPrompt(user.userId);
 
       const stream = runCoachChatStream(
-        { latestUserText, history, userContext: userCtx },
+        { latestUserText, history, userContext: userCtx, memoryFacts },
         { model },
       );
 
@@ -392,6 +395,18 @@ export class ConversationsService {
         suggestedActions,
         usage: finalResult.usage,
       });
+
+      void this.agentMemory
+        .enqueueMemoryExtract(user.userId, {
+          conversationId,
+          userMessageId: userMessage.id,
+          assistantMessageId: pendingAssistant.id,
+          latestUserText,
+          assistantReply: finalResult.reply,
+        })
+        .catch((err: unknown) => {
+          this.logger.warn(`记忆抽取入队失败: ${this.toStreamErrorMessage(err)}`);
+        });
     } catch (err: unknown) {
       const message = this.toStreamErrorMessage(err);
       const code =

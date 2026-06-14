@@ -3,11 +3,8 @@ import { mergeLlmUsage } from '../meal-vision/advice';
 import { createDeepSeekClient } from '../../llm/deepseek';
 import type { OpenAiCompatibleJsonClient } from '../../llm/openai-compatible';
 import type { ChatMessage, LlmUsage } from '../../llm/types';
-import {
-  COACH_STREAM_SYSTEM_PROMPT,
-  COACH_SUGGESTED_ACTIONS_PROMPT,
-} from '../../prompts/coach-system';
-import { buildCoachContextBlock } from './context';
+import { COACH_SUGGESTED_ACTIONS_PROMPT } from '../../prompts/coach-system';
+import { buildCoachSystemPrompt } from './build-system-prompt';
 import { RunCoachChatInputSchema, type CoachChatOutput, type RunCoachChatInput } from './schema';
 
 export type CoachChatStreamChunk = {
@@ -54,14 +51,17 @@ export async function* runCoachChatStream(
   options?: { model?: string; client?: OpenAiCompatibleJsonClient },
 ): AsyncGenerator<CoachChatStreamChunk, CoachChatStreamResult> {
   const parsed = RunCoachChatInputSchema.parse(input);
-  const contextBlock = buildCoachContextBlock(parsed.userContext);
   const client = options?.client ?? createDeepSeekClient();
   const model = options?.model ?? LLM_MODELS.DEEPSEEK_V4_PRO;
 
   const messages: ChatMessage[] = [
     {
       role: 'system',
-      content: `${COACH_STREAM_SYSTEM_PROMPT}\n\n【用户上下文】\n${contextBlock}`,
+      content: buildCoachSystemPrompt({
+        userContext: parsed.userContext,
+        memoryFacts: parsed.memoryFacts,
+        mode: 'stream',
+      }),
     },
     ...parsed.history.map((item) => ({
       role: (item.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',

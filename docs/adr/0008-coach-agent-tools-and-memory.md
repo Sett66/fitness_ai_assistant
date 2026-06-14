@@ -59,7 +59,7 @@ M4 已交付 Coach Tab：多轮对话、`POST /v1/conversations/:id/messages/str
 | **情景记忆** | `UserAiContext`（`UserContextService.build`）                | 每请求注入 system prompt                                                                                            |
 | **长期记忆** | 稳定事实（伤病、偏好、常出差城市等）                         | 表 `UserAgentMemory`：`userId`, `key`, `value`, `confidence`, `sourceMessageId?`, `updatedAt`；唯一 `(userId, key)` |
 
-长期记忆**写入**：`COACH_CHAT` 成功结束后**异步** job 调用 `extractMemoryFacts` → upsert（失败不影响当轮 `DONE`）。
+长期记忆**写入**：`COACH_CHAT` 成功结束后**异步** job（`memory_extract`）调用 `extractMemoryFacts` → 输出 `AgentMemoryPatch[]`（`upsert` / `remove`，`confidence ≥ 0.6`）→ `applyPatches`（失败不影响当轮 `DONE`）。
 
 长期记忆**读取**：注入 system prompt「【长期记忆】」块，最多 20 条，按 `updatedAt` 降序。
 

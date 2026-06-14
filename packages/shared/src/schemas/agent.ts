@@ -31,13 +31,32 @@ export const CoachToolTraceItemSchema = z.object({
 });
 export type CoachToolTraceItem = z.infer<typeof CoachToolTraceItemSchema>;
 
-/** 长期记忆事实（供 AGENT-05 写入 UserAgentMemory） */
+/** 长期记忆事实（读取 / 注入 prompt） */
 export const AgentMemoryFactSchema = z.object({
   key: z.string().max(64),
   value: z.string().max(512),
   confidence: z.number().min(0).max(1).optional(),
 });
 export type AgentMemoryFact = z.infer<typeof AgentMemoryFactSchema>;
+
+/** 长期记忆变更（抽取 job 输出：新增、更新或删除） */
+export const AgentMemoryPatchSchema = z
+  .object({
+    key: z.string().max(64),
+    action: z.enum(['upsert', 'remove']),
+    value: z.string().max(512).optional(),
+    confidence: z.number().min(0).max(1).optional(),
+  })
+  .superRefine((patch, ctx) => {
+    if (patch.action === 'upsert' && !patch.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'upsert 必须提供 value',
+        path: ['value'],
+      });
+    }
+  });
+export type AgentMemoryPatch = z.infer<typeof AgentMemoryPatchSchema>;
 
 export const CoachStreamToolStartEventSchema = z.object({
   name: CoachToolNameSchema,

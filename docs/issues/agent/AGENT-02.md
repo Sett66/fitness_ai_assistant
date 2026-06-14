@@ -78,13 +78,24 @@
 }
 ```
 
-#### `AgentMemoryFactSchema`（供 AGENT-05 使用，本 Issue 先定义）
+#### `AgentMemoryFactSchema`（读取 / 注入 prompt）
 
 ```ts
 {
-  key: string;    // max 64，如 "preferred_cardio"
+  key: string;    // max 64，如 "injury_shoulder"
   value: string;  // max 512
   confidence?: number; // 0..1
+}
+```
+
+#### `AgentMemoryPatchSchema`（AGENT-05 抽取 job 输出）
+
+```ts
+{
+  key: string;
+  action: 'upsert' | 'remove';
+  value?: string;       // upsert 必填
+  confidence?: number;  // ≥0.6 才执行
 }
 ```
 

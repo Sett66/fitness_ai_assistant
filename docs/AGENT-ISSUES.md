@@ -105,7 +105,7 @@ flowchart TD
 
 ---
 
-## AGENT-05 — 长期记忆：UserAgentMemory 读写
+## AGENT-05 — 长期记忆：UserAgentMemory 读写 ✅
 
 | 字段           | 值                                            |
 | -------------- | --------------------------------------------- |
@@ -114,7 +114,7 @@ flowchart TD
 | **估时**       | 2–3 天                                        |
 | **详细文档**   | [**AGENT-05.md**](./issues/agent/AGENT-05.md) |
 
-摘要：Prisma 表、异步抽取 job、prompt 注入；无向量库。
+摘要：Prisma 表、`memory_extract` 异步 job、`buildCoachSystemPrompt` 注入；patch 支持 upsert/remove；无向量库。
 
 ---
 
