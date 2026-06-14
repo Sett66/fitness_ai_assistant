@@ -28,7 +28,7 @@ import { presignRequestBody } from './media';
 
 import { queryKeys } from '../queryKeys';
 
-import { getLocationContext, shouldAttachLocation } from '../../features/location';
+import { resolveLocationContextForChat } from '../../features/location';
 
 import {
   AI_POLL_INTERVAL_MS,
@@ -109,12 +109,8 @@ export function useSendCoachChatStream() {
 
   return useMutation({
     mutationFn: async (params: { conversationId: string; content: string }) => {
-      // AGENT-04: 懒加载位置上下文
-      let locationContext: Record<string, unknown> | undefined;
-      if (shouldAttachLocation(params.content)) {
-        const ctx = await getLocationContext();
-        locationContext = ctx ?? undefined;
-      }
+      // AGENT-04: 懒加载位置上下文（含权限说明 + 系统授权）
+      const locationContext = await resolveLocationContextForChat(params.content);
 
       const body = CreateCoachMessageSchema.parse({
         action: 'CHAT',
