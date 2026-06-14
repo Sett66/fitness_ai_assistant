@@ -449,6 +449,9 @@ importers:
       react-native:
         specifier: 0.83.9
         version: 0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0)
+      react-native-safe-area-context:
+        specifier: ^5.5.2
+        version: 5.8.0(react-native@0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)
       react-native-svg:
         specifier: ^15.11.2
         version: 15.15.5(react-native@0.83.9(@babel/core@7.29.0)(@react-native-community/cli@20.0.0(typescript@5.5.4))(@react-native/metro-config@0.83.9(@babel/core@7.29.0))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)
