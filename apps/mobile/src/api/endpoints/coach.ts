@@ -9,6 +9,7 @@ import {
   CoachStreamToolStartEventSchema,
   CreateCoachMessageSchema,
   CreateConversationSchema,
+  type ConversationWithMessages,
   type CreateCoachMessageInput,
   type CreateConversationInput,
 } from '@fitness/shared';
@@ -32,6 +33,8 @@ import { queryKeys } from '../queryKeys';
 
 import { resolveLocationContextForChat } from '../../features/location';
 import { coachToolProgressLabel } from '../../features/coach/coach-tool-labels';
+import type { CoachDraftAttachment } from '../../features/coach/coach-draft-attachments';
+import { pollRunningConversationTasks } from '../../features/coach/poll-conversation-tasks';
 
 import {
   AI_POLL_INTERVAL_MS,
@@ -111,39 +114,52 @@ export function useSendCoachChatStream() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { conversationId: string; content: string }) => {
-      // AGENT-04: 懒加载位置上下文（含权限说明 + 系统授权）
+    mutationFn: async (params: {
+      conversationId: string;
+      content: string;
+      draftImages?: CoachDraftAttachment[];
+    }) => {
+      let imageObjectKeys: string[] | undefined;
+      if (params.draftImages?.length) {
+        imageObjectKeys = await Promise.all(
+          params.draftImages.map((asset) =>
+            uploadMealPhotoForCoach(asset.uri, asset.mime, asset.sizeBytes),
+          ),
+        );
+      }
+
       const locationContext = await resolveLocationContextForChat(params.content);
 
       const body = CreateCoachMessageSchema.parse({
         action: 'CHAT',
-
-        content: params.content,
-
+        content: params.content.trim() || undefined,
+        imageObjectKeys,
         timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES,
-
         locationContext,
       });
 
       const streamStore = useCoachStreamStore.getState();
-
       streamStore.reset();
+
+      const displayUserContent =
+        params.content.trim() ||
+        (params.draftImages?.length === 1
+          ? '[图片]'
+          : `[${params.draftImages?.length ?? 0} 张图片]`);
 
       await apiStreamSSE(
         `/conversations/${params.conversationId}/messages/stream`,
-
         body,
-
         (event, data) => {
           if (event === 'accepted') {
             const parsed = CoachStreamAcceptedEventSchema.parse(data);
 
             streamStore.startStream({
               userMessageId: parsed.userMessageId,
-
-              userContent: params.content,
-
+              userContent: displayUserContent,
               assistantMessageId: parsed.pendingAssistantMessageId,
+              userImageObjectKeys: imageObjectKeys,
+              userImagePreviewUris: params.draftImages?.map((asset) => asset.uri),
             });
           } else if (event === 'delta') {
             const parsed = CoachStreamDeltaEventSchema.parse(data);
@@ -182,11 +198,18 @@ export function useSendCoachChatStream() {
         queryKey: queryKeys.coachConversation(variables.conversationId),
       });
       useCoachStreamStore.getState().reset();
-      void qc.invalidateQueries({ queryKey: queryKeys.coachConversations });
-      void qc.invalidateQueries({ queryKey: queryKeys.mealLogs() });
-      void qc.invalidateQueries({ queryKey: queryKeys.plans('WORKOUT') });
-      void qc.invalidateQueries({ queryKey: queryKeys.plans('MEAL') });
-      void qc.invalidateQueries({ queryKey: ['daily-summary'] });
+
+      const conversation = qc.getQueryData<ConversationWithMessages>(
+        queryKeys.coachConversation(variables.conversationId),
+      );
+
+      try {
+        await pollRunningConversationTasks(conversation?.messages ?? []);
+      } catch {
+        // 超时或失败仍刷新会话，展示服务端最新卡片/失败态
+      }
+
+      invalidateCoachQueries(qc, variables.conversationId);
     },
 
     onError: (err, variables) => {

@@ -3,14 +3,18 @@ import { Pressable, Text, View } from 'react-native';
 
 import { Button, Input, Plus } from '@fitness/ui';
 
+import type { CoachDraftAttachment } from '../coach-draft-attachments';
+import { CoachDraftAttachments } from '../coach-draft-attachments';
 import { ChatAttachmentMenu } from './ChatAttachmentMenu';
-
 type CoachQuickActionsProps = {
   onGenerateWorkout: () => void;
   onGenerateMeal: () => void;
   onMealPhoto: () => void;
   onManualMeal: () => void;
   disabled?: boolean;
+  /** 识餐任务进行中时禁用；与 Alex 流式回复无关 */
+  mealPhotoDisabled?: boolean;
+  mealPhotoLoading?: boolean;
 };
 
 export function CoachQuickActions({
@@ -19,12 +23,18 @@ export function CoachQuickActions({
   onMealPhoto,
   onManualMeal,
   disabled,
+  mealPhotoDisabled,
+  mealPhotoLoading,
 }: CoachQuickActionsProps) {
   const chips = [
-    { label: '训练计划', onPress: onGenerateWorkout },
-    { label: '饮食计划', onPress: onGenerateMeal },
-    { label: '拍餐识别', onPress: onMealPhoto },
-    { label: '手动记餐', onPress: onManualMeal },
+    { label: '训练计划', onPress: onGenerateWorkout, disabled: disabled ?? false },
+    { label: '饮食计划', onPress: onGenerateMeal, disabled: disabled ?? false },
+    {
+      label: mealPhotoLoading ? '识别中…' : '拍餐识别',
+      onPress: onMealPhoto,
+      disabled: mealPhotoDisabled ?? disabled ?? false,
+    },
+    { label: '手动记餐', onPress: onManualMeal, disabled: disabled ?? false },
   ];
 
   return (
@@ -33,9 +43,11 @@ export function CoachQuickActions({
         {chips.map((chip) => (
           <Pressable
             key={chip.label}
-            disabled={disabled}
+            disabled={chip.disabled}
             onPress={chip.onPress}
-            className="rounded-full border border-border bg-card px-3 py-1.5"
+            className={`rounded-full border border-border bg-card px-3 py-1.5 ${
+              chip.disabled ? 'opacity-40' : ''
+            }`}
           >
             <Text className="text-sm text-foreground">{chip.label}</Text>
           </Pressable>
@@ -58,6 +70,8 @@ type ChatComposerProps = {
   /** Coach CHAT 流式生成中 */
   streaming?: boolean;
   attachmentsDisabled?: boolean;
+  draftAttachments?: CoachDraftAttachment[];
+  onRemoveDraftAttachment?: (id: string) => void;
 };
 
 export function ChatComposer({
@@ -71,11 +85,14 @@ export function ChatComposer({
   sending,
   streaming,
   attachmentsDisabled,
+  draftAttachments = [],
+  onRemoveDraftAttachment,
 }: ChatComposerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const disabled = attachmentsDisabled || sending || streaming;
   const inputDisabled = sending || streaming;
   const hasAttachments = Boolean(onPickGallery || onPickCamera || onPickFile);
+  const canSend = Boolean(value.trim()) || draftAttachments.length > 0;
 
   const toggleMenu = () => {
     if (disabled) return;
@@ -99,6 +116,10 @@ export function ChatComposer({
           onPickCamera={() => onPickCamera?.()}
           onPickFile={() => onPickFile?.()}
         />
+      ) : null}
+
+      {draftAttachments.length > 0 && onRemoveDraftAttachment ? (
+        <CoachDraftAttachments attachments={draftAttachments} onRemove={onRemoveDraftAttachment} />
       ) : null}
 
       <View className="flex-row items-end gap-2 px-4 py-3">
@@ -130,7 +151,7 @@ export function ChatComposer({
           title={streaming ? '停止' : '发送'}
           variant={streaming ? 'secondary' : 'primary'}
           loading={!streaming && sending}
-          disabled={!streaming && !value.trim()}
+          disabled={!streaming && !canSend}
           onPress={streaming ? onStop : onSend}
           className="px-4"
         />

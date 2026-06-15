@@ -21,6 +21,7 @@ export type CoachAgentRunInput = {
   locationContext?: LocationContext;
   timezoneOffsetMinutes: number;
   conversationId?: string;
+  triggerMessageId?: string;
 };
 
 @Injectable()
@@ -40,6 +41,7 @@ export class CoachAgentRunner {
         timezoneOffsetMinutes: input.timezoneOffsetMinutes,
         locationContext: input.locationContext,
         conversationId: input.conversationId,
+        triggerMessageId: input.triggerMessageId,
         sessionToolCounts,
       });
 
@@ -97,6 +99,20 @@ export class CoachAgentRunner {
         return record.message?.slice(0, 120) ?? '附近未找到健身房';
       }
       return first ? `找到 ${count} 家，最近：${first}` : `找到 ${count} 家健身房`;
+    }
+
+    if (name === 'enqueue_plan_generate' && result && typeof result === 'object') {
+      const record = result as { planType?: string; message?: string };
+      const label = record.planType === 'WORKOUT' ? '训练' : '饮食';
+      return record.message ?? `${label}计划任务已提交`;
+    }
+
+    if (name === 'enqueue_meal_vision') {
+      if (typeof result === 'string') {
+        return result.slice(0, 120);
+      }
+      const record = result as { message?: string };
+      return record.message ?? '识图任务已提交';
     }
 
     return typeof result === 'string' ? result.slice(0, 120) : '工具执行完成';

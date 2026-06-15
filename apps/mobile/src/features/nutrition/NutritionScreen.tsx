@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { Alert, FlatList, View } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -20,6 +20,7 @@ import { useCreateMealLog, useMealLogs, useMealVision } from '../../api/endpoint
 import type { RootStackParamList } from '../../app/navigation/RootNavigator';
 import { ManualMealSheet, type ManualMealSubmitInput } from './components/ManualMealSheet';
 import { mealTypeLabel } from './nutrition-labels';
+import { ensureCameraPermission, openAppSettings } from '../media/camera-permission';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -38,6 +39,17 @@ export function NutritionScreen() {
   const [manualVisible, setManualVisible] = useState(false);
 
   const pickAndAnalyze = async (fromCamera: boolean) => {
+    if (fromCamera) {
+      const permitted = await ensureCameraPermission();
+      if (!permitted) {
+        Alert.alert('需要相机权限', '拍照识别需要使用相机', [
+          { text: '取消', style: 'cancel' },
+          { text: '去设置', onPress: openAppSettings },
+        ]);
+        return;
+      }
+    }
+
     const result = fromCamera
       ? await launchCamera({ mediaType: 'photo', quality: 0.8 })
       : await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
@@ -64,15 +76,10 @@ export function NutritionScreen() {
         takenAt: new Date(),
         mealType: input.mealType,
         source: 'MANUAL',
-        totalKcal: input.kcal,
-        macros: input.macros,
         items: [
           {
             dishName: input.dishName,
             grams: input.grams,
-            kcal: input.kcal,
-            macros: input.macros,
-            sourceTag: 'USER',
             foodId: input.foodId ?? null,
           },
         ],

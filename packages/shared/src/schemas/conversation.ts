@@ -8,7 +8,7 @@ import {
 import { MealTypeSchema } from '../enums/plan';
 import { CoachToolTraceItemSchema, LocationContextSchema } from './agent';
 import { DateTimeSchema, IdSchema } from './_common';
-import { CreateMealLogSchema } from './nutrition';
+import { CreateManualMealLogSchema } from './nutrition';
 import { WorkoutPlanPreferencesSchema } from './plan';
 
 export const MessageSchema = z.object({
@@ -66,7 +66,7 @@ export const CoachActionParamsSchema = z.object({
   notes: z.string().max(2000).optional(),
   preferences: WorkoutPlanPreferencesSchema.optional(),
   saveMealLog: z.boolean().optional(),
-  manualMeal: CreateMealLogSchema.optional(),
+  manualMeal: CreateManualMealLogSchema.optional(),
 });
 export type CoachActionParams = z.infer<typeof CoachActionParamsSchema>;
 
@@ -75,6 +75,7 @@ export const CreateCoachMessageSchema = z
     content: z.string().max(4000).optional(),
     contentType: z.enum(['TEXT', 'IMAGE']).optional(),
     imageObjectKey: z.string().max(512).optional(),
+    imageObjectKeys: z.array(z.string().min(1).max(512)).max(5).optional(),
     mealType: MealTypeSchema.optional(),
     action: CoachActionSchema,
     actionParams: CoachActionParamsSchema.optional(),
@@ -82,8 +83,16 @@ export const CreateCoachMessageSchema = z
     locationContext: LocationContextSchema.optional(),
   })
   .superRefine((val, ctx) => {
-    if (val.action === 'CHAT' && (typeof val.content !== 'string' || !val.content.trim())) {
-      ctx.addIssue({ code: 'custom', message: 'CHAT 需要 content', path: ['content'] });
+    if (val.action === 'CHAT') {
+      const text = typeof val.content === 'string' ? val.content.trim() : '';
+      const imageCount = (val.imageObjectKeys?.length ?? 0) + (val.imageObjectKey ? 1 : 0);
+      if (!text && imageCount === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'CHAT 需要文字或至少一张图片',
+          path: ['content'],
+        });
+      }
     }
     if (val.action === 'MEAL_VISION' && !val.imageObjectKey) {
       ctx.addIssue({

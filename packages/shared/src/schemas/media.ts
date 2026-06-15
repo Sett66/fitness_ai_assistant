@@ -59,3 +59,22 @@ export const CompleteUploadResponseSchema = z.object({
   mediaId: IdSchema,
 });
 export type CompleteUploadResponse = z.infer<typeof CompleteUploadResponseSchema>;
+
+/** POST /v1/uploads/read-urls — 批量获取已上传对象的临时读 URL */
+export const ReadUploadUrlsRequestSchema = z.object({
+  objectKeys: z.array(z.string().min(1).max(512)).min(1).max(5),
+  /** 开发期：移动端指定 MinIO 可达地址，服务端按此 host 签发预签名读 URL */
+  clientPublicEndpoint: z.string().url().optional(),
+});
+export type ReadUploadUrlsRequest = z.infer<typeof ReadUploadUrlsRequestSchema>;
+
+export const ReadUploadUrlsResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      objectKey: z.string().min(1).max(512),
+      url: z.string().url(),
+      expiresInSec: z.number().int().positive(),
+    }),
+  ),
+});
+export type ReadUploadUrlsResponse = z.infer<typeof ReadUploadUrlsResponseSchema>;

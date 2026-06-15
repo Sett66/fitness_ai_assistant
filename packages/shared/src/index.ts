@@ -17,4 +17,5 @@ export * from './constants';
 export * from './errors';
 export * from './utils/nutrition-tdee';
 export * from './utils/strength-format';
+export * from './utils/scale-food-nutrition';
 export { errorMessagesZhCN, termsZhCN } from './i18n/zh-CN';

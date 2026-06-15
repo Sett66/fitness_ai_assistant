@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import { MealTypeSchema } from '../enums/plan';
+import { WorkoutPlanPreferencesSchema } from './plan';
+
 /** 移动端附带的 LBS 上下文（ADR 0008 §4.1） */
 export const LocationContextSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -70,3 +73,20 @@ export const CoachStreamToolEndEventSchema = z.object({
   summary: z.string().max(512).optional(),
 });
 export type CoachStreamToolEndEvent = z.infer<typeof CoachStreamToolEndEventSchema>;
+
+/** Agent 工具 enqueue_plan_generate 入参（AGENT-08） */
+export const EnqueuePlanGenerateInputSchema = z.object({
+  planType: z.enum(['WORKOUT', 'MEAL']),
+  mesocycleWeeks: z.number().int().min(1).max(16).default(4),
+  notes: z.string().max(512).optional(),
+  preferences: WorkoutPlanPreferencesSchema.optional(),
+});
+export type EnqueuePlanGenerateInput = z.infer<typeof EnqueuePlanGenerateInputSchema>;
+
+/** Agent 工具 enqueue_meal_vision 入参（AGENT-08） */
+export const EnqueueMealVisionInputSchema = z.object({
+  imageObjectKey: z.string().min(1).max(512).optional(),
+  mealType: MealTypeSchema.optional(),
+  saveMealLog: z.boolean().default(false),
+});
+export type EnqueueMealVisionInput = z.infer<typeof EnqueueMealVisionInputSchema>;

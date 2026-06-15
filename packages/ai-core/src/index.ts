@@ -2,6 +2,8 @@ export { AiCoreError } from './errors';
 export { runMealVision, runMealVisionWithAdvice } from './chains/meal-vision';
 export type { MealVisionOutput } from './chains/meal-vision';
 export { runMealVisionAdvice, mergeLlmUsage } from './chains/meal-vision/advice';
+export { describeCoachImages, buildAugmentedUserText } from './chains/coach-image-describe';
+export type { DescribeCoachImagesResult } from './chains/coach-image-describe';
 export { createDeepSeekClient } from './llm/deepseek';
 export { createJsonClientForModel } from './llm/factory';
 export { createQwenVlClient } from './llm/qwen-vl';

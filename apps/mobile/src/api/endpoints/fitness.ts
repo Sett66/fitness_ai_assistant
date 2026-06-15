@@ -1,4 +1,5 @@
 import {
+  CreateManualMealLogSchema,
   CreateMealLogSchema,
   NutritionDailySummarySchema,
   paginatedSchema,
@@ -7,7 +8,11 @@ import {
   WorkoutPlanItemResponseSchema,
   WorkoutSessionResponseSchema,
 } from '@fitness/shared';
-import type { CreateMealLogInput, CreateWorkoutSessionInput } from '@fitness/shared';
+import type {
+  CreateManualMealLogInput,
+  CreateMealLogInput,
+  CreateWorkoutSessionInput,
+} from '@fitness/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type {
@@ -150,9 +155,14 @@ export function useGenerateMealPlan() {
 export function useCreateMealLog() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: CreateMealLogInput) => {
-      const parsed = CreateMealLogSchema.parse(body);
-      const json = await apiFetch<unknown>('/meal-logs', { method: 'POST', body: parsed });
+    mutationFn: async (body: CreateMealLogInput | CreateManualMealLogInput) => {
+      const full = CreateMealLogSchema.safeParse(body);
+      if (full.success) {
+        const json = await apiFetch<unknown>('/meal-logs', { method: 'POST', body: full.data });
+        return MealLogResponseSchema.parse(json);
+      }
+      const manual = CreateManualMealLogSchema.parse(body);
+      const json = await apiFetch<unknown>('/meal-logs', { method: 'POST', body: manual });
       return MealLogResponseSchema.parse(json);
     },
     onSuccess: () => {

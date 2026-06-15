@@ -6,6 +6,7 @@ import {
   CompleteUploadRequestSchema,
   MEDIA_MAX_SIZE_BYTES,
   PresignUploadRequestSchema,
+  ReadUploadUrlsRequestSchema,
 } from '@fitness/shared';
 import type { UploadScope } from '@fitness/shared';
 import { errorMessagesZhCN } from '@fitness/shared';
@@ -17,6 +18,8 @@ import { S3StorageService } from '../../infra/storage/s3-storage.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
 const PRESIGN_TTL_SEC = 15 * 60;
+/** 聊天记录读图：较长 TTL，避免列表里缩略图很快失效 */
+const READ_URL_TTL_SEC = 60 * 60;
 
 /** scope �?URL 路径前缀 */
 const scopePrefix: Record<UploadScope, string> = {
@@ -80,6 +83,27 @@ export class UploadsService {
     });
 
     return { mediaId: media.id };
+  }
+
+  async readUrls(user: JwtUserPayload, body: unknown) {
+    const input = parseWith(ReadUploadUrlsRequestSchema, body);
+    const publicEndpoint =
+      process.env.NODE_ENV === 'development' ? input.clientPublicEndpoint : undefined;
+    const items = await Promise.all(
+      input.objectKeys.map(async (objectKey) => {
+        const segments = objectKey.split('/');
+        if (segments.length < 3 || segments[1] !== user.userId) {
+          throw new BizException('FORBIDDEN', errorMessagesZhCN.FORBIDDEN, 403);
+        }
+        const head = await this.storage.head(objectKey);
+        if (!head.exists) {
+          throw new BizException('MEDIA_NOT_FOUND', errorMessagesZhCN.MEDIA_NOT_FOUND, 404);
+        }
+        const url = await this.storage.presignGet(objectKey, READ_URL_TTL_SEC, publicEndpoint);
+        return { objectKey, url, expiresInSec: READ_URL_TTL_SEC };
+      }),
+    );
+    return { items };
   }
 }
 

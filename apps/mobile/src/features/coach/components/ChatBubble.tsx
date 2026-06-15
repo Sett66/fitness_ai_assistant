@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { Card } from '@fitness/ui';
 
 import { CoachMessageBody } from './CoachMessageBody';
+import { ChatMessageImages } from './ChatMessageImages';
 
 type SuggestedAction = {
   action: Exclude<CoachAction, 'CHAT' | 'MANUAL_MEAL_LOG'>;
@@ -58,6 +59,28 @@ function SuggestedActionChips({
   );
 }
 
+function isImagePlaceholder(content: string): boolean {
+  const text = content.trim();
+  return text === '[图片]' || text === '[餐照]' || /^\[\d+ 张图片\]$/.test(text);
+}
+
+function extractImageObjectKeys(meta: Record<string, unknown>): string[] {
+  const keys: string[] = [];
+  if (Array.isArray(meta.imageObjectKeys)) {
+    for (const key of meta.imageObjectKeys) {
+      if (typeof key === 'string' && key && !keys.includes(key)) {
+        keys.push(key);
+      }
+    }
+  }
+  if (typeof meta.imageObjectKey === 'string' && meta.imageObjectKey) {
+    if (!keys.includes(meta.imageObjectKey)) {
+      keys.unshift(meta.imageObjectKey);
+    }
+  }
+  return keys;
+}
+
 function ChatBubbleComponent({
   message,
   onOpenPlan,
@@ -69,6 +92,13 @@ function ChatBubbleComponent({
   const isUser = message.role === 'USER';
   const meta = (message.metadata ?? {}) as Record<string, unknown>;
   const isRunning = meta.taskStatus === 'RUNNING';
+  const imageObjectKeys = extractImageObjectKeys(meta);
+  const imagePreviewUris = Array.isArray(meta.imagePreviewUris)
+    ? (meta.imagePreviewUris as string[])
+    : [];
+  const hasImages = imageObjectKeys.length > 0 || imagePreviewUris.length > 0;
+  const displayContent =
+    isUser && hasImages && isImagePlaceholder(message.content) ? '' : message.content;
 
   if (message.contentType === 'PLAN_CARD') {
     const planId = typeof meta.planId === 'string' ? meta.planId : null;
@@ -111,8 +141,11 @@ function ChatBubbleComponent({
           isUser ? 'bg-accent' : isRunning ? 'bg-muted/30' : 'bg-card border border-border'
         }`}
       >
+        {isUser && hasImages ? (
+          <ChatMessageImages objectKeys={imageObjectKeys} previewUris={imagePreviewUris} />
+        ) : null}
         <CoachMessageBody
-          content={message.content}
+          content={displayContent}
           isUser={isUser}
           onLayout={onLayout}
           onLayoutStable={onLayoutStable}
