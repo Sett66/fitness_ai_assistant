@@ -33,7 +33,11 @@ import { useCoachSessionStore } from './coach-session-store';
 
 import { useCoachStreamStore } from './coach-stream-store';
 
+import { MAX_COACH_DRAFT_ATTACHMENTS, type CoachDraftAttachment } from './coach-draft-attachments';
+
 import { mergeStreamMessages } from './merge-stream-messages';
+
+import { ensureCameraPermission, openAppSettings } from '../media/camera-permission';
 
 import type { RootStackParamList } from '../../app/navigation/RootNavigator';
 
@@ -91,6 +95,8 @@ export function CoachScreen() {
   const keyboardHeight = useKeyboardHeight();
 
   const [text, setText] = useState('');
+
+  const [draftAttachments, setDraftAttachments] = useState<CoachDraftAttachment[]>([]);
 
   const [mealType] = useState<MealType>('LUNCH');
 
@@ -163,7 +169,10 @@ export function CoachScreen() {
 
   const isStreaming = sendChatStream.isPending || streamState.isStreaming;
 
-  const isBusy = sendMessage.isPending || isStreaming;
+  const isBackgroundSubmitting = sendMessage.isPending;
+  const isComposerBusy = isBackgroundSubmitting || isStreaming;
+  const [mealVisionPending, setMealVisionPending] = useState(false);
+  const isMealVisionBusy = isBackgroundSubmitting || mealVisionPending;
 
   const bottomInset = footerHeight + keyboardHeight;
 
@@ -192,12 +201,14 @@ export function CoachScreen() {
 
   const handleSendChat = () => {
     const content = text.trim();
+    const attachments = draftAttachments;
 
-    if (!content || !conversationId || isBusy) return;
+    if ((!content && attachments.length === 0) || !conversationId || isComposerBusy) return;
 
     setText('');
+    setDraftAttachments([]);
 
-    sendChatStream.mutate({ conversationId, content });
+    sendChatStream.mutate({ conversationId, content, draftImages: attachments });
   };
 
   const handleStopStream = () => {
@@ -258,52 +269,127 @@ export function CoachScreen() {
     );
   };
 
-  const pickAndAnalyze = async (fromCamera: boolean) => {
-    if (!conversationId || isBusy) return;
+  const pickDraftImages = async (fromCamera: boolean) => {
+    if (isComposerBusy) return;
+
+    const remaining = MAX_COACH_DRAFT_ATTACHMENTS - draftAttachments.length;
+    if (remaining <= 0) {
+      Alert.alert('已达上限', `最多附加 ${MAX_COACH_DRAFT_ATTACHMENTS} 张图片`);
+      return;
+    }
+
+    if (fromCamera) {
+      const permitted = await ensureCameraPermission();
+      if (!permitted) {
+        Alert.alert('需要相机权限', '拍摄附件需要使用相机', [
+          { text: '取消', style: 'cancel' },
+          { text: '去设置', onPress: openAppSettings },
+        ]);
+        return;
+      }
+    }
 
     const result = fromCamera
       ? await launchCamera({ mediaType: 'photo', quality: 0.8 })
-      : await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
+      : await launchImageLibrary({
+          mediaType: 'photo',
+          quality: 0.8,
+          selectionLimit: remaining,
+        });
 
-    const asset = result.assets?.[0];
+    const assets = result.assets ?? [];
+    if (assets.length === 0) return;
 
-    if (!asset?.uri) return;
+    const next = assets
+      .filter((asset) => asset.uri)
+      .map((asset) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        uri: asset.uri!,
+        mime: asset.type ?? 'image/jpeg',
+        sizeBytes: asset.fileSize ?? 500_000,
+      }));
+
+    setDraftAttachments((prev) => [...prev, ...next].slice(0, MAX_COACH_DRAFT_ATTACHMENTS));
+  };
+
+  const pickAndAnalyze = async (fromCamera: boolean) => {
+    if (!conversationId) {
+      Alert.alert('请稍候', '会话尚未就绪');
+      return;
+    }
+    if (isMealVisionBusy) {
+      Alert.alert('请稍候', '上一项识图任务仍在处理中');
+      return;
+    }
 
     try {
+      if (fromCamera) {
+        const permitted = await ensureCameraPermission();
+        if (!permitted) {
+          Alert.alert('需要相机权限', '拍餐识别需要使用相机', [
+            { text: '取消', style: 'cancel' },
+            { text: '去设置', onPress: openAppSettings },
+          ]);
+          return;
+        }
+      }
+
+      const result = fromCamera
+        ? await launchCamera({ mediaType: 'photo', quality: 0.8, saveToPhotos: false })
+        : await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
+
+      if (result.didCancel) {
+        return;
+      }
+      if (result.errorCode) {
+        Alert.alert('无法打开相机/相册', result.errorMessage ?? '请检查权限后重试');
+        return;
+      }
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert('未选择图片', '请重试');
+        return;
+      }
+
+      setMealVisionPending(true);
+
       const objectKey = await uploadMealPhotoForCoach(
         asset.uri,
-
         asset.type ?? 'image/jpeg',
-
         asset.fileSize ?? 500_000,
       );
 
-      sendMessage.mutate({
-        conversationId,
-
-        body: {
-          action: 'MEAL_VISION',
-
-          contentType: 'IMAGE',
-
-          content: fromCamera ? '[餐照·拍照]' : '[餐照·相册]',
-
-          imageObjectKey: objectKey,
-
-          mealType,
-
-          actionParams: { saveMealLog: false },
+      sendMessage.mutate(
+        {
+          conversationId,
+          body: {
+            action: 'MEAL_VISION',
+            contentType: 'IMAGE',
+            content: fromCamera ? '[餐照·拍照]' : '[餐照·相册]',
+            imageObjectKey: objectKey,
+            mealType,
+            actionParams: { saveMealLog: false },
+          },
+          pollTimeoutMs: coachPollTimeoutForAction('MEAL_VISION'),
         },
-
-        pollTimeoutMs: coachPollTimeoutForAction('MEAL_VISION'),
-      });
+        {
+          onError: (err) => {
+            Alert.alert('识图失败', err.message);
+          },
+          onSettled: () => {
+            setMealVisionPending(false);
+          },
+        },
+      );
     } catch (err) {
-      console.warn(err);
+      setMealVisionPending(false);
+      Alert.alert('识图失败', err instanceof Error ? err.message : '请稍后重试');
     }
   };
 
   const pickAndUploadReport = async () => {
-    if (!conversationId || isBusy) return;
+    if (!conversationId || isComposerBusy) return;
 
     try {
       const [file] = await pick({
@@ -349,27 +435,12 @@ export function CoachScreen() {
           actionParams: {
             manualMeal: {
               takenAt: new Date(),
-
               mealType: input.mealType,
-
               source: 'MANUAL',
-
-              totalKcal: input.kcal,
-
-              macros: input.macros,
-
               items: [
                 {
                   dishName: input.dishName,
-
                   grams: input.grams,
-
-                  kcal: input.kcal,
-
-                  macros: input.macros,
-
-                  sourceTag: 'USER',
-
                   foodId: input.foodId ?? null,
                 },
               ],
@@ -395,21 +466,21 @@ export function CoachScreen() {
   };
 
   const handleSuggestedAction = (action: 'GENERATE_WORKOUT' | 'GENERATE_MEAL' | 'MEAL_VISION') => {
-    if (isBusy) return;
+    if (action === 'MEAL_VISION') {
+      void pickAndAnalyze(true);
+      return;
+    }
+
+    if (isComposerBusy) return;
 
     if (action === 'GENERATE_WORKOUT') {
       setWorkoutSheetVisible(true);
-
       return;
     }
 
     if (action === 'GENERATE_MEAL') {
       setMealSheetVisible(true);
-
-      return;
     }
-
-    void pickAndAnalyze(true);
   };
 
   const handleCreateNewConversation = () => {
@@ -474,13 +545,11 @@ export function CoachScreen() {
             style={{ bottom: keyboardHeight }}
             onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
           >
-            <View
-              style={{ maxHeight: keyboardOpen ? 0 : 120, overflow: 'hidden' }}
-              pointerEvents={keyboardOpen ? 'none' : 'auto'}
-              collapsable={false}
-            >
+            <View style={{ maxHeight: 120, overflow: 'hidden' }} collapsable={false}>
               <CoachQuickActions
-                disabled={isBusy}
+                disabled={isComposerBusy}
+                mealPhotoDisabled={isMealVisionBusy}
+                mealPhotoLoading={mealVisionPending}
                 onGenerateWorkout={() => setWorkoutSheetVisible(true)}
                 onGenerateMeal={() => setMealSheetVisible(true)}
                 onMealPhoto={() => void pickAndAnalyze(true)}
@@ -493,11 +562,15 @@ export function CoachScreen() {
               onChangeText={setText}
               onSend={handleSendChat}
               onStop={handleStopStream}
-              sending={sendMessage.isPending}
+              sending={sendMessage.isPending || sendChatStream.isPending}
               streaming={isStreaming}
-              attachmentsDisabled={isBusy}
-              onPickGallery={() => void pickAndAnalyze(false)}
-              onPickCamera={() => void pickAndAnalyze(true)}
+              attachmentsDisabled={isComposerBusy}
+              draftAttachments={draftAttachments}
+              onRemoveDraftAttachment={(id) =>
+                setDraftAttachments((prev) => prev.filter((item) => item.id !== id))
+              }
+              onPickGallery={() => void pickDraftImages(false)}
+              onPickCamera={() => void pickDraftImages(true)}
               onPickFile={() => void pickAndUploadReport()}
             />
           </View>

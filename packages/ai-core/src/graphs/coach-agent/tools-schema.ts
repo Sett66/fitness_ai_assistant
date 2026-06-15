@@ -76,6 +76,71 @@ export const COACH_AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'enqueue_plan_generate',
+      description:
+        '提交训练或饮食计划生成任务（异步 Worker 处理，对话中会出现进度卡片）。用户明确要求生成多周训练/饮食计划时必须调用，不要在正文手写完整周计划表。',
+      parameters: {
+        type: 'object',
+        properties: {
+          planType: {
+            type: 'string',
+            enum: ['WORKOUT', 'MEAL'],
+            description: '计划类型：WORKOUT 训练计划，MEAL 饮食计划',
+          },
+          mesocycleWeeks: {
+            type: 'number',
+            description: '周期周数，默认 4',
+          },
+          notes: {
+            type: 'string',
+            description: '用户补充说明或偏好（可选）',
+          },
+          preferences: {
+            type: 'object',
+            description: '仅 WORKOUT 时有效：splitType、daysPerWeek、includeCardio',
+            properties: {
+              splitType: { type: 'string' },
+              daysPerWeek: { type: 'number' },
+              includeCardio: { type: 'boolean' },
+            },
+            additionalProperties: false,
+          },
+        },
+        required: ['planType'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'enqueue_meal_vision',
+      description:
+        '提交餐照识别任务（需 imageObjectKey）。Agent 对话通常无附件；无图时勿调用，应引导用户使用 App 附件菜单上传餐照。',
+      parameters: {
+        type: 'object',
+        properties: {
+          imageObjectKey: {
+            type: 'string',
+            description: '已上传餐照的 objectKey（通常由 App 附件提供）',
+          },
+          mealType: {
+            type: 'string',
+            enum: ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'],
+            description: '餐次类型（可选）',
+          },
+          saveMealLog: {
+            type: 'boolean',
+            description: '是否直接写入饮食记录，默认 false',
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 export const COACH_AGENT_TOOL_NAMES = COACH_AGENT_TOOL_DEFINITIONS.map(

@@ -125,11 +125,11 @@ Agent 在对话中可 **入队** 现有 BullMQ 重任务，行为与 Coach 显�
 
 ## 6. Acceptance criteria
 
-- [ ] 对话请求饮食计划 → 出现与按钮相同的 pending/卡片流程；Worker DONE 后 PLAN_CARD
-- [ ] 日限 2 次后第三次 enqueue 返回可读错误
-- [ ] 无图识图请求 → 助手引导上传，不 FAILED
-- [ ] `COACH_AGENT_ENABLED=true` 下训练计划 enqueue 仍消耗 `PLAN_GENERATE_WORKOUT` 日限
-- [ ] 显式按钮路径回归通过
+- [x] 对话请求饮食计划 → 出现与按钮相同的 pending/卡片流程；Worker DONE 后 PLAN_CARD
+- [x] 日限 2 次后第三次 enqueue 返回可读错误
+- [x] 无图识图请求 → 助手引导上传，不 FAILED
+- [x] `COACH_AGENT_ENABLED=true` 下训练计划 enqueue 仍消耗 `PLAN_GENERATE_WORKOUT` 日限
+- [x] 显式按钮路径回归通过
 
 ---
 

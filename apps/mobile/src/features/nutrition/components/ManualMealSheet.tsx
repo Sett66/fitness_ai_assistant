@@ -1,20 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
 
-import type { FoodResponse, MealType, Macros } from '@fitness/shared';
+import type { FoodResponse, MealType } from '@fitness/shared';
+import { scaleFoodNutrition } from '@fitness/shared';
 import { Button, ErrorText, Input, Label, Subtitle } from '@fitness/ui';
 
 import { useFoods } from '../../../api/endpoints/foods';
 import { ProfileEditSheet } from '../../profile/components/ProfileEditSheet';
 import { mealTypeLabel } from '../nutrition-labels';
-import { scaleFoodNutrition } from '../scale-food';
 
 export type ManualMealSubmitInput = {
   mealType: MealType;
   dishName: string;
   grams: number;
-  kcal: number;
-  macros: Macros;
   foodId?: string;
 };
 
@@ -42,7 +40,6 @@ export function ManualMealSheet({
   const [selectedFood, setSelectedFood] = useState<FoodResponse | null>(null);
   const [dishName, setDishName] = useState('');
   const [grams, setGrams] = useState('');
-  const [kcal, setKcal] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,7 +49,6 @@ export function ManualMealSheet({
     setSelectedFood(null);
     setDishName('');
     setGrams('');
-    setKcal('');
     setLocalError(null);
   }, [visible, defaultMealType]);
 
@@ -67,23 +63,16 @@ export function ManualMealSheet({
       .slice(0, 8);
   }, [foods.data?.items, search]);
 
+  const nutritionPreview = useMemo(() => {
+    const g = Number(grams);
+    if (!selectedFood || !g || g <= 0) return null;
+    return scaleFoodNutrition(selectedFood.per100g, g);
+  }, [grams, selectedFood]);
+
   const selectFood = (food: FoodResponse) => {
     setSelectedFood(food);
     setDishName(food.nameZh);
     setSearch(food.nameZh);
-    const g = Number(grams);
-    if (g > 0) {
-      const scaled = scaleFoodNutrition(food.per100g, g);
-      setKcal(String(scaled.kcal));
-    }
-  };
-
-  const handleGramsChange = (value: string) => {
-    setGrams(value);
-    const g = Number(value);
-    if (selectedFood && g > 0) {
-      setKcal(String(scaleFoodNutrition(selectedFood.per100g, g).kcal));
-    }
   };
 
   const handleSubmit = () => {
@@ -94,27 +83,20 @@ export function ManualMealSheet({
       return;
     }
     const g = Number(grams);
-    const k = Number(kcal);
     if (!g || g <= 0) {
       setLocalError('请填写有效克数');
       return;
     }
-    if (Number.isNaN(k) || k < 0) {
-      setLocalError('请填写有效热量');
+    if (!selectedFood) {
+      setLocalError('请从食物库搜索并选择一项（系统将自动计算热量与营养）');
       return;
     }
-
-    const macros = selectedFood
-      ? scaleFoodNutrition(selectedFood.per100g, g).macros
-      : { protein: 0, carbs: 0, fat: 0 };
 
     onSubmit({
       mealType,
       dishName: name,
       grams: g,
-      kcal: k,
-      macros,
-      foodId: selectedFood?.id,
+      foodId: selectedFood.id,
     });
   };
 
@@ -153,7 +135,7 @@ export function ManualMealSheet({
             setSelectedFood(null);
             setDishName(text);
           }}
-          placeholder="输入名称搜索，或下方手动填写"
+          placeholder="输入名称搜索并点选"
         />
         {foods.isLoading ? <Subtitle>加载食物库…</Subtitle> : null}
         {filteredFoods.length > 0 && search.trim() ? (
@@ -177,32 +159,27 @@ export function ManualMealSheet({
       </View>
 
       <View className="gap-2">
-        <Label>食物名称</Label>
-        <Input value={dishName} onChangeText={setDishName} placeholder="例如 鸡胸肉" />
-      </View>
-
-      <View className="gap-2">
         <Label>克数 (g)</Label>
         <Input
           value={grams}
-          onChangeText={handleGramsChange}
+          onChangeText={setGrams}
           keyboardType="decimal-pad"
           placeholder="例如 200"
         />
       </View>
 
-      <View className="gap-2">
-        <Label>热量 (kcal)</Label>
-        <Input
-          value={kcal}
-          onChangeText={setKcal}
-          keyboardType="decimal-pad"
-          placeholder="例如 350"
-        />
-      </View>
+      {nutritionPreview ? (
+        <View className="rounded-lg border border-border px-3 py-2 gap-1">
+          <Text className="text-foreground font-medium">预计摄入</Text>
+          <Subtitle>
+            {nutritionPreview.kcal} kcal · 蛋白 {nutritionPreview.macros.protein}g · 碳水{' '}
+            {nutritionPreview.macros.carbs}g · 脂肪 {nutritionPreview.macros.fat}g
+          </Subtitle>
+        </View>
+      ) : null}
 
       <Subtitle className="text-xs opacity-60">
-        从食物库选择时会按 per100g 自动计算热量；也可自由填写名称与热量。
+        从食物库选择食物并填写克数即可，热量与营养由系统自动计算。
       </Subtitle>
     </ProfileEditSheet>
   );

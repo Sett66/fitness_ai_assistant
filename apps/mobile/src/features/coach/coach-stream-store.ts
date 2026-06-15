@@ -16,6 +16,8 @@ type CoachStreamState = {
   streamRevision: number;
   userMessageId: string | null;
   userContent: string | null;
+  userImageObjectKeys: string[] | null;
+  userImagePreviewUris: string[] | null;
   assistantMessageId: string | null;
   assistantContent: string;
   suggestedActions: SuggestedAction[] | null;
@@ -25,6 +27,8 @@ type CoachStreamState = {
     userMessageId: string;
     userContent: string;
     assistantMessageId: string;
+    userImageObjectKeys?: string[];
+    userImagePreviewUris?: string[];
   }) => void;
   setAssistantContent: (content: string) => void;
   startTool: (params: { name: CoachToolName; label?: string }) => void;
@@ -40,6 +44,8 @@ const initialState = {
   streamRevision: 0,
   userMessageId: null,
   userContent: null,
+  userImageObjectKeys: null,
+  userImagePreviewUris: null,
   assistantMessageId: null,
   assistantContent: '',
   suggestedActions: null,
@@ -49,12 +55,20 @@ const initialState = {
 
 export const useCoachStreamStore = create<CoachStreamState>((set) => ({
   ...initialState,
-  startStream: ({ userMessageId, userContent, assistantMessageId }) =>
+  startStream: ({
+    userMessageId,
+    userContent,
+    assistantMessageId,
+    userImageObjectKeys,
+    userImagePreviewUris,
+  }) =>
     set({
       ...initialState,
       isStreaming: true,
       userMessageId,
       userContent,
+      userImageObjectKeys: userImageObjectKeys?.length ? userImageObjectKeys : null,
+      userImagePreviewUris: userImagePreviewUris?.length ? userImagePreviewUris : null,
       assistantMessageId,
       assistantContent: '',
       toolActivities: [],

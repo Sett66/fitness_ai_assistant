@@ -21,4 +21,9 @@ export class UploadsController {
   complete(@CurrentUser() user: JwtUserPayload, @Body() body: unknown) {
     return this.uploads.complete(user, body);
   }
+
+  @Post('read-urls')
+  readUrls(@CurrentUser() user: JwtUserPayload, @Body() body: unknown) {
+    return this.uploads.readUrls(user, body);
+  }
 }

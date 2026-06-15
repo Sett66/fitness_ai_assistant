@@ -52,6 +52,23 @@ export const CreateMealLogSchema = MealLogSchema.omit({
 });
 export type CreateMealLogInput = z.infer<typeof CreateMealLogSchema>;
 
+/** 手动记餐简化入参：仅食物名 + 克数，营养由服务端根据食物库推算 */
+export const CreateManualMealLogItemSchema = z.object({
+  dishName: z.string().min(1).max(64),
+  grams: z.number().positive().max(5000),
+  foodId: IdSchema.nullable().optional(),
+});
+export type CreateManualMealLogItemInput = z.infer<typeof CreateManualMealLogItemSchema>;
+
+export const CreateManualMealLogSchema = z.object({
+  takenAt: DateTimeSchema,
+  mealType: MealTypeSchema,
+  source: MealLogSourceSchema.default('MANUAL'),
+  imageMediaId: IdSchema.nullable().optional(),
+  items: z.array(CreateManualMealLogItemSchema).min(1).max(50),
+});
+export type CreateManualMealLogInput = z.infer<typeof CreateManualMealLogSchema>;
+
 export const UpdateMealLogSchema = CreateMealLogSchema.partial();
 export type UpdateMealLogInput = z.infer<typeof UpdateMealLogSchema>;
 

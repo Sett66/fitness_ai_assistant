@@ -65,6 +65,52 @@ export class ConversationSideEffectService {
     });
   }
 
+  /** 将 aiRun 已结束但仍显示「正在生成…」的助手占位消息修正为最终卡片/正文 */
+  async reconcileStaleAssistantMessages(conversationId: string): Promise<void> {
+    const staleRows = await this.prisma.client.message.findMany({
+      where: {
+        conversationId,
+        role: 'ASSISTANT',
+        aiRunId: { not: null },
+        contentType: 'SYSTEM_NOTICE',
+      },
+      select: { aiRunId: true },
+    });
+
+    const aiRunIds = [
+      ...new Set(staleRows.map((row) => row.aiRunId).filter((id): id is string => Boolean(id))),
+    ];
+    if (aiRunIds.length === 0) {
+      return;
+    }
+
+    const runs = await this.prisma.client.aiRun.findMany({
+      where: {
+        id: { in: aiRunIds },
+        status: { in: ['DONE', 'FAILED'] },
+      },
+      select: {
+        id: true,
+        status: true,
+        taskType: true,
+        outputJson: true,
+        errorMsg: true,
+        inputJson: true,
+      },
+    });
+
+    await Promise.all(
+      runs.map((run) =>
+        this.finalizeAssistantMessage(run.id, {
+          status: run.status === 'DONE' ? 'DONE' : 'FAILED',
+          taskType: run.taskType,
+          outputJson: run.outputJson ?? undefined,
+          errorMsg: run.errorMsg,
+        }),
+      ),
+    );
+  }
+
   private buildAssistantPayload(
     taskType: AiTaskType,
     outputJson: unknown,

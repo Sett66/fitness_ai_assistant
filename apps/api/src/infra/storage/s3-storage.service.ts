@@ -49,12 +49,17 @@ export class S3StorageService {
     this.presignClient = this.createClient(this.publicEndpoint ?? this.endpoint);
   }
 
-  async presignGet(objectKey: string, expiresSec: number): Promise<string> {
+  async presignGet(
+    objectKey: string,
+    expiresSec: number,
+    publicEndpoint?: string,
+  ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: objectKey,
     });
-    return getSignedUrl(this.presignClient, command, { expiresIn: expiresSec });
+    const client = publicEndpoint ? this.createClient(publicEndpoint) : this.presignClient;
+    return getSignedUrl(client, command, { expiresIn: expiresSec });
   }
 
   async presignPut(input: PresignPutInput): Promise<string> {

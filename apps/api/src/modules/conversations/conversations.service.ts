@@ -1,7 +1,5 @@
 import { AiCoreError, runCoachChatStream } from '@fitness/ai-core';
-import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import { type Queue } from 'bullmq';
 import type {
   AiTaskType,
   CoachChatOutput,
@@ -21,7 +19,6 @@ import {
   LLM_MODELS,
   MessageSchema,
   errorMessagesZhCN,
-  getAiTaskDailyLimit,
 } from '@fitness/shared';
 import type { Prisma } from '@fitness/db';
 
@@ -30,15 +27,70 @@ import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { AgentConfigService } from '../../config/agent-config.service';
 import { CoachAgentRunner } from '../../domain/agent/coach-agent.runner';
+import { CoachImageContextService } from '../../domain/coach-image-context.service';
 import { AgentMemoryService } from '../../domain/agent-memory.service';
+import { ConversationSideEffectService } from '../../domain/conversation-side-effect.service';
+import { ConversationTaskService } from '../../domain/conversation-task.service';
 import { UserContextService } from '../../domain/user-context.service';
-import { AI_TASK_QUEUE_NAME, type AiTaskJobPayload } from '../../infra/queue/queue.constants';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { MealLogsService } from '../meal-logs/meal-logs.service';
 
 export type SseEmitFn = (event: string, data: unknown) => void;
 
 const DEFAULT_MESSAGE_LIMIT = 50;
+const MAX_CHAT_IMAGES = 5;
+
+function normalizeImageObjectKeys(input: CreateCoachMessageInput): string[] {
+  const keys = [...(input.imageObjectKeys ?? [])];
+  if (input.imageObjectKey && !keys.includes(input.imageObjectKey)) {
+    keys.unshift(input.imageObjectKey);
+  }
+  return keys.slice(0, MAX_CHAT_IMAGES);
+}
+
+function formatConversationPreview(
+  message: { content: string; contentType: string; metadata: unknown } | null,
+): string | null {
+  if (!message?.content) {
+    return null;
+  }
+  if (message.contentType === 'IMAGE') {
+    const meta = (message.metadata ?? {}) as Record<string, unknown>;
+    const count = Array.isArray(meta.imageObjectKeys) ? meta.imageObjectKeys.length : 1;
+    const text = message.content.trim();
+    const isPlaceholder = text === '[图片]' || /^\[\d+ 张图片\]$/.test(text);
+    if (!isPlaceholder && text) {
+      return `[${count}张图片] ${text}`.slice(0, 120);
+    }
+    return count > 1 ? `[${count}张图片]` : '[图片]';
+  }
+  if (message.contentType === 'PLAN_CARD' || message.contentType === 'MEAL_VISION_CARD') {
+    return message.content.slice(0, 120);
+  }
+  return message.content.slice(0, 120);
+}
+
+function formatCoachHistoryContent(
+  contentType: string,
+  content: string,
+  metadata: unknown,
+): string {
+  if (contentType === 'PLAN_CARD') {
+    const meta = (metadata ?? {}) as Record<string, unknown>;
+    const label = meta.planType === 'WORKOUT' ? '训练' : '饮食';
+    return `[${label}计划已生成完成]`;
+  }
+  if (contentType === 'MEAL_VISION_CARD') {
+    return '[餐食识别已完成，待用户确认]';
+  }
+  if (contentType === 'IMAGE') {
+    const meta = (metadata ?? {}) as Record<string, unknown>;
+    const count = Array.isArray(meta.imageObjectKeys) ? meta.imageObjectKeys.length : 0;
+    const suffix = count > 0 ? `（附${count}张图）` : '';
+    return `${content}${suffix}`.slice(0, 2000);
+  }
+  return content.slice(0, 2000);
+}
 
 @Injectable()
 export class ConversationsService {
@@ -51,11 +103,14 @@ export class ConversationsService {
     private readonly agentMemory: AgentMemoryService,
     private readonly agentConfig: AgentConfigService,
     private readonly coachAgentRunner: CoachAgentRunner,
-    @InjectQueue(AI_TASK_QUEUE_NAME) private readonly queue: Queue<AiTaskJobPayload>,
+    private readonly coachImageContext: CoachImageContextService,
+    private readonly conversationTask: ConversationTaskService,
+    private readonly conversationSideEffects: ConversationSideEffectService,
   ) {}
 
   async getDefault(user: JwtUserPayload): Promise<ConversationWithMessages> {
     const conversation = await this.ensureDefaultConversation(user.userId);
+    await this.conversationSideEffects.reconcileStaleAssistantMessages(conversation.id);
     const messages = await this.listRecentMessages(conversation.id);
     return ConversationWithMessagesSchema.parse({
       ...conversation,
@@ -101,7 +156,7 @@ export class ConversationsService {
             ...meaningfulMessage,
           },
           orderBy: { createdAt: 'desc' },
-          select: { content: true },
+          select: { content: true, contentType: true, metadata: true },
         });
         return {
           id: row.id,
@@ -110,7 +165,7 @@ export class ConversationsService {
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
           messageCount: row._count.messages,
-          preview: lastMessage?.content?.slice(0, 120) ?? null,
+          preview: formatConversationPreview(lastMessage),
         };
       }),
     );
@@ -136,6 +191,7 @@ export class ConversationsService {
 
   async getById(user: JwtUserPayload, conversationId: string): Promise<ConversationWithMessages> {
     await this.assertConversationOwner(user.userId, conversationId);
+    await this.conversationSideEffects.reconcileStaleAssistantMessages(conversationId);
     const conversation = await this.prisma.client.conversation.findUniqueOrThrow({
       where: { id: conversationId },
     });
@@ -202,60 +258,27 @@ export class ConversationsService {
       input.action === 'CHAT',
     );
 
-    const pendingAssistant = await this.prisma.client.message.create({
-      data: {
-        conversationId,
-        role: 'ASSISTANT',
-        contentType: 'SYSTEM_NOTICE',
-        content: this.pendingLabel(input.action),
-        metadata: { taskStatus: 'RUNNING', action: input.action },
-      },
-    });
-
     const { taskType, model, inputJson } = this.buildAiRunPayload(
       user.userId,
       conversationId,
       input,
     );
-    await this.assertDailyLimit(user.userId, taskType);
 
-    const run = await this.prisma.client.aiRun.create({
-      data: {
-        userId: user.userId,
-        taskType,
-        model,
-        status: 'QUEUED',
-        inputJson: inputJson as Prisma.InputJsonValue,
-        conversationId,
-        triggerMessageId: userMessage.id,
-      },
-    });
-
-    await this.prisma.client.message.update({
-      where: { id: pendingAssistant.id },
-      data: { aiRunId: run.id },
-    });
-
-    await this.queue.add(
-      'default',
-      { aiRunId: run.id },
-      {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
-    );
-
-    await this.prisma.client.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() },
+    const enqueued = await this.conversationTask.enqueueConversationTask({
+      userId: user.userId,
+      conversationId,
+      triggerMessageId: userMessage.id,
+      taskType,
+      model,
+      inputJson,
+      pendingContent: this.pendingLabel(input.action),
+      pendingAction: input.action,
     });
 
     return CoachMessageAcceptedResponseSchema.parse({
       userMessageId: userMessage.id,
-      taskId: run.id,
-      pendingAssistantMessageId: pendingAssistant.id,
+      taskId: enqueued.taskId,
+      pendingAssistantMessageId: enqueued.pendingAssistantMessageId,
     });
   }
 
@@ -272,8 +295,9 @@ export class ConversationsService {
       throw new BizException('VALIDATION_FAILED', '流式接口仅支持 CHAT', 400);
     }
 
-    const latestUserText = String(input.content ?? '').trim();
-    if (!latestUserText) {
+    const rawUserText = String(input.content ?? '').trim();
+    const imageObjectKeys = normalizeImageObjectKeys(input);
+    if (!rawUserText && imageObjectKeys.length === 0) {
       throw new BizException('VALIDATION_FAILED', errorMessagesZhCN.VALIDATION_FAILED, 400);
     }
 
@@ -281,22 +305,33 @@ export class ConversationsService {
     const model = LLM_MODELS.DEEPSEEK_V4_PRO;
     const startedAt = Date.now();
 
-    await this.assertDailyLimit(user.userId, 'COACH_CHAT');
+    await this.conversationTask.assertDailyLimit(user.userId, 'COACH_CHAT');
+
+    const displayContent =
+      rawUserText ||
+      (imageObjectKeys.length === 1 ? '[图片]' : `[${imageObjectKeys.length} 张图片]`);
 
     const userMessage = await this.prisma.client.message.create({
       data: {
         conversationId,
         role: 'USER',
-        contentType: 'TEXT',
-        content: latestUserText,
+        contentType: imageObjectKeys.length > 0 ? 'IMAGE' : 'TEXT',
+        content: displayContent,
         metadata: {
           action: 'CHAT',
+          ...(imageObjectKeys.length ? { imageObjectKeys } : {}),
           ...(input.locationContext ? { locationContext: input.locationContext } : {}),
         },
       },
     });
 
-    await this.maybeSetConversationTitle(conversationId, latestUserText, true);
+    await this.maybeSetConversationTitle(conversationId, displayContent, true);
+
+    const { latestUserText } = await this.coachImageContext.augmentChatUserText(
+      user.userId,
+      rawUserText,
+      imageObjectKeys,
+    );
 
     const pendingAssistant = await this.prisma.client.message.create({
       data: {
@@ -316,6 +351,8 @@ export class ConversationsService {
         status: 'RUNNING',
         inputJson: {
           content: latestUserText,
+          rawUserText: rawUserText || undefined,
+          imageObjectKeys: imageObjectKeys.length ? imageObjectKeys : undefined,
           conversationId,
           timezoneOffsetMinutes,
           ...(input.locationContext ? { locationContext: input.locationContext } : {}),
@@ -345,6 +382,8 @@ export class ConversationsService {
           user,
           conversationId,
           latestUserText,
+          rawUserText,
+          imageObjectKeys,
           history,
           userCtx,
           memoryFacts,
@@ -396,7 +435,7 @@ export class ConversationsService {
         conversationId,
         userMessageId: userMessage.id,
         assistantMessageId: pendingAssistant.id,
-        latestUserText,
+        latestUserText: rawUserText || displayContent,
         assistantReply: finalResult.reply,
       });
     } catch (err: unknown) {
@@ -430,6 +469,8 @@ export class ConversationsService {
     user: JwtUserPayload;
     conversationId: string;
     latestUserText: string;
+    rawUserText?: string;
+    imageObjectKeys?: string[];
     history: Awaited<ReturnType<ConversationsService['loadCoachChatHistory']>>;
     userCtx: Awaited<ReturnType<UserContextService['build']>>;
     memoryFacts: Awaited<ReturnType<AgentMemoryService['listForPrompt']>>;
@@ -452,6 +493,7 @@ export class ConversationsService {
         locationContext: params.locationContext,
         timezoneOffsetMinutes: params.timezoneOffsetMinutes,
         conversationId: params.conversationId,
+        triggerMessageId: params.userMessageId,
       },
       { model: params.model },
     );
@@ -501,7 +543,7 @@ export class ConversationsService {
       conversationId: params.conversationId,
       userMessageId: params.userMessageId,
       assistantMessageId: params.pendingAssistantId,
-      latestUserText: params.latestUserText,
+      latestUserText: params.rawUserText?.trim() || params.latestUserText,
       assistantReply: finalReply,
     });
   }
@@ -570,22 +612,28 @@ export class ConversationsService {
   }
 
   private async loadCoachChatHistory(conversationId: string) {
+    await this.conversationSideEffects.reconcileStaleAssistantMessages(conversationId);
+
     const historyRows = await this.prisma.client.message.findMany({
       where: {
         conversationId,
         role: { in: ['USER', 'ASSISTANT'] },
-        contentType: { in: ['TEXT', 'SYSTEM_NOTICE'] },
+        contentType: { in: ['TEXT', 'IMAGE', 'PLAN_CARD', 'MEAL_VISION_CARD'] },
       },
       orderBy: { createdAt: 'desc' },
-      take: 10,
+      take: 12,
     });
 
     return historyRows
       .reverse()
       .filter((row) => row.content && row.content !== '思考中…')
+      .filter((row) => {
+        const meta = (row.metadata ?? {}) as Record<string, unknown>;
+        return meta.taskStatus !== 'RUNNING';
+      })
       .map((row) => ({
         role: row.role as 'USER' | 'ASSISTANT',
-        content: row.content.slice(0, 2000),
+        content: formatCoachHistoryContent(row.contentType, row.content, row.metadata),
       }));
   }
 
@@ -625,7 +673,7 @@ export class ConversationsService {
         conversationId,
         role: 'ASSISTANT',
         contentType: 'TEXT',
-        content: `已记录 ${manualMeal.totalKcal} kcal`,
+        content: `已记录 ${created.totalKcal} kcal`,
         metadata: {
           taskStatus: 'DONE',
           action: 'MANUAL_MEAL_LOG',
@@ -776,22 +824,6 @@ export class ConversationsService {
         'CONVERSATION_NOT_FOUND',
         errorMessagesZhCN.CONVERSATION_NOT_FOUND,
         404,
-      );
-    }
-  }
-
-  private async assertDailyLimit(userId: string, taskType: string): Promise<void> {
-    const now = new Date();
-    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const count = await this.prisma.client.aiRun.count({
-      where: { userId, taskType: taskType as never, createdAt: { gte: start } },
-    });
-    const limit = getAiTaskDailyLimit(taskType);
-    if (count >= limit) {
-      throw new BizException(
-        'AI_TASK_LIMIT_EXCEEDED',
-        errorMessagesZhCN.AI_TASK_LIMIT_EXCEEDED,
-        429,
       );
     }
   }

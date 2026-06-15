@@ -1,10 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import type { CoachToolName, LocationContext } from '@fitness/shared';
+import {
+  EnqueueMealVisionInputSchema,
+  EnqueuePlanGenerateInputSchema,
+  LLM_MODELS,
+} from '@fitness/shared';
 
 import { BizException } from '../../common/exceptions/biz-exception';
+import { parseWith } from '../../common/zod/parse-with';
 import { AmapClient } from '../../infra/geo/amap.client';
 import { WeatherClient } from '../../infra/geo/weather.client';
 import { AgentMemoryService } from '../agent-memory.service';
+import { ConversationTaskService } from '../conversation-task.service';
 import { UserContextService } from '../user-context.service';
 import { ToolUsageService } from './tool-usage.service';
 
@@ -13,12 +20,15 @@ export type ToolContext = {
   timezoneOffsetMinutes: number;
   locationContext?: LocationContext;
   conversationId?: string;
+  triggerMessageId?: string;
   /** 当前 SSE 会话内已成功的工具调用次数 */
   sessionToolCounts?: Partial<Record<CoachToolName, number>>;
 };
 
 const TOOL_LIMIT_MESSAGE = '今日该工具次数已用完';
 const WEATHER_NEED_LOCATION_MESSAGE = '需要城市名或定位权限';
+const MEAL_VISION_NEED_IMAGE_MESSAGE = '请用户上传餐照（使用 App 附件菜单）';
+const ENQUEUE_SUBMITTED_MESSAGE = '已提交生成，请在对话中查看进度';
 
 @Injectable()
 export class ToolRegistryService {
@@ -28,6 +38,7 @@ export class ToolRegistryService {
     private readonly amap: AmapClient,
     private readonly weather: WeatherClient,
     private readonly toolUsage: ToolUsageService,
+    private readonly conversationTask: ConversationTaskService,
   ) {}
 
   async execute(name: CoachToolName, input: unknown, ctx: ToolContext): Promise<unknown> {
@@ -46,8 +57,9 @@ export class ToolRegistryService {
       case 'search_nearby_gyms':
         return this.searchNearbyGyms(input, ctx);
       case 'enqueue_plan_generate':
+        return this.enqueuePlanGenerate(input, ctx);
       case 'enqueue_meal_vision':
-        throw new BizException('VALIDATION_FAILED', `工具 ${name} 尚未实现（见 AGENT-08）`, 501);
+        return this.enqueueMealVision(input, ctx);
       default:
         throw new BizException('VALIDATION_FAILED', `未知工具：${name as string}`, 400);
     }
@@ -201,6 +213,99 @@ export class ToolRegistryService {
         distanceM: gym.distanceM,
       })),
       searchRadiusM,
+    };
+  }
+
+  private requireConversationContext(ctx: ToolContext): {
+    conversationId: string;
+    triggerMessageId: string;
+  } {
+    if (!ctx.conversationId || !ctx.triggerMessageId) {
+      throw new BizException('VALIDATION_FAILED', '缺少对话上下文，无法派发任务', 400);
+    }
+    return { conversationId: ctx.conversationId, triggerMessageId: ctx.triggerMessageId };
+  }
+
+  private async enqueuePlanGenerate(input: unknown, ctx: ToolContext) {
+    const parsed = parseWith(EnqueuePlanGenerateInputSchema, input);
+    const { conversationId, triggerMessageId } = this.requireConversationContext(ctx);
+
+    const taskType = parsed.planType === 'WORKOUT' ? 'PLAN_GENERATE_WORKOUT' : 'PLAN_GENERATE_MEAL';
+    const limitMessage = await this.conversationTask.getDailyLimitMessage(ctx.userId, taskType);
+    if (limitMessage) {
+      return limitMessage;
+    }
+
+    const pendingContent =
+      parsed.planType === 'WORKOUT' ? '正在生成训练计划…' : '正在生成饮食计划…';
+    const pendingAction = parsed.planType === 'WORKOUT' ? 'GENERATE_WORKOUT' : 'GENERATE_MEAL';
+
+    const result = await this.conversationTask.enqueueConversationTask({
+      userId: ctx.userId,
+      conversationId,
+      triggerMessageId,
+      taskType,
+      model: LLM_MODELS.DEEPSEEK_V4_PRO,
+      inputJson: {
+        mesocycleWeeks: parsed.mesocycleWeeks ?? 4,
+        notes: parsed.notes ?? '',
+        ...(parsed.planType === 'WORKOUT' && parsed.preferences
+          ? { preferences: parsed.preferences }
+          : {}),
+        timezoneOffsetMinutes: ctx.timezoneOffsetMinutes,
+      },
+      pendingContent,
+      pendingAction,
+    });
+
+    this.bumpSessionCount(ctx, 'enqueue_plan_generate');
+
+    return {
+      taskId: result.taskId,
+      planType: parsed.planType,
+      message: ENQUEUE_SUBMITTED_MESSAGE,
+    };
+  }
+
+  private async enqueueMealVision(input: unknown, ctx: ToolContext) {
+    const parsed = parseWith(EnqueueMealVisionInputSchema, input);
+    const imageObjectKey = parsed.imageObjectKey?.trim();
+
+    if (!imageObjectKey) {
+      return MEAL_VISION_NEED_IMAGE_MESSAGE;
+    }
+
+    const { conversationId, triggerMessageId } = this.requireConversationContext(ctx);
+
+    const limitMessage = await this.conversationTask.getDailyLimitMessage(
+      ctx.userId,
+      'MEAL_VISION',
+    );
+    if (limitMessage) {
+      return limitMessage;
+    }
+
+    const result = await this.conversationTask.enqueueConversationTask({
+      userId: ctx.userId,
+      conversationId,
+      triggerMessageId,
+      taskType: 'MEAL_VISION',
+      model: LLM_MODELS.QWEN_VL_MAX,
+      inputJson: {
+        objectKey: imageObjectKey,
+        mealType: parsed.mealType,
+        saveMealLog: parsed.saveMealLog ?? false,
+        timezoneOffsetMinutes: ctx.timezoneOffsetMinutes,
+      },
+      pendingContent: '正在识别餐食…',
+      pendingAction: 'MEAL_VISION',
+    });
+
+    this.bumpSessionCount(ctx, 'enqueue_meal_vision');
+
+    return {
+      taskId: result.taskId,
+      message: ENQUEUE_SUBMITTED_MESSAGE,
     };
   }
 }

@@ -8,6 +8,8 @@ type StreamSnapshot = Pick<
   | 'isStreaming'
   | 'userMessageId'
   | 'userContent'
+  | 'userImageObjectKeys'
+  | 'userImagePreviewUris'
   | 'assistantMessageId'
   | 'assistantContent'
   | 'suggestedActions'
@@ -26,16 +28,23 @@ export function mergeStreamMessages(messages: Message[], stream: StreamSnapshot)
   const result = [...messages];
   const now = new Date();
 
-  if (stream.userMessageId && stream.userContent) {
+  if (stream.userMessageId && (stream.userContent || stream.userImageObjectKeys?.length)) {
     const userIdx = result.findIndex((m) => m.id === stream.userMessageId);
+    const userMetadata: Record<string, unknown> = { action: 'CHAT' };
+    if (stream.userImageObjectKeys?.length) {
+      userMetadata.imageObjectKeys = stream.userImageObjectKeys;
+    }
+    if (stream.userImagePreviewUris?.length) {
+      userMetadata.imagePreviewUris = stream.userImagePreviewUris;
+    }
     if (userIdx < 0) {
       result.push({
         id: stream.userMessageId,
         conversationId: result[0]?.conversationId ?? '',
         role: 'USER',
-        contentType: 'TEXT',
-        content: stream.userContent,
-        metadata: { action: 'CHAT' },
+        contentType: stream.userImageObjectKeys?.length ? 'IMAGE' : 'TEXT',
+        content: stream.userContent ?? '',
+        metadata: userMetadata,
         createdAt: now,
       });
     }

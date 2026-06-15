@@ -7,6 +7,7 @@ import type {
   NutritionDailySummary,
 } from '@fitness/shared';
 import {
+  CreateManualMealLogSchema,
   CreateMealLogSchema,
   IdSchema,
   PaginationQuerySchema,
@@ -19,6 +20,7 @@ import type { JwtUserPayload } from '../../common/decorators/current-user.decora
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { NutritionDailyService } from '../../domain/nutrition-daily.service';
+import { MealNutritionService } from '../../domain/meal-nutrition.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
 @Injectable()
@@ -26,6 +28,7 @@ export class MealLogsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly nutritionDaily: NutritionDailyService,
+    private readonly mealNutrition: MealNutritionService,
   ) {}
 
   async list(
@@ -83,7 +86,36 @@ export class MealLogsService {
   }
 
   async create(user: JwtUserPayload, body: unknown): Promise<MealLogResponse> {
+    const manual = CreateManualMealLogSchema.safeParse(body);
+    if (manual.success) {
+      const items = await this.mealNutrition.resolveManualItems(user.userId, manual.data.items);
+      return this.createFromResolvedInput(user.userId, {
+        ...manual.data,
+        items,
+      });
+    }
+
     const input = parseWith(CreateMealLogSchema, body);
+    return this.createFromResolvedInput(user.userId, input);
+  }
+
+  private async createFromResolvedInput(
+    userId: string,
+    input: {
+      takenAt: Date;
+      mealType: MealType;
+      source: 'MANUAL' | 'VISION';
+      imageMediaId?: string | null;
+      items: Array<{
+        dishName: string;
+        grams: number;
+        kcal: number;
+        macros: { protein: number; carbs: number; fat: number; fiber?: number; sodium?: number };
+        sourceTag: 'USER' | 'OFFICIAL' | 'AI_ESTIMATE';
+        foodId?: string | null;
+      }>;
+    },
+  ): Promise<MealLogResponse> {
     const totalKcal = input.items.reduce((sum, item) => sum + item.kcal, 0);
     const macroProtein = input.items.reduce((sum, item) => sum + item.macros.protein, 0);
     const macroCarbs = input.items.reduce((sum, item) => sum + item.macros.carbs, 0);
@@ -91,7 +123,7 @@ export class MealLogsService {
 
     const created = await this.prisma.client.mealLog.create({
       data: {
-        userId: user.userId,
+        userId,
         takenAt: input.takenAt,
         mealType: input.mealType,
         source: input.source,
