@@ -19,6 +19,11 @@ import {
   type CreateCoachAgentGraphOptions,
   type InvokeToolFn,
 } from './graph';
+import {
+  buildMessagesForFinalStream,
+  finalizeAgentReply,
+  stripDsmlMarkup,
+} from './sanitize-agent-reply';
 import { type CoachAgentStreamEvent, emptyCoachAgentUsage } from './state';
 
 export type RunCoachAgentStreamInput = {
@@ -48,6 +53,7 @@ const buildInitialMessages = (input: RunCoachAgentStreamInput): AgentChatMessage
   const systemPrompt = buildCoachSystemPrompt({
     userContext: input.userContext,
     memoryFacts: input.memoryFacts,
+    locationContext: input.locationContext,
     mode: 'agent',
   });
 
@@ -81,18 +87,27 @@ export async function* runCoachAgentStream(
   const graphState = toolLoopResult.value;
 
   let streamUsage = graphState.usage ?? emptyCoachAgentUsage();
-  let reply = '';
+  let rawReply = '';
+  const finalMessages = buildMessagesForFinalStream(graphState.messages);
 
   for await (const chunk of client.streamText({
     model,
-    messages: graphState.messages,
+    messages: finalMessages,
     temperature: 0.7,
   })) {
-    reply = chunk.text;
+    rawReply = chunk.text;
     if (chunk.usage) {
       streamUsage = mergeLlmUsage(streamUsage, chunk.usage);
     }
-    yield { type: 'delta', text: chunk.text };
+    const sanitized = stripDsmlMarkup(rawReply);
+    yield { type: 'delta', text: sanitized || rawReply };
+  }
+
+  const reply = finalizeAgentReply(rawReply, graphState.messages);
+
+  const streamed = stripDsmlMarkup(rawReply);
+  if (reply && reply !== streamed) {
+    yield { type: 'delta', text: reply };
   }
 
   const actionsResult = await inferSuggestedActions(input.latestUserText, reply, {
@@ -102,7 +117,7 @@ export async function* runCoachAgentStream(
 
   const doneEvent: CoachAgentStreamDoneEvent = {
     type: 'done',
-    reply: reply.slice(0, 8000),
+    reply,
     suggestedActions: actionsResult.suggestedActions,
     usage: mergeLlmUsage(streamUsage, actionsResult.usage),
     toolTrace: graphState.toolTrace,

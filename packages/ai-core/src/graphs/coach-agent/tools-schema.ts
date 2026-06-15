@@ -1,8 +1,8 @@
+import { COACH_TOOL_PROGRESS_LABELS_ZH } from '@fitness/shared';
 import type { CoachToolName } from '@fitness/shared';
 
 import type { ToolDefinition } from '../../llm/tool-types';
 
-/** 本 Issue 仅注册 get_user_fitness_snapshot；后续 Issue 追加至数组 */
 export const COACH_AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: 'function',
@@ -22,17 +22,65 @@ export const COACH_AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_weather',
+      description:
+        '查询指定位置当前天气（气温、降水、风力）及户外训练建议。用户问出门训练、户外跑步、天气注意事项时应优先调用。有定位时可直接调用；否则需传入 city 或先追问用户城市。',
+      parameters: {
+        type: 'object',
+        properties: {
+          lat: { type: 'number', description: '纬度（WGS84）' },
+          lng: { type: 'number', description: '经度（WGS84）' },
+          city: { type: 'string', description: '城市名，无坐标时使用，如「上海」' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'geocode_place',
+      description:
+        '将城市或地址文本解析为坐标与城市名。出差、陌生城市、需要先确定位置再搜周边时调用，如「上海」「杭州市西湖区」。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '地点文本，如「上海市」「北京朝阳区」' },
+        },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_nearby_gyms',
+      description:
+        '根据坐标搜索周边健身房 POI 列表（名称、地址、距离）。需先有 lat/lng，可先调用 geocode_place。用户问出差地、陌生城市附近健身房时使用。',
+      parameters: {
+        type: 'object',
+        properties: {
+          lat: { type: 'number', description: '纬度' },
+          lng: { type: 'number', description: '经度' },
+          radiusM: {
+            type: 'number',
+            description: '搜索半径（米），默认 3000，最大 5000',
+          },
+        },
+        required: ['lat', 'lng'],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 export const COACH_AGENT_TOOL_NAMES = COACH_AGENT_TOOL_DEFINITIONS.map(
   (tool) => tool.function.name as CoachToolName,
 );
 
-export const COACH_TOOL_LABELS: Partial<Record<CoachToolName, string>> = {
-  get_user_fitness_snapshot: '正在读取你的健身数据…',
-  get_weather: '正在查询天气…',
-  geocode_place: '正在解析地点…',
-  search_nearby_gyms: '正在搜索附近健身房…',
-  enqueue_plan_generate: '正在创建计划任务…',
-  enqueue_meal_vision: '正在创建识图任务…',
-};
+export const COACH_TOOL_LABELS: Partial<Record<CoachToolName, string>> =
+  COACH_TOOL_PROGRESS_LABELS_ZH;

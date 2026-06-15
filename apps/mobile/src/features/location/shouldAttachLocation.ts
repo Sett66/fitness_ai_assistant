@@ -3,6 +3,7 @@ const LOCATION_HEURISTIC_PATTERNS = [
   /出门/,
   /户外/,
   /附近/,
+  /周围/,
   /出差/,
   /跑步/,
   /骑行/,

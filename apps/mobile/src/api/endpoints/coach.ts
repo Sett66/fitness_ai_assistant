@@ -5,6 +5,8 @@ import {
   CoachStreamAcceptedEventSchema,
   CoachStreamDeltaEventSchema,
   CoachStreamDoneEventSchema,
+  CoachStreamToolEndEventSchema,
+  CoachStreamToolStartEventSchema,
   CreateCoachMessageSchema,
   CreateConversationSchema,
   type CreateCoachMessageInput,
@@ -29,6 +31,7 @@ import { presignRequestBody } from './media';
 import { queryKeys } from '../queryKeys';
 
 import { resolveLocationContextForChat } from '../../features/location';
+import { coachToolProgressLabel } from '../../features/coach/coach-tool-labels';
 
 import {
   AI_POLL_INTERVAL_MS,
@@ -146,6 +149,19 @@ export function useSendCoachChatStream() {
             const parsed = CoachStreamDeltaEventSchema.parse(data);
 
             streamStore.setAssistantContent(parsed.text);
+          } else if (event === 'tool_start') {
+            const parsed = CoachStreamToolStartEventSchema.parse(data);
+            streamStore.startTool({
+              name: parsed.name,
+              label: coachToolProgressLabel(parsed.name, parsed.label),
+            });
+          } else if (event === 'tool_end') {
+            const parsed = CoachStreamToolEndEventSchema.parse(data);
+            streamStore.endTool({
+              name: parsed.name,
+              ok: parsed.ok,
+              summary: parsed.summary,
+            });
           } else if (event === 'done') {
             const parsed = CoachStreamDoneEventSchema.parse(data);
 

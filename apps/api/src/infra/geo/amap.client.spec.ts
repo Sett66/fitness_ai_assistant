@@ -102,16 +102,36 @@ describe('AmapClient', () => {
         { name: '社区健身', address: '人民路 8 号', distanceM: 890 },
       ]);
       const url = (global.fetch as jest.Mock).mock.calls[0][0] as string;
-      expect(url).toContain('types=080113');
+      expect(url).toContain('types=080111');
       expect(url).toContain('keywords');
     });
 
-    it('空 POI 列表返回空数组', async () => {
+    it('全部降级仍无结果时返回空数组', async () => {
+      mockFetchJson({ status: '1', pois: [] });
+      mockFetchJson({ status: '1', pois: [] });
       mockFetchJson({ status: '1', pois: [] });
 
       const client = new AmapClient(createConfig());
       const results = await client.searchNearbyGyms({ lat: 31.23, lng: 121.47 });
       expect(results).toEqual([]);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('主类型无结果时降级 keywords-only 搜索', async () => {
+      mockFetchJson({ status: '1', pois: [] });
+      mockFetchJson({ status: '1', pois: [] });
+      mockFetchJson({
+        status: '1',
+        pois: [{ name: '降级健身房', address: '测试路 1 号', distance: '400' }],
+      });
+
+      const client = new AmapClient(createConfig());
+      const results = await client.searchNearbyGyms({ lat: 29.57, lng: 106.55 });
+
+      expect(results).toEqual([{ name: '降级健身房', address: '测试路 1 号', distanceM: 400 }]);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+      const fallbackUrl = (global.fetch as jest.Mock).mock.calls[2][0] as string;
+      expect(fallbackUrl).not.toContain('types=');
     });
 
     it('HTTP 非 2xx 时抛 BizException', async () => {

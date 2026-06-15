@@ -1,7 +1,15 @@
-import type { CoachChatOutput } from '@fitness/shared';
+import type { CoachChatOutput, CoachToolName } from '@fitness/shared';
 import { create } from 'zustand';
 
 type SuggestedAction = NonNullable<CoachChatOutput['suggestedActions']>[number];
+
+export type CoachToolActivity = {
+  name: CoachToolName;
+  label: string;
+  status: 'running' | 'done' | 'failed';
+  summary?: string;
+  endedAt?: number;
+};
 
 type CoachStreamState = {
   isStreaming: boolean;
@@ -11,6 +19,7 @@ type CoachStreamState = {
   assistantMessageId: string | null;
   assistantContent: string;
   suggestedActions: SuggestedAction[] | null;
+  toolActivities: CoachToolActivity[];
   error: string | null;
   startStream: (params: {
     userMessageId: string;
@@ -18,6 +27,8 @@ type CoachStreamState = {
     assistantMessageId: string;
   }) => void;
   setAssistantContent: (content: string) => void;
+  startTool: (params: { name: CoachToolName; label?: string }) => void;
+  endTool: (params: { name: CoachToolName; ok: boolean; summary?: string }) => void;
   finishStream: (params: { suggestedActions?: SuggestedAction[] }) => void;
   failStream: (message: string) => void;
   stopStream: () => void;
@@ -32,6 +43,7 @@ const initialState = {
   assistantMessageId: null,
   assistantContent: '',
   suggestedActions: null,
+  toolActivities: [] as CoachToolActivity[],
   error: null,
 };
 
@@ -45,10 +57,32 @@ export const useCoachStreamStore = create<CoachStreamState>((set) => ({
       userContent,
       assistantMessageId,
       assistantContent: '',
+      toolActivities: [],
     }),
   setAssistantContent: (content) =>
     set((state) => ({
       assistantContent: content,
+      streamRevision: state.streamRevision + 1,
+    })),
+  startTool: ({ name, label }) =>
+    set((state) => ({
+      toolActivities: [
+        ...state.toolActivities.filter((item) => item.name !== name || item.status !== 'running'),
+        {
+          name,
+          label: label ?? name,
+          status: 'running',
+        },
+      ],
+      streamRevision: state.streamRevision + 1,
+    })),
+  endTool: ({ name, ok, summary }) =>
+    set((state) => ({
+      toolActivities: state.toolActivities.map((item) =>
+        item.name === name && item.status === 'running'
+          ? { ...item, status: ok ? 'done' : 'failed', summary, endedAt: Date.now() }
+          : item,
+      ),
       streamRevision: state.streamRevision + 1,
     })),
   finishStream: ({ suggestedActions }) =>

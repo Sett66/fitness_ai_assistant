@@ -73,6 +73,18 @@ const summarizeToolInput = (input: unknown): string | undefined => {
   if (typeof record.timezoneOffsetMinutes === 'number') {
     return `tz=${record.timezoneOffsetMinutes}`;
   }
+  if (typeof record.query === 'string') {
+    return `query=${record.query.slice(0, 32)}`;
+  }
+  if (typeof record.city === 'string') {
+    return `city=${record.city.slice(0, 32)}`;
+  }
+  const lat = record.lat;
+  const lng = record.lng;
+  if (typeof lat === 'number' && typeof lng === 'number') {
+    const round = (n: number) => Math.round(n * 100) / 100;
+    return `coords=${round(lat)},${round(lng)}`;
+  }
   return undefined;
 };
 

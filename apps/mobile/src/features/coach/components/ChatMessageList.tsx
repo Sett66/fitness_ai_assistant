@@ -3,6 +3,8 @@ import { FlatList, View, type NativeScrollEvent, type NativeSyntheticEvent } fro
 import type { CoachAction, Message } from '@fitness/shared';
 
 import { ChatBubble } from './ChatBubble';
+import { CoachToolStatus } from './CoachToolStatus';
+import type { CoachToolActivity } from '../coach-stream-store';
 
 export type ChatMessageListHandle = {
   scrollToEnd: () => void;
@@ -15,6 +17,8 @@ type ChatMessageListProps = {
   onSuggestedAction?: (action: Exclude<CoachAction, 'CHAT' | 'MANUAL_MEAL_LOG'>) => void;
   streamScrollTick?: number;
   isStreaming?: boolean;
+  toolActivities?: CoachToolActivity[];
+  hasStreamAssistantContent?: boolean;
 };
 
 /** Inverted list: offset 0 = visual bottom (newest). */
@@ -30,6 +34,8 @@ export const ChatMessageList = forwardRef<ChatMessageListHandle, ChatMessageList
       onSuggestedAction,
       streamScrollTick = 0,
       isStreaming = false,
+      toolActivities = [],
+      hasStreamAssistantContent = false,
     },
     ref,
   ) {
@@ -138,7 +144,7 @@ export const ChatMessageList = forwardRef<ChatMessageListHandle, ChatMessageList
         ref={flatListRef}
         inverted
         data={displayMessages}
-        extraData={streamScrollTick}
+        extraData={`${streamScrollTick}-${toolActivities.length}-${hasStreamAssistantContent}-${toolActivities.map((t) => `${t.status}:${t.endedAt ?? 0}`).join()}`}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ flexGrow: 1 }}
         contentContainerClassName="px-4 py-2"
@@ -159,16 +165,25 @@ export const ChatMessageList = forwardRef<ChatMessageListHandle, ChatMessageList
         renderItem={({ item, index }) => {
           const isNewestAssistant = index === 0 && item.role === 'ASSISTANT';
           return (
-            <ChatBubble
-              message={item}
-              onOpenPlan={onOpenPlan}
-              onOpenMealVision={onOpenMealVision}
-              onSuggestedAction={onSuggestedAction}
-              onLayout={isNewestAssistant ? handleNewestAssistantLayout : undefined}
-              onLayoutStable={
-                isNewestAssistant && !isStreaming ? handleNewestAssistantLayout : undefined
-              }
-            />
+            <View>
+              {isNewestAssistant && isStreaming ? (
+                <CoachToolStatus
+                  activities={toolActivities}
+                  isStreaming={isStreaming}
+                  hasAssistantContent={hasStreamAssistantContent}
+                />
+              ) : null}
+              <ChatBubble
+                message={item}
+                onOpenPlan={onOpenPlan}
+                onOpenMealVision={onOpenMealVision}
+                onSuggestedAction={onSuggestedAction}
+                onLayout={isNewestAssistant ? handleNewestAssistantLayout : undefined}
+                onLayoutStable={
+                  isNewestAssistant && !isStreaming ? handleNewestAssistantLayout : undefined
+                }
+              />
+            </View>
           );
         }}
         ListHeaderComponent={<View className="h-2" />}

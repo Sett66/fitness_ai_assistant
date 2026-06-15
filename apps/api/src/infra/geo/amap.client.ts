@@ -9,11 +9,14 @@ import type { GeocodeResult, NearbyGymPoi, SearchNearbyGymsInput } from './geo.t
 const AMAP_BASE_URL = 'https://restapi.amap.com';
 
 /**
- * 高德周边搜索 POI 类型（ADR 0008 §5）：
- * `080113` — 体育休闲服务 · 运动场馆（含健身房）。
- * 结果稀疏时辅以 `keywords=健身房`。
+ * 高德周边搜索 POI 类型（ADR 0008 §5，实施校正）：
+ * `080111` — 体育休闲服务 · 健身中心（健身房主体类型）。
+ * `080113` — 综合体育馆，与 keywords=健身房 组合时常无结果，仅作兜底。
+ * 主搜索无结果时降级为仅 keywords，并扩大半径。
  */
-const GYM_POI_TYPES = '080113';
+const GYM_POI_TYPE_PRIMARY = '080111';
+const GYM_POI_TYPE_FALLBACK = '080113';
+const GYM_KEYWORDS = '健身房';
 
 const DEFAULT_RADIUS_M = 3000;
 const MAX_RADIUS_M = 5000;
@@ -74,20 +77,66 @@ export class AmapClient {
     const radiusM = Math.min(input.radiusM ?? DEFAULT_RADIUS_M, MAX_RADIUS_M);
     const limit = input.limit ?? DEFAULT_LIMIT;
 
-    const data = await this.request<AmapJson>('/v3/place/around', {
-      location: `${input.lng},${input.lat}`,
-      keywords: '健身房',
-      types: GYM_POI_TYPES,
-      radius: String(radiusM),
-      offset: String(limit),
-      page: '1',
+    let results = await this.fetchNearbyGyms({
+      lat: input.lat,
+      lng: input.lng,
+      radiusM,
+      limit,
+      types: GYM_POI_TYPE_PRIMARY,
     });
 
-    const pois = data.pois;
+    if (results.length === 0) {
+      results = await this.fetchNearbyGyms({
+        lat: input.lat,
+        lng: input.lng,
+        radiusM: Math.min(radiusM * 2, MAX_RADIUS_M),
+        limit,
+        types: GYM_POI_TYPE_FALLBACK,
+      });
+    }
+
+    if (results.length === 0) {
+      results = await this.fetchNearbyGyms({
+        lat: input.lat,
+        lng: input.lng,
+        radiusM: MAX_RADIUS_M,
+        limit,
+        keywordsOnly: true,
+      });
+    }
+
+    this.logger.debug(
+      `周边健身房 ${results.length} 条 coords=${this.formatCoords(input.lat, input.lng)} radiusM=${radiusM}`,
+    );
+    return results;
+  }
+
+  private async fetchNearbyGyms(params: {
+    lat: number;
+    lng: number;
+    radiusM: number;
+    limit: number;
+    types?: string;
+    keywordsOnly?: boolean;
+  }): Promise<NearbyGymPoi[]> {
+    const query: Record<string, string> = {
+      location: `${params.lng},${params.lat}`,
+      keywords: GYM_KEYWORDS,
+      radius: String(params.radiusM),
+      offset: String(params.limit),
+      page: '1',
+    };
+    if (!params.keywordsOnly && params.types) {
+      query.types = params.types;
+    }
+
+    const data = await this.request<AmapJson>('/v3/place/around', query);
+    return this.parseGymPois(data.pois, params.lat, params.lng);
+  }
+
+  private parseGymPois(pois: unknown, lat: number, lng: number): NearbyGymPoi[] {
     if (!Array.isArray(pois) || pois.length === 0) {
-      this.logger.debug(
-        `周边健身房为空 coords=${this.formatCoords(input.lat, input.lng)} radiusM=${radiusM}`,
-      );
+      this.logger.debug(`周边健身房为空 coords=${this.formatCoords(lat, lng)}`);
       return [];
     }
 
@@ -104,10 +153,6 @@ export class AmapClient {
         distanceM: Number.isFinite(distanceM) ? distanceM : 0,
       });
     }
-
-    this.logger.debug(
-      `周边健身房 ${results.length} 条 coords=${this.formatCoords(input.lat, input.lng)}`,
-    );
     return results;
   }
 

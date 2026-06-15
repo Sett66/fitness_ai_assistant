@@ -459,6 +459,8 @@ export function CoachScreen() {
                   messages={messages}
                   isStreaming={isStreaming}
                   streamScrollTick={streamState.streamRevision}
+                  toolActivities={streamState.toolActivities}
+                  hasStreamAssistantContent={streamState.assistantContent.length > 0}
                   onOpenPlan={openPlan}
                   onOpenMealVision={openMealVision}
                   onSuggestedAction={handleSuggestedAction}

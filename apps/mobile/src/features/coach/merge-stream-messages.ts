@@ -1,6 +1,7 @@
 import type { Message } from '@fitness/shared';
 
 import type { useCoachStreamStore } from './coach-stream-store';
+import { getAssistantPlaceholder } from './coach-tool-display';
 
 type StreamSnapshot = Pick<
   ReturnType<typeof useCoachStreamStore.getState>,
@@ -10,6 +11,7 @@ type StreamSnapshot = Pick<
   | 'assistantMessageId'
   | 'assistantContent'
   | 'suggestedActions'
+  | 'toolActivities'
 >;
 
 export function mergeStreamMessages(messages: Message[], stream: StreamSnapshot): Message[] {
@@ -42,7 +44,9 @@ export function mergeStreamMessages(messages: Message[], stream: StreamSnapshot)
   if (stream.assistantMessageId) {
     const assistantIdx = result.findIndex((m) => m.id === stream.assistantMessageId);
     const existingAssistant = assistantIdx >= 0 ? result[assistantIdx] : undefined;
-    const assistantContent = stream.assistantContent || existingAssistant?.content || '思考中…';
+    const toolPlaceholder = getAssistantPlaceholder(stream.toolActivities, stream.isStreaming);
+    const assistantContent =
+      stream.assistantContent || toolPlaceholder || existingAssistant?.content || '思考中…';
     const metadata: Record<string, unknown> = {
       taskStatus: stream.isStreaming ? 'RUNNING' : 'DONE',
       taskType: 'COACH_CHAT',
