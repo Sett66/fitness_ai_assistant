@@ -108,10 +108,10 @@ Epic 状态改为「实施完成待验收」；链到 HANDOFF-M5。
 
 ## 6. Acceptance criteria
 
-- [ ] `m5-agent-acceptance.ps1` 在 `COACH_AGENT_ENABLED=true` + Key 齐全时 exit 0
-- [ ] `-SkipCoachChat` / `-SkipGeoTools` 文档化且可用
-- [ ] `COACH_AGENT_ENABLED=false` 时 `m4-acceptance.ps1` exit 0
-- [ ] HANDOFF-M5 含完整 env 与手测步骤
+- [x] `m5-agent-acceptance.ps1` 在 `COACH_AGENT_ENABLED=true` + Key 齐全时 exit 0
+- [x] `-SkipCoachChat` / `-SkipGeoTools` 文档化且可用
+- [x] `COACH_AGENT_ENABLED=false` 时 `m4-acceptance.ps1` exit 0（见 [`HANDOFF-M5.md`](../../HANDOFF-M5.md) §3.2）
+- [x] HANDOFF-M5 含完整 env 与手测步骤
 
 ---
 

@@ -2,6 +2,7 @@
 
 > **来源**：[真 Agent 能力演进计划](.cursor/plans/真_agent_能力演进_df899b55.plan.md)（grill-me + to-issues）  
 > **范围决策**：**C 完整 MVP** — 天气 + 地理/POI + 定位 + 长期记忆 + Agent 派发训练/饮食/识图  
+> **Epic 状态**：**实施完成待验收** — 见 [`HANDOFF-M5.md`](./HANDOFF-M5.md)  
 > **刻意不含**：向量记忆、SSE 内跑 VLM、饮食计划内容加厚（见文末「并行轨道」）  
 > **发布**：本地清单；确认后可 `gh issue create` 同步到 GitHub  
 > **实施文档（给各 Agent）**：[`docs/issues/agent/README.md`](./issues/agent/README.md) — 每 Issue 一份详细交接说明
@@ -171,14 +172,16 @@ flowchart TD
 
 ---
 
-## AGENT-10 — Agent 验收脚本与 M5 文档
+## AGENT-10 — Agent 验收脚本与 M5 文档 ✅
 
 | 字段           | 值                                            |
 | -------------- | --------------------------------------------- |
 | **Type**       | AFK                                           |
 | **Blocked by** | AGENT-07, AGENT-08                            |
 | **估时**       | 1–2 天                                        |
+| **状态**       | **已完成** · 2026-06-16                       |
 | **详细文档**   | [**AGENT-10.md**](./issues/agent/AGENT-10.md) |
+| **接手**       | [**HANDOFF-M5.md**](./HANDOFF-M5.md)          |
 
 摘要：`m5-agent-acceptance.ps1`、`HANDOFF-M5.md`、Epic 关闭检查表。
 

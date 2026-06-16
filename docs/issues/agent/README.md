@@ -46,7 +46,7 @@ docs/ARCHITECTURE.md
 | AGENT-07        | [AGENT-07.md](./AGENT-07.md)               | W3   | AFK  | 03, 04, 06 |         |
 | AGENT-08        | [AGENT-08.md](./AGENT-08.md)               | W3   | AFK  | 06         |         |
 | AGENT-09        | [AGENT-09.md](./AGENT-09.md)               | W3   | AFK  | 02, 03     | ✅ Done |
-| AGENT-10        | [AGENT-10.md](./AGENT-10.md)               | W4   | AFK  | 07, 08     |         |
+| AGENT-10        | [AGENT-10.md](./AGENT-10.md)               | W4   | AFK  | 07, 08     | ✅ Done |
 | MEAL-QUALITY-01 | [MEAL-QUALITY-01.md](./MEAL-QUALITY-01.md) | 并行 | AFK  | —          |         |
 
 ## 完成后交接

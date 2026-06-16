@@ -87,6 +87,7 @@ pnpm test
 .\scripts\m2-acceptance.ps1
 .\scripts\m3-acceptance.ps1   # 需 LLM Key
 .\scripts\m4-acceptance.ps1   # M4 已关闭；无 DeepSeek 余额时加 -SkipCoachChat
+.\scripts\m5-agent-acceptance.ps1   # Agent Epic；需 COACH_AGENT_ENABLED=true + Key；见 docs/HANDOFF-M5.md
 
 # 一键并发跑（turbo 编排）
 pnpm dev
@@ -104,7 +105,7 @@ pnpm dev
 - [x] **M4 正式关闭**（2026-06-04 · API smoke + 手测）
 - [ ] **M5** 联调与 APK CI
 - [x] **Agent ADR 0008**（架构契约；实施见 `docs/issues/agent/`）
-- [ ] **Agent 代码**（AGENT-02～10）
+- [x] **Agent 代码**（AGENT-02～09 已合并；**AGENT-10** 验收脚本 + [`HANDOFF-M5.md`](docs/HANDOFF-M5.md)）
 
 **产品备注**：仪表盘**不**做「今日体重」独立卡片；体重仅在档案与消耗估算中使用（见 PRD F6 注）。
 
