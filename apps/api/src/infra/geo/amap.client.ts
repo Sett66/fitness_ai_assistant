@@ -72,6 +72,35 @@ export class AmapClient {
     return { lat, lng, city, formattedAddress };
   }
 
+  /** 逆地理编码：坐标 → 城市名（PUT 位置无 city 时可选调用） */
+  async regeocode(lat: number, lng: number): Promise<GeocodeResult> {
+    this.requireKey('逆地理编码');
+    const data = await this.request<AmapJson>('/v3/geocode/regeo', {
+      location: `${lng},${lat}`,
+      extensions: 'base',
+    });
+    const regeocode = data.regeocode as AmapJson | undefined;
+    if (!regeocode || typeof regeocode !== 'object') {
+      throw new BizException('NOT_FOUND', '无法解析该坐标的城市信息', 404);
+    }
+
+    const component =
+      typeof regeocode.addressComponent === 'object' && regeocode.addressComponent != null
+        ? (regeocode.addressComponent as AmapJson)
+        : regeocode;
+    const city = this.resolveCity(component);
+    const formattedAddress =
+      typeof regeocode.formatted_address === 'string' ? regeocode.formatted_address : undefined;
+
+    this.logger.debug(`逆地理编码成功 city=${city} coords=${this.formatCoords(lat, lng)}`);
+
+    return { lat, lng, city, formattedAddress };
+  }
+
+  isConfigured(): boolean {
+    return Boolean(this.webKey);
+  }
+
   async searchNearbyGyms(input: SearchNearbyGymsInput): Promise<NearbyGymPoi[]> {
     this.requireKey('周边健身房搜索');
     const radiusM = Math.min(input.radiusM ?? DEFAULT_RADIUS_M, MAX_RADIUS_M);

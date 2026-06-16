@@ -3,6 +3,8 @@ import {
   MeResponseSchema,
   paginatedSchema,
   StrengthLevelResponseSchema,
+  UserLocationNullableResponseSchema,
+  UserLocationResponseSchema,
 } from '@fitness/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -87,6 +89,30 @@ export function useExercises(limit = 100) {
     queryFn: async () => {
       const json = await apiFetch<unknown>(`/exercises?limit=${limit}`);
       return ExerciseListSchema.parse(json);
+    },
+  });
+}
+
+export function useMyLocation(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.myLocation,
+    enabled,
+    queryFn: async () => {
+      const json = await apiFetch<unknown>('/users/me/location');
+      return UserLocationNullableResponseSchema.parse(json);
+    },
+  });
+}
+
+export function useUpsertMyLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: unknown) => {
+      const json = await apiFetch<unknown>('/users/me/location', { method: 'PUT', body });
+      return UserLocationResponseSchema.parse(json);
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.myLocation });
     },
   });
 }

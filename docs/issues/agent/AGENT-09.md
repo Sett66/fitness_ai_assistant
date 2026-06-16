@@ -1,12 +1,13 @@
 # AGENT-09 — 用户最近位置 HTTP API（社区预热）
 
-| 字段           | 值                                                   |
-| -------------- | ---------------------------------------------------- |
-| **Type**       | AFK                                                  |
-| **Wave**       | W3（可与 07/08 并行）                                |
-| **Blocked by** | [AGENT-02](./AGENT-02.md), [AGENT-03](./AGENT-03.md) |
-| **Blocks**     | 无（M6 社区消费）                                    |
-| **估时**       | 1 天                                                 |
+| 字段           | 值                                                    |
+| -------------- | ----------------------------------------------------- |
+| **Type**       | AFK                                                   |
+| **Wave**       | W3（可与 07/08 并行）                                 |
+| **Blocked by** | [AGENT-02](./AGENT-02.md), [AGENT-03](./AGENT-03.md)  |
+| **Blocks**     | 无（M6 社区消费）                                     |
+| **估时**       | 1 天                                                  |
+| **状态**       | ✅ 已完成 · 2026-06-16（手测 `scripts/GPS.ps1` 通过） |
 
 ---
 
@@ -124,20 +125,27 @@ await apiFetch('/users/me/location', { method: 'PUT', body: { ...ctx, source: 'G
 
 ## 6. Acceptance criteria
 
-- [ ] PUT 后 GET 返回一致 lat/lng/city/source
-- [ ] 多次 PUT 产生多条 snapshot；GET 取最新
-- [ ] 未 PUT 时 GET 返回 `null` 或 404（在 shared 约定一种）
-- [ ] `pnpm typecheck` + Swagger 可见
+- [x] PUT 后 GET 返回一致 lat/lng/city/source
+- [x] 多次 PUT 产生多条 snapshot；GET 取最新
+- [x] 未 PUT 时 GET 返回 `null`（HTTP 200，`UserLocationNullableResponseSchema`）
+- [x] `pnpm typecheck` + Swagger 可见（`users` 标签下 `GET/PUT me/location`）
 
 ---
 
 ## 7. 验证步骤
 
 ```powershell
-# 登录拿 token
-Invoke-RestMethod -Uri http://127.0.0.1:3000/v1/users/me/location -Method PUT -Headers @{Authorization="Bearer ..."} -Body '{"lat":31.2,"lng":121.5,"city":"上海","source":"MANUAL"}' -ContentType application/json
-Invoke-RestMethod -Uri http://127.0.0.1:3000/v1/users/me/location -Headers @{Authorization="Bearer ..."}
+# 1. 迁移（若尚未执行）
+pnpm --filter @fitness/db migrate:deploy
+
+# 2. 启动 API
+pnpm --filter api start:api
+
+# 3. 手测（含登录 + PUT/GET + 逆地理；PS5 中文 city 用 Unicode，见脚本注释）
+.\scripts\GPS.ps1
 ```
+
+PowerShell 5 勿在脚本里直接写中文 city 字面量；详见 `scripts/GPS.ps1`。
 
 ---
 
