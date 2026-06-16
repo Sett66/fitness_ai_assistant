@@ -157,16 +157,17 @@ flowchart TD
 
 ---
 
-## AGENT-09 — 用户最近位置 HTTP API（社区预热）
+## AGENT-09 — 用户最近位置 HTTP API（社区预热） ✅
 
 | 字段           | 值                                            |
 | -------------- | --------------------------------------------- |
 | **Type**       | AFK                                           |
 | **Blocked by** | AGENT-02, AGENT-03                            |
 | **估时**       | 1 天                                          |
+| **状态**       | **已完成** · 2026-06-16                       |
 | **详细文档**   | [**AGENT-09.md**](./issues/agent/AGENT-09.md) |
 
-摘要：`UserLocationSnapshot` + `PUT/GET /users/me/location`；M6 预热。
+摘要：`UserLocationSnapshot` + `PUT/GET /users/me/location`；可选逆地理；Coach GPS 静默持久化；手测 `scripts/GPS.ps1`。
 
 ---
 

@@ -1,6 +1,7 @@
 export const queryKeys = {
   me: ['me'] as const,
   profile: ['profile'] as const,
+  myLocation: ['my-location'] as const,
   strengthLevels: ['strength-levels'] as const,
   dailySummary: (date: string) => ['daily-summary', date] as const,
   mealLogs: (date?: string) => ['meal-logs', date ?? 'all'] as const,

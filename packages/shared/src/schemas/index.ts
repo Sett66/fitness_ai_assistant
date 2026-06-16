@@ -10,4 +10,5 @@ export * from './ai-task';
 export * from './ai-context';
 export * from './agent';
 export * from './conversation';
+export * from './user-location';
 export * from './phase2';

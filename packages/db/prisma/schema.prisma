@@ -149,6 +149,12 @@ enum ReactionKind {
   HEART
 }
 
+enum LocationSource {
+  GPS
+  MANUAL
+  GEOCODE
+}
+
 // =================================================================
 // Account & Profile
 // =================================================================
@@ -181,6 +187,7 @@ model User {
   comments        Comment[]
   reactions       Reaction[]
   partnerProfile  PartnerProfile?
+  locationSnapshots UserLocationSnapshot[]
 
   @@index([deletedAt])
 }
@@ -643,6 +650,20 @@ model PartnerProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([city, goal, level])
+}
+
+model UserLocationSnapshot {
+  id        String         @id @default(cuid())
+  userId    String
+  lat       Float
+  lng       Float
+  city      String?        @db.VarChar(64)
+  source    LocationSource
+  createdAt DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 // =================================================================

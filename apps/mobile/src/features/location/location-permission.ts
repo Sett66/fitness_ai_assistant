@@ -4,6 +4,7 @@ import { mmkv } from '../../storage/mmkv';
 
 import { getLocationContext } from './getLocationContext';
 import { locationLabels } from './location-labels';
+import { persistUserLocationSnapshot } from './persist-user-location';
 import { shouldAttachLocation } from './shouldAttachLocation';
 
 const CONSENT_KEY = 'coach.location.consentShown';
@@ -103,8 +104,11 @@ export async function resolveLocationContextForChat(content: string) {
   const ctx = await getLocationContext();
   if (!ctx) {
     showLocationToast(locationLabels.locationFailedToast);
+    return undefined;
   }
-  return ctx ?? undefined;
+
+  void persistUserLocationSnapshot(ctx);
+  return ctx;
 }
 
 export function openLocationSystemSettings(): void {

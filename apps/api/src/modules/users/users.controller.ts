@@ -42,6 +42,17 @@ export class UsersController {
     return this.users.deleteProfile(user);
   }
 
+  /** 本人最近位置（仅 GET /users/me/location，无公开他人坐标 API） */
+  @Get('me/location')
+  getLocation(@CurrentUser() user: JwtUserPayload) {
+    return this.users.getLatestLocation(user);
+  }
+
+  @Put('me/location')
+  putLocation(@CurrentUser() user: JwtUserPayload, @Body() body: unknown) {
+    return this.users.upsertLocation(user, body);
+  }
+
   @Get('me/strength-levels')
   async listStrength(@CurrentUser() user: JwtUserPayload) {
     const rows = await this.users.listStrength(user);

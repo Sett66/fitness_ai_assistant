@@ -1,6 +1,6 @@
-import type { Profile, StrengthLevel, User } from '@fitness/db';
+import { Injectable, Logger } from '@nestjs/common';
+import type { LocationSource, Profile, StrengthLevel, User } from '@fitness/db';
 import type { ExerciseEquipment } from '@fitness/shared';
-import { Injectable } from '@nestjs/common';
 import {
   CreateProfileSchema,
   CreateStrengthLevelSchema,
@@ -8,13 +8,17 @@ import {
   UpdateMeSchema,
   UpdateProfileSchema,
   UpdateStrengthLevelSchema,
+  UpsertUserLocationSchema,
+  UserLocationNullableResponseSchema,
+  UserLocationResponseSchema,
 } from '@fitness/shared';
-import type { MeResponse, OnboardingStep } from '@fitness/shared';
+import type { MeResponse, OnboardingStep, UserLocationResponse } from '@fitness/shared';
 import { errorMessagesZhCN } from '@fitness/shared';
 
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
+import { AmapClient } from '../../infra/geo/amap.client';
 import { S3StorageService } from '../../infra/storage/s3-storage.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 
@@ -24,9 +28,12 @@ type StrengthWithExercise = StrengthLevel & {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: S3StorageService,
+    private readonly amap: AmapClient,
   ) {}
 
   async getMe(user: JwtUserPayload): Promise<MeResponse> {
@@ -106,6 +113,53 @@ export class UsersService {
       where: { userId: user.userId },
     });
     return { ok: true };
+  }
+
+  /** GET /users/me/location — 仅本人可读，返回最新 snapshot 或 null */
+  async getLatestLocation(user: JwtUserPayload): Promise<UserLocationResponse | null> {
+    const row = await this.prisma.client.userLocationSnapshot.findFirst({
+      where: { userId: user.userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!row) {
+      return UserLocationNullableResponseSchema.parse(null);
+    }
+    return mapLocationSnapshot(row);
+  }
+
+  /** PUT /users/me/location — append-only 快照历史 */
+  async upsertLocation(user: JwtUserPayload, body: unknown): Promise<UserLocationResponse> {
+    const input = parseWith(UpsertUserLocationSchema, body);
+    let city = input.city?.trim() || undefined;
+    let source: LocationSource = input.source;
+
+    if (!city && this.amap.isConfigured()) {
+      try {
+        const regeocoded = await this.amap.regeocode(input.lat, input.lng);
+        city = regeocoded.city;
+        source = 'GEOCODE';
+      } catch (err: unknown) {
+        this.logger.debug(
+          `逆地理编码跳过 userId=${user.userId} coords=${formatCoordsForLog(input.lat, input.lng)}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    const row = await this.prisma.client.userLocationSnapshot.create({
+      data: {
+        userId: user.userId,
+        lat: input.lat,
+        lng: input.lng,
+        city: city ?? null,
+        source,
+      },
+    });
+
+    this.logger.debug(
+      `位置快照 userId=${user.userId} source=${source} coords=${formatCoordsForLog(row.lat, row.lng)}`,
+    );
+
+    return mapLocationSnapshot(row);
   }
 
   async listStrength(user: JwtUserPayload): Promise<StrengthWithExercise[]> {
@@ -324,6 +378,27 @@ async function assertExerciseAccessible(
 }
 
 export { mapStrength };
+
+function mapLocationSnapshot(row: {
+  lat: number;
+  lng: number;
+  city: string | null;
+  source: LocationSource;
+  createdAt: Date;
+}): UserLocationResponse {
+  return UserLocationResponseSchema.parse({
+    lat: row.lat,
+    lng: row.lng,
+    ...(row.city ? { city: row.city } : {}),
+    source: row.source,
+    updatedAt: row.createdAt,
+  });
+}
+
+function formatCoordsForLog(lat: number, lng: number): string {
+  const round = (value: number) => Math.round(value * 100) / 100;
+  return `${round(lat)},${round(lng)}`;
+}
 
 async function assertMediaOwned(
   userId: string,
