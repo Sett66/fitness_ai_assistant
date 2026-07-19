@@ -2,6 +2,13 @@ import { Platform } from 'react-native';
 
 import { DEV_CONFIG } from './dev-config';
 
+/**
+ * API / 存储地址解析顺序：
+ * 1. `apps/mobile/.env` 中的 API_BASE_URL / STORAGE_PUBLIC_ENDPOINT（真机联调）
+ * 2. 下方平台默认（Android 模拟器 10.0.2.2 / iOS 本机）
+ *
+ * 勿在源码写死局域网 IP；见 README「真机联调」。
+ */
 /** Android 模拟器访问宿主机 localhost */
 const DEV_ANDROID_BASE = 'http://10.0.2.2:3000/v1';
 const DEV_IOS_BASE = 'http://127.0.0.1:3000/v1';

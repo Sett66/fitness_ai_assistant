@@ -294,6 +294,9 @@ importers:
       "@types/react-test-renderer":
         specifier: ^19.1.0
         version: 19.1.0
+      babel-plugin-transform-inline-environment-variables:
+        specifier: ^0.4.4
+        version: 0.4.4
       eslint:
         specifier: ^9.17.0
         version: 9.39.4(jiti@1.21.7)
@@ -4214,6 +4217,12 @@ packages:
     resolution:
       {
         integrity: sha512-g4aaCrDDOsWjbm0PUUeVnkcVd6AKJsVc/MbnPhEotEpkeJQP6b8nzewohQi7+QS8UyPehOhGWn0nOwjvWpmMvQ==,
+      }
+
+  babel-plugin-transform-inline-environment-variables@0.4.4:
+    resolution:
+      {
+        integrity: sha512-bJILBtn5a11SmtR2j/3mBOjX4K3weC6cq+NNZ7hG22wCAqpc3qtj/iN7dSe9HDiS46lgp1nHsQgeYrea/RUe+g==,
       }
 
   babel-preset-current-node-syntax@1.2.0:
@@ -13853,6 +13862,8 @@ snapshots:
       "@babel/plugin-syntax-flow": 7.28.6(@babel/core@7.29.0)
     transitivePeerDependencies:
       - "@babel/core"
+
+  babel-plugin-transform-inline-environment-variables@0.4.4: {}
 
   babel-preset-current-node-syntax@1.2.0(@babel/core@7.29.0):
     dependencies:

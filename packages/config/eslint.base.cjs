@@ -53,7 +53,8 @@ module.exports = [
     },
   },
   {
-    files: ['**/*.cjs', '**/*.config.{js,cjs,mjs,ts}'],
+    // CommonJS 工具脚本：metro/babel/eslint 配置，以及 apps/mobile/load-env.js 等
+    files: ['**/*.cjs', '**/*.config.{js,cjs,mjs,ts}', '**/load-env.js'],
     languageOptions: {
       globals: {
         require: 'readonly',
@@ -61,6 +62,8 @@ module.exports = [
         exports: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
       },
     },
     rules: {

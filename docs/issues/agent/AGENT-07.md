@@ -7,6 +7,7 @@
 | **Blocked by** | [AGENT-03](./AGENT-03.md), [AGENT-04](./AGENT-04.md), [AGENT-06](./AGENT-06.md) |
 | **Blocks**     | AGENT-10                                                                        |
 | **估时**       | 2–3 天                                                                          |
+| **状态**       | ✅ 已完成 · 2026-07-19 文档核验同步（Geo 三工具 + 移动端 tool UI）              |
 
 ---
 

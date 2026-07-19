@@ -7,6 +7,7 @@
 | **Blocked by** | [AGENT-01](./AGENT-01.md)（ADR 0008 Accepted） |
 | **Blocks**     | AGENT-04, 06, 09                               |
 | **估时**       | 1 天                                           |
+| **状态**       | ✅ 已完成                                      |
 
 ---
 

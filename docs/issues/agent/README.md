@@ -2,7 +2,8 @@
 
 > **Epic**：Coach 从「单次流式 LLM」升级为「LangGraph ReAct + 服务端工具 + 分层记忆」  
 > **索引**：[AGENT-ISSUES.md](../../AGENT-ISSUES.md)（依赖图与 Wave）  
-> **前提**：M4 已关闭；M5 当前阶段
+> **前提**：M4 已关闭；M5 当前阶段  
+> **状态（2026-07-19）**：AGENT-01～10 代码交付完成；正式关闭见 [`HANDOFF-M5.md`](../../HANDOFF-M5.md) §5
 
 ## 给接手 Agent 的通用说明
 
@@ -35,19 +36,21 @@ docs/ARCHITECTURE.md
 
 ## Issue 文档列表
 
-| ID              | 文档                                       | Wave | 类型 | 阻塞       | 状态    |
-| --------------- | ------------------------------------------ | ---- | ---- | ---------- | ------- |
-| AGENT-01        | [AGENT-01.md](./AGENT-01.md)               | W0   | HITL | —          | ✅ Done |
-| AGENT-02        | [AGENT-02.md](./AGENT-02.md)               | W1   | AFK  | 01         | ✅ Done |
-| AGENT-03        | [AGENT-03.md](./AGENT-03.md)               | W1   | AFK  | 01, 02     |         |
-| AGENT-04        | [AGENT-04.md](./AGENT-04.md)               | W1   | AFK  | 02         |         |
-| AGENT-05        | [AGENT-05.md](./AGENT-05.md)               | W1   | AFK  | 01, 02     | ✅ Done |
-| AGENT-06        | [AGENT-06.md](./AGENT-06.md)               | W2   | AFK  | 02, 05     |         |
-| AGENT-07        | [AGENT-07.md](./AGENT-07.md)               | W3   | AFK  | 03, 04, 06 |         |
-| AGENT-08        | [AGENT-08.md](./AGENT-08.md)               | W3   | AFK  | 06         |         |
-| AGENT-09        | [AGENT-09.md](./AGENT-09.md)               | W3   | AFK  | 02, 03     | ✅ Done |
-| AGENT-10        | [AGENT-10.md](./AGENT-10.md)               | W4   | AFK  | 07, 08     | ✅ Done |
-| MEAL-QUALITY-01 | [MEAL-QUALITY-01.md](./MEAL-QUALITY-01.md) | 并行 | AFK  | —          |         |
+| ID              | 文档                                       | Wave | 类型 | 阻塞       | 状态                       |
+| --------------- | ------------------------------------------ | ---- | ---- | ---------- | -------------------------- |
+| AGENT-01        | [AGENT-01.md](./AGENT-01.md)               | W0   | HITL | —          | ✅ Done                    |
+| AGENT-02        | [AGENT-02.md](./AGENT-02.md)               | W1   | AFK  | 01         | ✅ Done                    |
+| AGENT-03        | [AGENT-03.md](./AGENT-03.md)               | W1   | AFK  | 01, 02     | ✅ Done                    |
+| AGENT-04        | [AGENT-04.md](./AGENT-04.md)               | W1   | AFK  | 02         | ✅ Done                    |
+| AGENT-05        | [AGENT-05.md](./AGENT-05.md)               | W1   | AFK  | 01, 02     | ✅ Done                    |
+| AGENT-06        | [AGENT-06.md](./AGENT-06.md)               | W2   | AFK  | 02, 05     | ✅ Done                    |
+| AGENT-07        | [AGENT-07.md](./AGENT-07.md)               | W3   | AFK  | 03, 04, 06 | ✅ Done                    |
+| AGENT-08        | [AGENT-08.md](./AGENT-08.md)               | W3   | AFK  | 06         | ✅ Done                    |
+| AGENT-09        | [AGENT-09.md](./AGENT-09.md)               | W3   | AFK  | 02, 03     | ✅ Done                    |
+| AGENT-10        | [AGENT-10.md](./AGENT-10.md)               | W4   | AFK  | 07, 08     | ✅ Done                    |
+| MEAL-QUALITY-01 | [MEAL-QUALITY-01.md](./MEAL-QUALITY-01.md) | 并行 | AFK  | —          | ⬜ 未开工（非 Agent Epic） |
+
+> **进度核验（2026-07-19）**：AGENT-01～10 代码交付物齐全；Epic 正式关闭以 [`HANDOFF-M5.md`](../../HANDOFF-M5.md) §5 本机验收勾选为准。
 
 ## 完成后交接
 

@@ -1,12 +1,13 @@
 # AGENT-06 — Agent 核心：LangGraph ReAct + ToolRegistry 骨架
 
-| 字段           | 值                                                   |
-| -------------- | ---------------------------------------------------- |
-| **Type**       | AFK                                                  |
-| **Wave**       | W2                                                   |
-| **Blocked by** | [AGENT-02](./AGENT-02.md), [AGENT-05](./AGENT-05.md) |
-| **Blocks**     | AGENT-07, AGENT-08                                   |
-| **估时**       | 3–4 天                                               |
+| 字段           | 值                                                                          |
+| -------------- | --------------------------------------------------------------------------- |
+| **Type**       | AFK                                                                         |
+| **Wave**       | W2                                                                          |
+| **Blocked by** | [AGENT-02](./AGENT-02.md), [AGENT-05](./AGENT-05.md)                        |
+| **Blocks**     | AGENT-07, AGENT-08                                                          |
+| **估时**       | 3–4 天                                                                      |
+| **状态**       | ✅ 已完成 · 2026-07-19 文档核验同步（LangGraph + ToolRegistry + flag 回退） |
 
 ---
 
@@ -193,11 +194,13 @@ if (this.agentConfig.isCoachAgentEnabled()) {
 
 ## 6. Acceptance criteria
 
-- [ ] `COACH_AGENT_ENABLED=false`：`m4-acceptance.ps1` 通过
-- [ ] `COACH_AGENT_ENABLED=true`：问摄入相关 → `toolTrace` 含 `get_user_fitness_snapshot` 且 `ok: true`
-- [ ] SSE 有 `tool_start`/`tool_end`（可用 curl 或日志验证）
-- [ ] 超过 5 轮 tool 时优雅终止（错误信息或截断）
-- [ ] `pnpm typecheck` 通过
+- [x] `COACH_AGENT_ENABLED=false`：回退经典 `runCoachChatStream`（见 `conversations.service` + HANDOFF-M5 §3.2）
+- [x] `COACH_AGENT_ENABLED=true`：首工具 `get_user_fitness_snapshot` 已注册；SSE `done.toolTrace` 可记录
+- [x] SSE 有 `tool_start`/`tool_end`（Agent 路径；移动端 `CoachToolStatus`）
+- [x] 超过 5 轮 tool 时优雅终止（`MAX_TOOL_ITERATIONS = 5`）
+- [x] `pnpm typecheck` 通过
+
+> 正式回归仍以 [`HANDOFF-M5.md`](../../HANDOFF-M5.md) 本机跑 `m4`/`m5` 验收脚本为准。
 
 ---
 

@@ -1,13 +1,13 @@
 # AGENT-09 — 用户最近位置 HTTP API（社区预热）
 
-| 字段           | 值                                                    |
-| -------------- | ----------------------------------------------------- |
-| **Type**       | AFK                                                   |
-| **Wave**       | W3（可与 07/08 并行）                                 |
-| **Blocked by** | [AGENT-02](./AGENT-02.md), [AGENT-03](./AGENT-03.md)  |
-| **Blocks**     | 无（M6 社区消费）                                     |
-| **估时**       | 1 天                                                  |
-| **状态**       | ✅ 已完成 · 2026-06-16（手测 `scripts/GPS.ps1` 通过） |
+| 字段           | 值                                                             |
+| -------------- | -------------------------------------------------------------- |
+| **Type**       | AFK                                                            |
+| **Wave**       | W3（可与 07/08 并行）                                          |
+| **Blocked by** | [AGENT-02](./AGENT-02.md), [AGENT-03](./AGENT-03.md)           |
+| **Blocks**     | 无（M6 社区消费）                                              |
+| **估时**       | 1 天                                                           |
+| **状态**       | ✅ 已完成 · 2026-06-16（HTTP 手测见 §7；仓库无独立 `GPS.ps1`） |
 
 ---
 
@@ -141,11 +141,15 @@ pnpm --filter @fitness/db migrate:deploy
 # 2. 启动 API
 pnpm --filter api start:api
 
-# 3. 手测（含登录 + PUT/GET + 逆地理；PS5 中文 city 用 Unicode，见脚本注释）
-.\scripts\GPS.ps1
+# 3. 手测：登录后 PUT/GET（PS5 中文 city 建议用 Unicode 转义，避免编码问题）
+$token = "<accessToken>"
+$headers = @{ Authorization = "Bearer $token"; "Content-Type" = "application/json" }
+$body = '{"lat":31.2304,"lng":121.4737,"city":"\u4e0a\u6d77\u5e02","source":"MANUAL"}'
+Invoke-RestMethod -Method PUT -Uri "http://127.0.0.1:3000/v1/users/me/location" -Headers $headers -Body $body
+Invoke-RestMethod -Method GET -Uri "http://127.0.0.1:3000/v1/users/me/location" -Headers $headers
 ```
 
-PowerShell 5 勿在脚本里直接写中文 city 字面量；详见 `scripts/GPS.ps1`。
+Coach 发消息时若带 GPS，服务端可静默写入 snapshot（见实现）；完整 Agent 链路回归用 `.\scripts\m5-agent-acceptance.ps1`。
 
 ---
 

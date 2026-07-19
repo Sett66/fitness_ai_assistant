@@ -1,12 +1,13 @@
 # AGENT-03 — 服务端 Geo 基础设施（高德 + Open-Meteo）
 
-| 字段           | 值                                                   |
-| -------------- | ---------------------------------------------------- |
-| **Type**       | AFK                                                  |
-| **Wave**       | W1                                                   |
-| **Blocked by** | [AGENT-01](./AGENT-01.md), [AGENT-02](./AGENT-02.md) |
-| **Blocks**     | AGENT-07, AGENT-09                                   |
-| **估时**       | 1.5–2 天                                             |
+| 字段           | 值                                                                           |
+| -------------- | ---------------------------------------------------------------------------- |
+| **Type**       | AFK                                                                          |
+| **Wave**       | W1                                                                           |
+| **Blocked by** | [AGENT-01](./AGENT-01.md), [AGENT-02](./AGENT-02.md)                         |
+| **Blocks**     | AGENT-07, AGENT-09                                                           |
+| **估时**       | 1.5–2 天                                                                     |
+| **状态**       | ✅ 已完成 · 代码交付；2026-07-19 `pnpm --filter api test`（含 geo mock）全绿 |
 
 ---
 
@@ -154,10 +155,10 @@ pnpm --filter api test
 
 ## 6. Acceptance criteria
 
-- [ ] mock 测试在 CI 通过，不请求真实高德
-- [ ] 有 Key 时本地可对「上海」geocode + nearby gyms 手测（文档写明命令）
-- [ ] Open-Meteo 对固定坐标返回非空 `summary`
-- [ ] 日志无完整坐标、无 Key
+- [x] mock 测试在 CI 通过，不请求真实高德（`amap.client.spec.ts` / `weather.client.spec.ts`）
+- [x] 有 Key 时本地可对「上海」geocode + nearby gyms 手测（文档写明命令，见 §7）
+- [x] Open-Meteo 对固定坐标返回非空 `summary`（mock 单测覆盖）
+- [x] 日志无完整坐标、无 Key（客户端 DEBUG 仅打截断 coords / 条数）
 
 ---
 

@@ -1,3 +1,5 @@
+require('./load-env');
+
 module.exports = {
   presets: ['module:@react-native/babel-preset'],
   plugins: [
@@ -7,6 +9,12 @@ module.exports = {
       {
         runtime: 'automatic',
         importSource: 'react-native-css-interop',
+      },
+    ],
+    [
+      'transform-inline-environment-variables',
+      {
+        include: ['API_BASE_URL', 'STORAGE_PUBLIC_ENDPOINT'],
       },
     ],
   ],

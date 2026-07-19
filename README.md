@@ -1,16 +1,15 @@
 # Fitness AI Assistant
 
-> AI 驱动的健身助手 monorepo。**M0–M4 已关闭**；**M5** 联调/CI/APK + **Coach 真 Agent**（ADR 0008）为当前阶段。
+> AI 驱动的健身助手 monorepo。**M0–M5 已关闭**（M5 为**精简关闭**：Agent Epic + 真机 API `.env` 注入；APK CI / Sentry 刻意不做）。
 
 ## 文档
 
-- [`docs/issues/agent/README.md`](./docs/issues/agent/README.md) — **真 Agent 实施**（分 Issue 交接文档）**← M5 Agent 入口**
+- [`docs/HANDOFF-M5.md`](./docs/HANDOFF-M5.md) — **M5 已关闭**（Agent 验收 + 精简工程；§7 说明）
+- [`apps/mobile/README.md`](./apps/mobile/README.md) — 移动端启动与**真机 `.env` 联调**
+- [`docs/issues/agent/README.md`](./docs/issues/agent/README.md) — 真 Agent 分 Issue 文档
 - [`docs/adr/0008-coach-agent-tools-and-memory.md`](./docs/adr/0008-coach-agent-tools-and-memory.md) — Agent 架构决策
-- [`docs/AGENT-ISSUES.md`](./docs/AGENT-ISSUES.md) — Agent Epic 依赖与 Wave
+- [`docs/AGENT-ISSUES.md`](./docs/AGENT-ISSUES.md) — Agent Epic 依赖与 Wave（**Epic 已关闭**）
 - [`docs/HANDOFF-M4-REMAINING.md`](./docs/HANDOFF-M4-REMAINING.md) — M4 收口清单（**已关闭**）
-- [`docs/HANDOFF-M4-AGENT.md`](./docs/HANDOFF-M4-AGENT.md) — M4/Coach 增量摘要
-- [`docs/HANDOFF-M4.md`](./docs/HANDOFF-M4.md) — M4 范围与 API 约定
-- [`docs/HANDOFF-M3.md`](./docs/HANDOFF-M3.md) — M3 交接（AI 核心）
 - [`docs/PRD.md`](./docs/PRD.md) — 产品需求
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — 架构说明
 - [`docs/adr/`](./docs/adr/) — 架构决策（**0007 Coach** · **0008 Agent**）
@@ -98,16 +97,20 @@ pnpm dev
 - [x] 需求 & 架构规划
 - [x] Monorepo、Prisma、Docker、shared Zod、CI、ADR 0001–0008
 - [x] `apps/api` HTTP + Worker + Cron（auth、users、exercises、foods、media、ai-tasks、meal-logs、plans、**conversations**）
-- [x] `packages/ai-core`（餐照、计划生成、**Coach 流式对话**）
+- [x] `packages/ai-core`（餐照、计划生成、**Coach 流式对话** + **LangGraph Agent**）
 - [x] `apps/mobile` bare RN MVP（Auth、档案、仪表盘、训练计划+打卡、餐照、饮食日志）
 - [x] **Coach Tab**（多轮对话、SSE 流式、Markdown、计划/识图/记餐入口）
 - [x] Onboarding 末步生成训练+饮食双计划
 - [x] **M4 正式关闭**（2026-06-04 · API smoke + 手测）
-- [ ] **M5** 联调与 APK CI
-- [x] **Agent ADR 0008**（架构契约；实施见 `docs/issues/agent/`）
-- [x] **Agent 代码**（AGENT-02～09 已合并；**AGENT-10** 验收脚本 + [`HANDOFF-M5.md`](docs/HANDOFF-M5.md)）
+- [x] **Agent ADR 0008** + **AGENT-01～10 代码交付**（索引 [`docs/issues/agent/`](docs/issues/agent/README.md)；2026-07-19 核验同步）
+- [x] **Agent Epic 正式关闭**（2026-07-19：`m5`/`m4` 脚本 + 真机定位/天气/健身房）
+- [x] **M5 精简关闭**（E1：`apps/mobile/.env` 注入 API/存储；**不做** APK CI / Sentry，见 [`HANDOFF-M5.md`](docs/HANDOFF-M5.md) §7）
+- [ ] **MEAL-QUALITY-01**（饮食计划与食物库对齐；可选下一优先）
+- [ ] **M6 / Phase 2**（社区、报告等，按需）
 
 **产品备注**：仪表盘**不**做「今日体重」独立卡片；体重仅在档案与消耗估算中使用（见 PRD F6 注）。
+
+**真机联调**：`apps/mobile/.env`（从 `.env.example` 复制），填局域网 IP 后**重启 Metro**。详见 [`apps/mobile/README.md`](apps/mobile/README.md)。
 
 ## CI
 
@@ -117,14 +120,14 @@ pnpm dev
 
 ## Roadmap
 
-| 阶段   | 目标               | 状态                                                                               |
-| ------ | ------------------ | ---------------------------------------------------------------------------------- |
-| M0–M1  | 架构与基础设施     | ✅                                                                                 |
-| M2     | 后端 MVP           | ✅                                                                                 |
-| M3     | AI 核心闭环        | ✅ · [`HANDOFF-M3.md`](./docs/HANDOFF-M3.md)                                       |
-| **M4** | 移动端 MVP + Coach | **✅ 已关闭** · [`HANDOFF-M4-REMAINING.md`](./docs/HANDOFF-M4-REMAINING.md)        |
-| **M5** | 联调、CI、真 Agent | ⬜ **当前入口** · Agent 清单 [`docs/issues/agent/`](./docs/issues/agent/README.md) |
-| M6+    | Phase 2            | 报告、社区等                                                                       |
+| 阶段   | 目标                     | 状态                                                                                  |
+| ------ | ------------------------ | ------------------------------------------------------------------------------------- |
+| M0–M1  | 架构与基础设施           | ✅                                                                                    |
+| M2     | 后端 MVP                 | ✅                                                                                    |
+| M3     | AI 核心闭环              | ✅ · [`HANDOFF-M3.md`](./docs/HANDOFF-M3.md)                                          |
+| **M4** | 移动端 MVP + Coach       | **✅ 已关闭** · [`HANDOFF-M4-REMAINING.md`](./docs/HANDOFF-M4-REMAINING.md)           |
+| **M5** | 联调、真 Agent、配置注入 | **✅ 精简关闭** · [`HANDOFF-M5.md`](./docs/HANDOFF-M5.md)（APK CI / Sentry 刻意不做） |
+| M6+    | Phase 2 / 可选加厚       | 报告、社区、MEAL-QUALITY 等                                                           |
 
 ## 项目约定
 
