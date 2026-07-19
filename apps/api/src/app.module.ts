@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { GeoModule } from './infra/geo/geo.module';
 import { FitnessQueueModule } from './infra/queue/fitness-queue.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
+import { RedisModule } from './infra/redis/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ExercisesModule } from './modules/exercises/exercises.module';
@@ -37,6 +38,7 @@ import { AppController } from './app.controller';
       },
     }),
     PrismaModule,
+    RedisModule,
     DomainModule,
     GeoModule,
     FitnessQueueModule,

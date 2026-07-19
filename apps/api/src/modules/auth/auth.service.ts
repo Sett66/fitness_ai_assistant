@@ -9,11 +9,14 @@ import type {
   LoginRequest,
   RefreshRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   TokenPair,
 } from '@fitness/shared';
 
 import { BizException } from '../../common/exceptions/biz-exception';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+
+import { SmsService } from './sms.service';
 
 const REFRESH_JWT_TYP = 'refresh' as const;
 
@@ -25,9 +28,12 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly sms: SmsService,
   ) {}
 
   async register(input: RegisterRequest): Promise<AuthSuccessResponse> {
+    await this.sms.verifyCode(input.phone, 'REGISTER', input.smsCode);
+
     const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
 
     const user = await this.prisma.client.user.create({
@@ -39,6 +45,35 @@ export class AuthService {
 
     const tokens = await this.issueTokensForNewSession(user.id);
     return { user: toUserResponse(user), tokens };
+  }
+
+  async resetPassword(input: ResetPasswordRequest): Promise<{ ok: true }> {
+    await this.sms.verifyCode(input.phone, 'RESET_PASSWORD', input.smsCode);
+
+    const user = await this.prisma.client.user.findFirst({
+      where: { phone: input.phone, deletedAt: null },
+    });
+    if (!user) {
+      throw new BizException(
+        'AUTH_RESET_PHONE_NOT_FOUND',
+        errorMessagesZhCN.AUTH_RESET_PHONE_NOT_FOUND,
+        404,
+      );
+    }
+
+    const passwordHash = await argon2.hash(input.password, { type: argon2.argon2id });
+    await this.prisma.client.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    // 改密后撤销该用户全部有效会话，强制重新登录
+    await this.prisma.client.session.updateMany({
+      where: { userId: user.id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    return { ok: true };
   }
 
   async login(input: LoginRequest): Promise<AuthSuccessResponse> {

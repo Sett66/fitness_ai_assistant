@@ -22,6 +22,10 @@ export const envValidationSchema = Joi.object({
   }),
   AMAP_WEB_SECRET: Joi.string().optional().allow('', null),
   OPEN_METEO_BASE_URL: Joi.string().uri().optional().allow('', null),
+  SMS_PROVIDER: Joi.string().valid('dev', 'aliyun', 'tencent').default('dev'),
+  SMS_DEV_FIXED_CODE: Joi.string()
+    .pattern(/^\d{6}$/)
+    .default('123456'),
 });
 
 export type EnvShape = {
@@ -42,6 +46,8 @@ export type EnvShape = {
   AMAP_WEB_KEY?: string;
   AMAP_WEB_SECRET?: string;
   OPEN_METEO_BASE_URL?: string;
+  SMS_PROVIDER: 'dev' | 'aliyun' | 'tencent';
+  SMS_DEV_FIXED_CODE: string;
 };
 
 function parseOptionalUrl(value: string | undefined): string | undefined {
@@ -69,5 +75,7 @@ export function mapEnv(env: NodeJS.ProcessEnv): EnvShape {
     AMAP_WEB_KEY: parseOptionalUrl(env.AMAP_WEB_KEY),
     AMAP_WEB_SECRET: parseOptionalUrl(env.AMAP_WEB_SECRET),
     OPEN_METEO_BASE_URL: parseOptionalUrl(env.OPEN_METEO_BASE_URL),
+    SMS_PROVIDER: (env.SMS_PROVIDER as EnvShape['SMS_PROVIDER']) ?? 'dev',
+    SMS_DEV_FIXED_CODE: env.SMS_DEV_FIXED_CODE ?? '123456',
   };
 }

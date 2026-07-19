@@ -58,6 +58,44 @@ describe('WeatherClient', () => {
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining('api.open-meteo.com/v1/forecast'),
     );
+    const requestedUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    expect(requestedUrl).toContain('daily=');
+    expect(requestedUrl).toContain('forecast_days=');
+  });
+
+  it('解析 daily 块为逐日预报（含日期与中文星期）', async () => {
+    mockFetchJson({
+      current: {
+        temperature_2m: 20,
+        precipitation: 0,
+        wind_speed_10m: 6,
+      },
+      daily: {
+        time: ['2026-07-12', '2026-07-13'],
+        temperature_2m_max: [31, 33],
+        temperature_2m_min: [24, 25],
+        precipitation_sum: [0, 4],
+        precipitation_probability_max: [10, 60],
+        wind_speed_10m_max: [12, 18],
+      },
+    });
+
+    const client = new WeatherClient(createConfig());
+    const result = await client.getForecast({ lat: 31.23, lng: 121.47, days: 2 });
+
+    expect(result.daily).toHaveLength(2);
+    expect(result.daily?.[0]).toMatchObject({
+      date: '2026-07-12',
+      weekday: '周日',
+      tempMaxC: 31,
+      tempMinC: 24,
+      precipitationProbabilityPct: 10,
+    });
+    expect(result.daily?.[1]).toMatchObject({
+      date: '2026-07-13',
+      weekday: '周一',
+      precipitationProbabilityPct: 60,
+    });
   });
 
   it('有降水时给出室内训练建议', async () => {

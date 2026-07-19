@@ -73,6 +73,9 @@ const summarizeToolInput = (input: unknown): string | undefined => {
   if (typeof record.timezoneOffsetMinutes === 'number') {
     return `tz=${record.timezoneOffsetMinutes}`;
   }
+  if (typeof record.days === 'number') {
+    return `days=${record.days}`;
+  }
   if (typeof record.query === 'string') {
     return `query=${record.query.slice(0, 32)}`;
   }

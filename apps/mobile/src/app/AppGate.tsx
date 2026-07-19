@@ -18,7 +18,6 @@ function PendingWorkoutSyncRunner() {
 export function AppGate({ isAuthenticated }: AppGateProps) {
   const me = useMe(isAuthenticated);
   const optionalStepPending = useOnboardingStore((s) => s.optionalStepPending);
-  const planBootstrapPending = useOnboardingStore((s) => s.planBootstrapPending);
 
   let content: React.ReactNode;
 
@@ -29,13 +28,11 @@ export function AppGate({ isAuthenticated }: AppGateProps) {
   } else if (me.isError || !me.data) {
     content = <RootNavigator mode="auth" />;
   } else {
-    const needsOnboarding =
-      !me.data.onboarding.complete || optionalStepPending || planBootstrapPending;
+    const needsOnboarding = !me.data.onboarding.complete || optionalStepPending;
     content = needsOnboarding ? (
       <OnboardingNavigator
         initialStep={me.data.onboarding.step}
-        showOptional={optionalStepPending && me.data.onboarding.complete && !planBootstrapPending}
-        showPlanBootstrap={planBootstrapPending}
+        showOptional={optionalStepPending && me.data.onboarding.complete}
       />
     ) : (
       <>

@@ -23,6 +23,7 @@ type CoachStreamState = {
   suggestedActions: SuggestedAction[] | null;
   toolActivities: CoachToolActivity[];
   error: string | null;
+  beginUserMessage: (params: { userContent: string; userImagePreviewUris?: string[] }) => void;
   startStream: (params: {
     userMessageId: string;
     userContent: string;
@@ -55,6 +56,19 @@ const initialState = {
 
 export const useCoachStreamStore = create<CoachStreamState>((set) => ({
   ...initialState,
+  beginUserMessage: ({ userContent, userImagePreviewUris }) => {
+    const stamp = Date.now();
+    set({
+      ...initialState,
+      isStreaming: true,
+      userMessageId: `local-user-${stamp}`,
+      userContent,
+      userImagePreviewUris: userImagePreviewUris?.length ? userImagePreviewUris : null,
+      assistantMessageId: `local-assistant-${stamp}`,
+      assistantContent: '',
+      toolActivities: [],
+    });
+  },
   startStream: ({
     userMessageId,
     userContent,

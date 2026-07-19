@@ -1,5 +1,6 @@
 export * from './_common';
 export * from './user';
+export * from './auth';
 export * from './exercise';
 export * from './food';
 export * from './workout';

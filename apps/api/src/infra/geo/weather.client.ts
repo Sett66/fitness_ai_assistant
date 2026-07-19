@@ -2,10 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { BizException } from '../../common/exceptions/biz-exception';
-import type { WeatherForecast, WeatherForecastInput } from './geo.types';
+import type { WeatherDailyForecast, WeatherForecast, WeatherForecastInput } from './geo.types';
 
 const DEFAULT_OPEN_METEO_BASE = 'https://api.open-meteo.com';
 const DEFAULT_TIMEZONE = 'Asia/Shanghai';
+const DEFAULT_FORECAST_DAYS = 3;
+const MAX_FORECAST_DAYS = 7;
+const WEEKDAY_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 type OpenMeteoCurrent = {
   temperature_2m?: number;
@@ -13,8 +16,18 @@ type OpenMeteoCurrent = {
   wind_speed_10m?: number;
 };
 
+type OpenMeteoDaily = {
+  time?: string[];
+  temperature_2m_max?: number[];
+  temperature_2m_min?: number[];
+  precipitation_sum?: number[];
+  precipitation_probability_max?: number[];
+  wind_speed_10m_max?: number[];
+};
+
 type OpenMeteoResponse = {
   current?: OpenMeteoCurrent;
+  daily?: OpenMeteoDaily;
 };
 
 @Injectable()
@@ -33,10 +46,17 @@ export class WeatherClient {
 
   async getForecast(input: WeatherForecastInput): Promise<WeatherForecast> {
     const timezone = input.timezone ?? DEFAULT_TIMEZONE;
+    const forecastDays = Math.min(
+      Math.max(Math.trunc(input.days ?? DEFAULT_FORECAST_DAYS), 1),
+      MAX_FORECAST_DAYS,
+    );
     const params = new URLSearchParams({
       latitude: String(input.lat),
       longitude: String(input.lng),
       current: 'temperature_2m,precipitation,wind_speed_10m',
+      daily:
+        'temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max',
+      forecast_days: String(forecastDays),
       wind_speed_unit: 'kmh',
       timezone,
     });
@@ -78,12 +98,61 @@ export class WeatherClient {
 
     const adviceHints = this.buildAdviceHints(temperatureC, precipitationMm, windSpeedKmh);
     const summary = this.buildSummary(temperatureC, precipitationMm, windSpeedKmh);
+    const daily = this.parseDaily(body.daily);
 
     this.logger.debug(
-      `天气预报 coords=${this.formatCoords(input.lat, input.lng)} temp=${temperatureC}°C`,
+      `天气预报 coords=${this.formatCoords(input.lat, input.lng)} temp=${temperatureC}°C days=${daily?.length ?? 0}`,
     );
 
-    return { summary, temperatureC, precipitationMm, windSpeedKmh, adviceHints };
+    return { summary, temperatureC, precipitationMm, windSpeedKmh, adviceHints, daily };
+  }
+
+  private parseDaily(daily?: OpenMeteoDaily): WeatherDailyForecast[] | undefined {
+    const times = daily?.time;
+    const maxTemps = daily?.temperature_2m_max;
+    const minTemps = daily?.temperature_2m_min;
+    if (!Array.isArray(times) || !Array.isArray(maxTemps) || !Array.isArray(minTemps)) {
+      return undefined;
+    }
+
+    const result: WeatherDailyForecast[] = [];
+    for (let i = 0; i < times.length; i += 1) {
+      const date = times[i];
+      const tempMaxC = maxTemps[i];
+      const tempMinC = minTemps[i];
+      if (
+        typeof date !== 'string' ||
+        typeof tempMaxC !== 'number' ||
+        typeof tempMinC !== 'number'
+      ) {
+        continue;
+      }
+      const precipitationMm = daily?.precipitation_sum?.[i];
+      const precipitationProbabilityPct = daily?.precipitation_probability_max?.[i];
+      const windSpeedMaxKmh = daily?.wind_speed_10m_max?.[i];
+      result.push({
+        date,
+        weekday: this.weekdayOf(date),
+        tempMaxC,
+        tempMinC,
+        precipitationMm: typeof precipitationMm === 'number' ? precipitationMm : undefined,
+        precipitationProbabilityPct:
+          typeof precipitationProbabilityPct === 'number' ? precipitationProbabilityPct : undefined,
+        windSpeedMaxKmh: typeof windSpeedMaxKmh === 'number' ? windSpeedMaxKmh : undefined,
+      });
+    }
+
+    return result.length > 0 ? result : undefined;
+  }
+
+  private weekdayOf(date: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+    if (!match) {
+      return '';
+    }
+    const [, y, m, d] = match;
+    const dayIndex = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d))).getUTCDay();
+    return WEEKDAY_ZH[dayIndex] ?? '';
   }
 
   private buildSummary(

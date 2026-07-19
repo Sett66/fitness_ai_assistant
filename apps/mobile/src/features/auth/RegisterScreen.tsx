@@ -6,12 +6,14 @@ import { Button, ErrorText, Input, Label, Screen, Subtitle, Title } from '@fitne
 
 import { useRegister } from '../../api/endpoints/auth';
 import type { AuthStackParamList } from '../../app/navigation/RootNavigator';
+import { SmsCodeField } from './components/SmsCodeField';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
 export function RegisterScreen({ navigation }: Props) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [smsCode, setSmsCode] = useState('');
   const register = useRegister();
 
   return (
@@ -22,17 +24,28 @@ export function RegisterScreen({ navigation }: Props) {
       <View className="gap-4">
         <View>
           <Label>手机号</Label>
-          <Input value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <Input
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            placeholder="请输入手机号"
+          />
         </View>
         <View>
           <Label>密码</Label>
-          <Input value={password} onChangeText={setPassword} secureTextEntry />
+          <Input
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="请输入密码"
+          />
         </View>
+        <SmsCodeField phone={phone} scene="REGISTER" code={smsCode} onChangeCode={setSmsCode} />
         {register.error ? <ErrorText message={register.error.message} /> : null}
         <Button
           title="注册并登录"
           loading={register.isPending}
-          onPress={() => register.mutate({ phone, password })}
+          onPress={() => register.mutate({ phone, password, smsCode })}
         />
         <Button title="返回登录" variant="secondary" onPress={() => navigation.goBack()} />
       </View>

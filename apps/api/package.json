@@ -10,6 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest",
     "clean": "rimraf dist .turbo",
+    "predev": "node ../../scripts/ensure-workspace-deps.mjs",
+    "dev": "node scripts/dev.mjs",
     "prestart:api": "node ../../scripts/ensure-workspace-deps.mjs",
     "start:api": "nest start --watch",
     "prestart:worker": "node ../../scripts/ensure-workspace-deps.mjs",

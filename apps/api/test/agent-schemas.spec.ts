@@ -28,6 +28,7 @@ describe('Agent shared schemas', () => {
   it('CoachToolName 拒绝未知工具名', () => {
     expect(() => CoachToolNameSchema.parse('invoke_skynet')).toThrow();
     expect(CoachToolNameSchema.parse('get_weather')).toBe('get_weather');
+    expect(CoachToolNameSchema.parse('get_current_datetime')).toBe('get_current_datetime');
   });
 
   it('CreateCoachMessageSchema 带 locationContext 通过', () => {

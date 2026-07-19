@@ -255,7 +255,9 @@ export type SessionResponse = z.infer<typeof SessionResponseSchema>;
 
 // ============================== Auth 请求 / 响应（ARCH §7） ==============================
 
-export const RegisterRequestSchema = CreateUserSchema;
+export const RegisterRequestSchema = CreateUserSchema.extend({
+  smsCode: z.string().regex(/^\d{6}$/, '请输入 6 位验证码'),
+});
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
 
 export const LoginRequestSchema = z.object({

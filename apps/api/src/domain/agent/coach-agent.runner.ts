@@ -79,6 +79,10 @@ export class CoachAgentRunner {
       return '已读取健身档案与营养摘要';
     }
 
+    if (name === 'get_current_datetime' && typeof result === 'string') {
+      return result.slice(0, 120);
+    }
+
     if (name === 'get_weather' && typeof result === 'string') {
       return result.split('\n')[0]?.slice(0, 120) ?? '天气查询完成';
     }

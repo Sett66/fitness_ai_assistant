@@ -50,7 +50,7 @@ export class UsersService {
 
     const onboarding = computeOnboarding(row.profile, row.displayName);
     return {
-      user: mapMeUser(row, this.storage),
+      user: await mapMeUser(row, this.storage),
       profile: row.profile ? mapProfile(row.profile) : null,
       onboarding,
     };
@@ -68,7 +68,7 @@ export class UsersService {
     });
     const onboarding = computeOnboarding(updated.profile, updated.displayName);
     return {
-      user: mapMeUser(updated, this.storage),
+      user: await mapMeUser(updated, this.storage),
       profile: updated.profile ? mapProfile(updated.profile) : null,
       onboarding,
     };
@@ -283,16 +283,22 @@ function mapProfile(profile: Profile) {
   };
 }
 
-function mapMeUser(
+/** 头像读链有效期；media bucket 为私有，需签发预签名 URL 才能被客户端加载 */
+const AVATAR_READ_URL_TTL_SEC = 60 * 60;
+
+async function mapMeUser(
   user: User & { avatarMedia?: { objectKey: string } | null },
   storage: S3StorageService,
 ) {
+  const avatarUrl = user.avatarMedia
+    ? await storage.presignGet(user.avatarMedia.objectKey, AVATAR_READ_URL_TTL_SEC)
+    : null;
   return {
     id: user.id,
     phone: user.phone,
     displayName: user.displayName,
     avatarMediaId: user.avatarMediaId,
-    avatarUrl: user.avatarMedia ? storage.getPublicUrl(user.avatarMedia.objectKey) : null,
+    avatarUrl,
     role: user.role,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
