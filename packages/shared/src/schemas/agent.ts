@@ -16,6 +16,7 @@ export type LocationContext = z.infer<typeof LocationContextSchema>;
 /** Coach Agent 工具名，与 ADR 0008 §2 工具表逐字一致 */
 export const CoachToolNameSchema = z.enum([
   'get_user_fitness_snapshot',
+  'get_current_datetime',
   'get_weather',
   'geocode_place',
   'search_nearby_gyms',

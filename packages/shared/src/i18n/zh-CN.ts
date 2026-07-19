@@ -22,6 +22,11 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   AUTH_TOKEN_INVALID: '凭证无效',
   AUTH_REFRESH_REVOKED: '会话已被撤销',
   AUTH_REGISTER_PHONE_TAKEN: '该手机号已被注册',
+  AUTH_CAPTCHA_INVALID: '滑块验证失败，请重试',
+  AUTH_CAPTCHA_EXPIRED: '验证已过期，请重新滑动验证',
+  AUTH_SMS_CODE_INVALID: '验证码错误或已失效',
+  AUTH_SMS_TOO_FREQUENT: '验证码发送过于频繁，请稍后再试',
+  AUTH_RESET_PHONE_NOT_FOUND: '该手机号未注册',
 
   USER_NOT_FOUND: '用户不存在',
   PROFILE_INCOMPLETE: '请先完善个人档案',

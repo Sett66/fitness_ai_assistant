@@ -14,11 +14,10 @@ import type { OnboardingStackParamList } from './OnboardingNavigator';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'OnboardingOptional'>;
 
-export function OnboardingOptionalScreen({ navigation }: Props) {
+export function OnboardingOptionalScreen(_props: Props) {
   const patchProfile = usePatchProfile();
   const qc = useQueryClient();
   const setOptionalStepPending = useOnboardingStore((s) => s.setOptionalStepPending);
-  const setPlanBootstrapPending = useOnboardingStore((s) => s.setPlanBootstrapPending);
 
   const [trainingYears, setTrainingYears] = useState('');
 
@@ -27,9 +26,7 @@ export function OnboardingOptionalScreen({ navigation }: Props) {
       await patchProfile.mutateAsync({ trainingYears: Number(trainingYears) });
     }
     setOptionalStepPending(false);
-    setPlanBootstrapPending(true);
     await qc.invalidateQueries({ queryKey: queryKeys.me });
-    navigation.navigate('OnboardingPlanBootstrap');
   };
 
   return (

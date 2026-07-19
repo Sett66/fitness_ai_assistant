@@ -3,6 +3,8 @@
  * apiBaseUrl: 'http://192.168.1.10:3000/v1'
  */
 export const DEV_CONFIG = {
-  apiBaseUrl: null as string | null,
-  storagePublicEndpoint: null as string | null,
+  // apiBaseUrl: null as string | null,
+  // storagePublicEndpoint: null as string | null,
+  apiBaseUrl: 'http://192.168.1.2:3000/v1',
+  storagePublicEndpoint: 'http://192.168.1.2:9000',
 };

@@ -36,14 +36,15 @@ M4 已交付 Coach Tab：多轮对话、`POST /v1/conversations/:id/messages/str
 
 所有 function-calling **仅在服务端**；移动端不得持有地图/LLM Key。
 
-| `CoachToolName`             | 职责                                                | 执行位置                           | 说明                                                 |
-| --------------------------- | --------------------------------------------------- | ---------------------------------- | ---------------------------------------------------- |
-| `get_user_fitness_snapshot` | 档案、今日营养、活跃计划摘要                        | API · `UserContextService`         | 包装现有情景记忆                                     |
-| `get_weather`               | 气温、降水、风力与训练提示素材                      | API · `WeatherClient` (Open-Meteo) | 输入 `lat/lng` 或经 geocode 的城市                   |
-| `geocode_place`             | 文本 → 坐标与城市名                                 | API · `AmapClient`                 | 如「上海市」「杭州西湖区」                           |
-| `search_nearby_gyms`        | 周边健身房 POI                                      | API · `AmapClient`                 | 默认半径 3000m，最多 5 条                            |
-| `enqueue_plan_generate`     | 入队 `PLAN_GENERATE_WORKOUT` / `PLAN_GENERATE_MEAL` | API · BullMQ                       | 复用 `ConversationSideEffectService` 卡片链路        |
-| `enqueue_meal_vision`       | 入队 `MEAL_VISION`                                  | API · BullMQ                       | 需 `imageObjectKey`；无图则返回 clarification 给模型 |
+| `CoachToolName`             | 职责                                                | 执行位置                           | 说明                                                      |
+| --------------------------- | --------------------------------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `get_user_fitness_snapshot` | 档案、今日营养、活跃计划摘要                        | API · `UserContextService`         | 包装现有情景记忆                                          |
+| `get_current_datetime`      | 当前日期、星期与时间（用户时区）                    | API · 本地计算                     | 供「今天/明天/几号」及相对日期换算；无日限                |
+| `get_weather`               | 当前天气 + 未来数日逐日预报、训练提示素材           | API · `WeatherClient` (Open-Meteo) | 输入 `lat/lng` 或经 geocode 的城市；`days` 默认 3、最大 7 |
+| `geocode_place`             | 文本 → 坐标与城市名                                 | API · `AmapClient`                 | 如「上海市」「杭州西湖区」                                |
+| `search_nearby_gyms`        | 周边健身房 POI                                      | API · `AmapClient`                 | 默认半径 3000m，最多 5 条                                 |
+| `enqueue_plan_generate`     | 入队 `PLAN_GENERATE_WORKOUT` / `PLAN_GENERATE_MEAL` | API · BullMQ                       | 复用 `ConversationSideEffectService` 卡片链路             |
+| `enqueue_meal_vision`       | 入队 `MEAL_VISION`                                  | API · BullMQ                       | 需 `imageObjectKey`；无图则返回 clarification 给模型      |
 
 **重任务边界**：`enqueue_*` 只创建 `AiRun` + 入队；**不在** SSE HTTP 进程内调用 `runMealPlanGenerator`、`runMealVision`（Qwen-VL）或同步长计划生成。
 

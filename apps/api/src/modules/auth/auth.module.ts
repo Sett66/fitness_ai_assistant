@@ -8,7 +8,10 @@ import { PrismaModule } from '../../infra/prisma/prisma.module';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { CaptchaService } from './captcha.service';
 import { JwtStrategy } from './jwt.strategy';
+import { SMS_SENDER, DevSmsSender } from './sms-sender';
+import { SmsService } from './sms.service';
 
 @Module({
   imports: [
@@ -25,6 +28,12 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    CaptchaService,
+    SmsService,
+    { provide: SMS_SENDER, useClass: DevSmsSender },
+  ],
 })
 export class AuthModule {}

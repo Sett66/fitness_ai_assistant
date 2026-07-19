@@ -38,18 +38,20 @@ export function CoachQuickActions({
   ];
 
   return (
-    <View className="px-4 py-2 gap-2 border-t border-border">
-      <View className="flex-row flex-wrap gap-2">
+    <View className="px-4 py-2 border-t border-border">
+      <View className="flex-row gap-2">
         {chips.map((chip) => (
           <Pressable
             key={chip.label}
             disabled={chip.disabled}
             onPress={chip.onPress}
-            className={`rounded-full border border-border bg-card px-3 py-1.5 ${
+            className={`flex-1 items-center justify-center rounded-full border border-border bg-card px-2 py-1.5 ${
               chip.disabled ? 'opacity-40' : ''
             }`}
           >
-            <Text className="text-sm text-foreground">{chip.label}</Text>
+            <Text className="text-sm text-foreground" numberOfLines={1}>
+              {chip.label}
+            </Text>
           </Pressable>
         ))}
       </View>

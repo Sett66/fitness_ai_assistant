@@ -25,6 +25,7 @@ export type ToolContext = {
   sessionToolCounts?: Partial<Record<CoachToolName, number>>;
 };
 
+const WEEKDAY_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const TOOL_LIMIT_MESSAGE = '今日该工具次数已用完';
 const WEATHER_NEED_LOCATION_MESSAGE = '需要城市名或定位权限';
 const MEAL_VISION_NEED_IMAGE_MESSAGE = '请用户上传餐照（使用 App 附件菜单）';
@@ -50,6 +51,8 @@ export class ToolRegistryService {
     switch (name) {
       case 'get_user_fitness_snapshot':
         return this.getUserFitnessSnapshot(input, ctx);
+      case 'get_current_datetime':
+        return this.getCurrentDatetime(ctx);
       case 'get_weather':
         return this.getWeather(input, ctx);
       case 'geocode_place':
@@ -106,10 +109,32 @@ export class ToolRegistryService {
     };
   }
 
+  private getCurrentDatetime(ctx: ToolContext): string {
+    const offsetMinutes = Number.isFinite(ctx.timezoneOffsetMinutes)
+      ? ctx.timezoneOffsetMinutes
+      : 480;
+    const local = new Date(Date.now() + offsetMinutes * 60_000);
+
+    const y = local.getUTCFullYear();
+    const m = String(local.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(local.getUTCDate()).padStart(2, '0');
+    const hh = String(local.getUTCHours()).padStart(2, '0');
+    const mm = String(local.getUTCMinutes()).padStart(2, '0');
+    const weekday = WEEKDAY_ZH[local.getUTCDay()] ?? '';
+
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absMin = Math.abs(offsetMinutes);
+    const tzH = String(Math.trunc(absMin / 60)).padStart(2, '0');
+    const tzM = String(absMin % 60).padStart(2, '0');
+    const tz = tzM === '00' ? `UTC${sign}${Number(tzH)}` : `UTC${sign}${tzH}:${tzM}`;
+
+    return `当前日期时间：${y}-${m}-${d} ${weekday} ${hh}:${mm}（${tz}）`;
+  }
+
   private async getWeather(input: unknown, ctx: ToolContext): Promise<string> {
     const record =
       input && typeof input === 'object'
-        ? (input as { lat?: number; lng?: number; city?: string })
+        ? (input as { lat?: number; lng?: number; city?: string; days?: number })
         : {};
 
     let lat = record.lat;
@@ -134,18 +159,39 @@ export class ToolRegistryService {
       return WEATHER_NEED_LOCATION_MESSAGE;
     }
 
-    const forecast = await this.weather.getForecast({ lat, lng });
+    const days =
+      typeof record.days === 'number' && Number.isFinite(record.days) ? record.days : undefined;
+    const forecast = await this.weather.getForecast({ lat, lng, days });
     this.bumpSessionCount(ctx, 'get_weather');
 
     const lines = [
-      forecast.summary,
-      `气温：${Math.round(forecast.temperatureC)}°C`,
+      `当前天气：${forecast.summary}`,
       forecast.precipitationMm !== undefined
-        ? `降水：${forecast.precipitationMm > 0 ? `${forecast.precipitationMm}mm` : '无'}`
+        ? `当前降水：${forecast.precipitationMm > 0 ? `${forecast.precipitationMm}mm` : '无'}`
         : null,
-      forecast.windSpeedKmh !== undefined ? `风速：${Math.round(forecast.windSpeedKmh)}km/h` : null,
+      forecast.windSpeedKmh !== undefined
+        ? `当前风速：${Math.round(forecast.windSpeedKmh)}km/h`
+        : null,
       forecast.adviceHints.length ? `训练建议：${forecast.adviceHints.join('；')}` : null,
-    ].filter(Boolean);
+    ].filter(Boolean) as string[];
+
+    if (forecast.daily?.length) {
+      lines.push('未来逐日预报（含今日，按日期）：');
+      for (const day of forecast.daily) {
+        const parts = [`${day.date} ${day.weekday}`.trim()];
+        parts.push(`${Math.round(day.tempMinC)}~${Math.round(day.tempMaxC)}°C`);
+        if (day.precipitationProbabilityPct !== undefined) {
+          parts.push(`降水概率${day.precipitationProbabilityPct}%`);
+        }
+        if (day.precipitationMm !== undefined && day.precipitationMm > 0) {
+          parts.push(`降水${day.precipitationMm}mm`);
+        }
+        if (day.windSpeedMaxKmh !== undefined) {
+          parts.push(`风力≤${Math.round(day.windSpeedMaxKmh)}km/h`);
+        }
+        lines.push(`- ${parts.join('，')}`);
+      }
+    }
 
     return lines.join('\n');
   }

@@ -66,31 +66,52 @@ export function formatGymsFromToolMessages(messages: AgentChatMessage[]): string
   return null;
 }
 
-/** 将 ReAct 消息转为仅聊天格式，避免流式阶段再次输出工具标记 */
+/**
+ * 将 ReAct 消息转为仅聊天格式，供最终流式回复使用。
+ *
+ * 关键点：
+ * - 剥离 ReAct 内部的 assistant(tool_calls) 与 tool 消息，保留干净的
+ *   [system, ...history, user(最新提问)]，确保「用户最新提问」始终在末尾，
+ *   不会被伪造指令挤到中间导致模型答非所问或复读旧话题。
+ * - 只有在**本轮真的调用过工具**时，才把工具返回数据以 `system` 指令注入
+ *   （而非伪装成 user 消息），使模型能区分「系统提供的工具数据」与「用户输入」。
+ * - 本轮未调用任何工具时，不注入任何额外指令，按普通聊天直接回答最新问题。
+ */
 export function buildMessagesForFinalStream(messages: AgentChatMessage[]): AgentChatMessage[] {
-  const converted: AgentChatMessage[] = messages.map((message) => {
-    if (message.role === 'tool') {
-      return {
-        role: 'user',
-        content: `【工具返回数据】\n${message.content}`,
-      };
-    }
-    if (message.role === 'assistant' && message.tool_calls?.length) {
-      return {
-        role: 'assistant',
-        content: message.content?.trim() || '（已调用工具获取数据）',
-      };
-    }
-    return message;
+  const toolObservations = messages
+    .filter((message) => message.role === 'tool')
+    .map((message) => message.content.trim())
+    .filter(Boolean);
+
+  const conversational = messages.filter((message) => {
+    if (message.role === 'tool') return false;
+    if (message.role === 'assistant' && message.tool_calls?.length) return false;
+    return true;
   });
 
-  converted.push({
-    role: 'user',
-    content:
-      '请根据上述工具返回数据，用简体中文直接回答用户。只输出给用户看的正文，禁止输出 DSML、tool_calls、XML 或任何工具调用标记，也不要再次请求调用工具。',
-  });
+  if (toolObservations.length === 0) {
+    return conversational;
+  }
 
-  return converted;
+  const guidance: AgentChatMessage = {
+    role: 'system',
+    content: [
+      '【本轮工具返回数据】',
+      toolObservations.join('\n\n'),
+      '',
+      '请仅依据上述工具数据与对话历史，用简体中文直接回答用户的最新问题。',
+      '只输出给用户看的正文，禁止输出 DSML、tool_calls、XML 或任何工具调用标记，也不要再次请求调用工具。',
+    ].join('\n'),
+  };
+
+  const result = [...conversational];
+  const systemIndex = result.findIndex((message) => message.role === 'system');
+  if (systemIndex >= 0) {
+    result.splice(systemIndex + 1, 0, guidance);
+  } else {
+    result.unshift(guidance);
+  }
+  return result;
 }
 
 export function finalizeAgentReply(rawReply: string, messages: AgentChatMessage[]): string {

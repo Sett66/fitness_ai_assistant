@@ -89,7 +89,7 @@ pnpm test
 .\scripts\m4-acceptance.ps1   # M4 已关闭；无 DeepSeek 余额时加 -SkipCoachChat
 .\scripts\m5-agent-acceptance.ps1   # Agent Epic；需 COACH_AGENT_ENABLED=true + Key；见 docs/HANDOFF-M5.md
 
-# 一键并发跑（turbo 编排）
+# 一键并发跑 API + Worker + Metro（turbo 编排）
 pnpm dev
 ```
 

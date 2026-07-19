@@ -1,8 +1,23 @@
 import {
   AuthSuccessResponseSchema,
+  CaptchaChallengeResponseSchema,
+  CaptchaVerifyRequestSchema,
+  CaptchaVerifyResponseSchema,
   LoginRequestSchema,
   ProfileResponseSchema,
   RegisterRequestSchema,
+  ResetPasswordRequestSchema,
+  ResetPasswordResponseSchema,
+  SendSmsCodeRequestSchema,
+  SendSmsCodeResponseSchema,
+} from '@fitness/shared';
+import type {
+  CaptchaChallengeResponse,
+  CaptchaVerifyRequest,
+  CaptchaVerifyResponse,
+  ResetPasswordResponse,
+  SendSmsCodeRequest,
+  SendSmsCodeResponse,
 } from '@fitness/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -48,6 +63,50 @@ export function useLogout() {
       await clearAuth();
     },
     onSuccess: () => qc.clear(),
+  });
+}
+
+/** 获取滑块拼图挑战 */
+export async function fetchCaptchaChallenge(): Promise<CaptchaChallengeResponse> {
+  const json = await apiFetch<unknown>('/auth/captcha/challenge', {
+    method: 'POST',
+    auth: false,
+  });
+  return CaptchaChallengeResponseSchema.parse(json);
+}
+
+/** 提交滑块位置校验，成功换取一次性 captchaToken */
+export async function verifyCaptcha(input: CaptchaVerifyRequest): Promise<CaptchaVerifyResponse> {
+  const json = await apiFetch<unknown>('/auth/captcha/verify', {
+    method: 'POST',
+    auth: false,
+    body: CaptchaVerifyRequestSchema.parse(input),
+  });
+  return CaptchaVerifyResponseSchema.parse(json);
+}
+
+/** 发送短信验证码（需先通过滑块拿到 captchaToken） */
+export async function sendSmsCode(input: SendSmsCodeRequest): Promise<SendSmsCodeResponse> {
+  const json = await apiFetch<unknown>('/auth/send-sms-code', {
+    method: 'POST',
+    auth: false,
+    body: SendSmsCodeRequestSchema.parse(input),
+  });
+  return SendSmsCodeResponseSchema.parse(json);
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: async (
+      input: Parameters<typeof ResetPasswordRequestSchema.parse>[0],
+    ): Promise<ResetPasswordResponse> => {
+      const json = await apiFetch<unknown>('/auth/reset-password', {
+        method: 'POST',
+        auth: false,
+        body: ResetPasswordRequestSchema.parse(input),
+      });
+      return ResetPasswordResponseSchema.parse(json);
+    },
   });
 }
 

@@ -15,6 +15,7 @@ export function getCoachToolDailyLimit(name: CoachToolName): number | undefined 
 /** 移动端 / SSE 展示用中文标签 */
 export const COACH_TOOL_LABELS_ZH: Readonly<Partial<Record<CoachToolName, string>>> = {
   get_user_fitness_snapshot: '查询健身数据',
+  get_current_datetime: '查询日期时间',
   get_weather: '查询天气',
   geocode_place: '解析地点',
   search_nearby_gyms: '搜索附近健身房',
@@ -25,6 +26,7 @@ export const COACH_TOOL_LABELS_ZH: Readonly<Partial<Record<CoachToolName, string
 /** 流式进行中状态文案（含「正在…」） */
 export const COACH_TOOL_PROGRESS_LABELS_ZH: Readonly<Partial<Record<CoachToolName, string>>> = {
   get_user_fitness_snapshot: '正在读取你的健身数据…',
+  get_current_datetime: '正在获取当前时间…',
   get_weather: '正在查询天气…',
   geocode_place: '正在解析地点…',
   search_nearby_gyms: '正在搜索附近健身房…',

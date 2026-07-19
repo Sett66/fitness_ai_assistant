@@ -32,3 +32,28 @@ export const ACCESS_TOKEN_TTL_SEC = 15 * 60;
 
 /** refresh token TTL（ARCH §7：30 天） */
 export const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 60 * 60;
+
+// ============================== 滑块验证 / 短信验证码 ==============================
+
+/** 滑块拼图挑战有效期 */
+export const CAPTCHA_CHALLENGE_TTL_SEC = 120;
+
+/** 滑块校验通过后签发的一次性 token 有效期 */
+export const CAPTCHA_TOKEN_TTL_SEC = 300;
+
+/** 滑块缺口对齐容差（像素） */
+export const CAPTCHA_TOLERANCE_PX = 6;
+
+/** 滑块画板尺寸与拼图块尺寸（前后端共用，保证坐标系一致） */
+export const CAPTCHA_BOARD_WIDTH = 300;
+export const CAPTCHA_BOARD_HEIGHT = 180;
+export const CAPTCHA_PIECE_SIZE = 50;
+
+/** 短信验证码有效期 */
+export const SMS_CODE_TTL_SEC = 300;
+
+/** 同一手机号+场景发送验证码的冷却间隔 */
+export const SMS_CODE_COOLDOWN_SEC = 60;
+
+/** 单条验证码最大校验尝试次数 */
+export const SMS_CODE_MAX_ATTEMPTS = 5;

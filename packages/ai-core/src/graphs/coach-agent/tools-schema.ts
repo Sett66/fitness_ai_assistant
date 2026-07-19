@@ -27,14 +27,32 @@ export const COACH_AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
     function: {
       name: 'get_weather',
       description:
-        '查询指定位置当前天气（气温、降水、风力）及户外训练建议。用户问出门训练、户外跑步、天气注意事项时应优先调用。有定位时可直接调用；否则需传入 city 或先追问用户城市。',
+        '查询指定位置的天气：返回当前天气以及未来数日（含今日）的逐日预报（每日最高/最低气温、降水概率、风力），并给出户外训练建议。用户问出门训练、户外跑步、今天/明天/后天/周末/未来几天天气时应优先调用。有定位时可直接调用；否则需传入 city 或先追问用户城市。返回结果里每天都带日期与星期，请据此回答「明天/周末」等相对日期。',
       parameters: {
         type: 'object',
         properties: {
           lat: { type: 'number', description: '纬度（WGS84）' },
           lng: { type: 'number', description: '经度（WGS84）' },
           city: { type: 'string', description: '城市名，无坐标时使用，如「上海」' },
+          days: {
+            type: 'number',
+            description:
+              '需要的预报天数（含今日），默认 3，最大 7。问「明天」传 2，问「未来一周」传 7。',
+          },
         },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_current_datetime',
+      description:
+        '获取当前日期、星期与时间（基于用户所在时区）。当用户问题涉及「今天/明天/几号/星期几/现在几点」等日期时间，或需要把「明天/周末」换算成具体日期（例如配合天气预报）时调用。',
+      parameters: {
+        type: 'object',
+        properties: {},
         additionalProperties: false,
       },
     },

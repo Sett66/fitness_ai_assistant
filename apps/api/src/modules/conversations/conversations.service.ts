@@ -302,7 +302,8 @@ export class ConversationsService {
     }
 
     const timezoneOffsetMinutes = input.timezoneOffsetMinutes ?? 480;
-    const model = LLM_MODELS.DEEPSEEK_V4_PRO;
+    // 聊天回复优先速度：使用 DeepSeek V4 Flash（计划生成等重任务仍走 Pro）
+    const model = LLM_MODELS.DEEPSEEK_V4_FLASH;
     const startedAt = Date.now();
 
     await this.conversationTask.assertDailyLimit(user.userId, 'COACH_CHAT');
@@ -700,7 +701,7 @@ export class ConversationsService {
     if (input.action === 'CHAT') {
       return {
         taskType: 'COACH_CHAT',
-        model: LLM_MODELS.DEEPSEEK_V4_PRO,
+        model: LLM_MODELS.DEEPSEEK_V4_FLASH,
         inputJson: {
           content: input.content,
           conversationId,

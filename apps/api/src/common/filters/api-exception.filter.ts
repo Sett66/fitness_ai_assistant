@@ -1,9 +1,19 @@
 import type { ArgumentsHost } from '@nestjs/common';
 import { Catch, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Prisma } from '@fitness/db';
 import type { ApiError } from '@fitness/shared';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import type { Response } from 'express';
 import type { BizException as BizExc } from '../exceptions/biz-exception';
+
+/** @fitness/db 自带 generated runtime，与根 node_modules 的 @prisma/client 不是同一类引用 */
+const isPrismaKnownRequestError = (
+  exception: unknown,
+): exception is Prisma.PrismaClientKnownRequestError => {
+  if (exception instanceof Prisma.PrismaClientKnownRequestError) return true;
+  if (!exception || typeof exception !== 'object') return false;
+  const e = exception as { name?: string; code?: string };
+  return e.name === 'PrismaClientKnownRequestError' && typeof e.code === 'string';
+};
 
 const isBizException = (exception: unknown): exception is BizExc & Error => {
   if (!exception || typeof exception !== 'object') return false;
@@ -28,7 +38,7 @@ export class ApiExceptionFilter {
       return;
     }
 
-    if (exception instanceof PrismaClientKnownRequestError) {
+    if (isPrismaKnownRequestError(exception)) {
       if (exception.code === 'P2025') {
         resp.status(404).json({
           code: 'NOT_FOUND',

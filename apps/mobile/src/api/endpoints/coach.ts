@@ -33,6 +33,7 @@ import { queryKeys } from '../queryKeys';
 
 import { resolveLocationContextForChat } from '../../features/location';
 import { coachToolProgressLabel } from '../../features/coach/coach-tool-labels';
+import { createCoachDeltaThrottle } from '../../features/coach/coach-stream-delta-throttle';
 import type { CoachDraftAttachment } from '../../features/coach/coach-draft-attachments';
 import { pollRunningConversationTasks } from '../../features/coach/poll-conversation-tasks';
 
@@ -119,6 +120,21 @@ export function useSendCoachChatStream() {
       content: string;
       draftImages?: CoachDraftAttachment[];
     }) => {
+      const streamStore = useCoachStreamStore.getState();
+      streamStore.reset();
+
+      const displayUserContent =
+        params.content.trim() ||
+        (params.draftImages?.length === 1
+          ? '[图片]'
+          : `[${params.draftImages?.length ?? 0} 张图片]`);
+
+      // 立即乐观展示用户气泡与「思考中」占位，避免上传/定位等待期间界面空白
+      streamStore.beginUserMessage({
+        userContent: displayUserContent,
+        userImagePreviewUris: params.draftImages?.map((asset) => asset.uri),
+      });
+
       let imageObjectKeys: string[] | undefined;
       if (params.draftImages?.length) {
         imageObjectKeys = await Promise.all(
@@ -138,59 +154,60 @@ export function useSendCoachChatStream() {
         locationContext,
       });
 
-      const streamStore = useCoachStreamStore.getState();
-      streamStore.reset();
+      const deltaThrottle = createCoachDeltaThrottle((text) => {
+        streamStore.setAssistantContent(text);
+      });
 
-      const displayUserContent =
-        params.content.trim() ||
-        (params.draftImages?.length === 1
-          ? '[图片]'
-          : `[${params.draftImages?.length ?? 0} 张图片]`);
-
-      await apiStreamSSE(
-        `/conversations/${params.conversationId}/messages/stream`,
-        body,
-        (event, data) => {
-          if (event === 'accepted') {
-            const parsed = CoachStreamAcceptedEventSchema.parse(data);
-
-            streamStore.startStream({
-              userMessageId: parsed.userMessageId,
-              userContent: displayUserContent,
-              assistantMessageId: parsed.pendingAssistantMessageId,
-              userImageObjectKeys: imageObjectKeys,
-              userImagePreviewUris: params.draftImages?.map((asset) => asset.uri),
-            });
-          } else if (event === 'delta') {
-            const parsed = CoachStreamDeltaEventSchema.parse(data);
-
-            streamStore.setAssistantContent(parsed.text);
-          } else if (event === 'tool_start') {
-            const parsed = CoachStreamToolStartEventSchema.parse(data);
-            streamStore.startTool({
-              name: parsed.name,
-              label: coachToolProgressLabel(parsed.name, parsed.label),
-            });
-          } else if (event === 'tool_end') {
-            const parsed = CoachStreamToolEndEventSchema.parse(data);
-            streamStore.endTool({
-              name: parsed.name,
-              ok: parsed.ok,
-              summary: parsed.summary,
-            });
-          } else if (event === 'done') {
-            const parsed = CoachStreamDoneEventSchema.parse(data);
-
-            streamStore.setAssistantContent(useCoachStreamStore.getState().assistantContent || '');
-
-            streamStore.finishStream({
-              suggestedActions: parsed.suggestedActions ?? undefined,
-            });
-          }
-        },
-
-        { timeoutMs: AI_POLL_TIMEOUT_MS },
-      );
+      try {
+        await apiStreamSSE(
+          `/conversations/${params.conversationId}/messages/stream`,
+          body,
+          (event, data) => {
+            if (event === 'accepted') {
+              const parsed = CoachStreamAcceptedEventSchema.parse(data);
+              streamStore.startStream({
+                userMessageId: parsed.userMessageId,
+                userContent: displayUserContent,
+                assistantMessageId: parsed.pendingAssistantMessageId,
+                userImageObjectKeys: imageObjectKeys,
+                userImagePreviewUris: params.draftImages?.map((asset) => asset.uri),
+              });
+            } else if (event === 'delta') {
+              const parsed = CoachStreamDeltaEventSchema.parse(data);
+              deltaThrottle.push(parsed.text);
+            } else if (event === 'tool_start') {
+              const parsed = CoachStreamToolStartEventSchema.parse(data);
+              streamStore.startTool({
+                name: parsed.name,
+                label: coachToolProgressLabel(parsed.name, parsed.label),
+              });
+            } else if (event === 'tool_end') {
+              const parsed = CoachStreamToolEndEventSchema.parse(data);
+              streamStore.endTool({
+                name: parsed.name,
+                ok: parsed.ok,
+                summary: parsed.summary,
+              });
+            } else if (event === 'done') {
+              const parsed = CoachStreamDoneEventSchema.parse(data);
+              deltaThrottle.flush();
+              streamStore.finishStream({
+                suggestedActions: parsed.suggestedActions ?? undefined,
+              });
+            }
+          },
+          { timeoutMs: AI_POLL_TIMEOUT_MS },
+        );
+      } catch (err) {
+        if (err instanceof ApiError && err.code === 'STREAM_ABORTED') {
+          deltaThrottle.flush();
+        } else {
+          deltaThrottle.dispose();
+        }
+        throw err;
+      } finally {
+        deltaThrottle.dispose();
+      }
     },
 
     onSuccess: async (_data, variables) => {

@@ -17,8 +17,14 @@ $loginBody = @{ phone = $Phone; password = $Password } | ConvertTo-Json
 try {
   $auth = Invoke-RestMethod -Uri "$BaseUrl/auth/login" -Method POST -ContentType "application/json" -Body $loginBody
 } catch {
-  Write-Host "登录失败，尝试注册..." -ForegroundColor Yellow
-  $auth = Invoke-RestMethod -Uri "$BaseUrl/auth/register" -Method POST -ContentType "application/json" -Body $loginBody
+  Write-Host "登录失败，尝试注册（含滑块 + 短信验证码，开发模式自动通过）..." -ForegroundColor Yellow
+  $chal = Invoke-RestMethod -Uri "$BaseUrl/auth/captcha/challenge" -Method POST -ContentType "application/json" -Body '{}'
+  $capBody = @{ captchaId = $chal.captchaId; x = $chal.gapX } | ConvertTo-Json
+  $cap = Invoke-RestMethod -Uri "$BaseUrl/auth/captcha/verify" -Method POST -ContentType "application/json" -Body $capBody
+  $sendBody = @{ phone = $Phone; scene = 'REGISTER'; captchaToken = $cap.captchaToken } | ConvertTo-Json
+  $send = Invoke-RestMethod -Uri "$BaseUrl/auth/send-sms-code" -Method POST -ContentType "application/json" -Body $sendBody
+  $regBody = @{ phone = $Phone; password = $Password; smsCode = $send.devCode } | ConvertTo-Json
+  $auth = Invoke-RestMethod -Uri "$BaseUrl/auth/register" -Method POST -ContentType "application/json" -Body $regBody
 }
 
 $token = $auth.tokens.accessToken

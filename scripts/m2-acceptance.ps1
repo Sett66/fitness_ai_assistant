@@ -77,7 +77,16 @@ $suffix = (Get-Date -Format 'HHmmss') + (Get-Random -Maximum 9999)
 $phone = "139$suffix".Substring(0, 11)
 $password = 'TestPass1'
 
-$reg = Invoke-Api -Method POST -Path '/auth/register' -Body @{ phone = $phone; password = $password }
+# 2a. 滑块人机验证 + 短信验证码（开发模式：challenge 返回 gapX，直接据此通过）
+$chal = Invoke-Api -Method POST -Path '/auth/captcha/challenge' -Body @{}
+Assert-True ($null -ne $chal.captchaId) 'POST /auth/captcha/challenge'
+$cap = Invoke-Api -Method POST -Path '/auth/captcha/verify' -Body @{ captchaId = $chal.captchaId; x = $chal.gapX }
+Assert-True ($null -ne $cap.captchaToken) 'POST /auth/captcha/verify'
+$send = Invoke-Api -Method POST -Path '/auth/send-sms-code' -Body @{ phone = $phone; scene = 'REGISTER'; captchaToken = $cap.captchaToken }
+Assert-True ($send.sent -eq $true -and $null -ne $send.devCode) 'POST /auth/send-sms-code (dev)'
+$smsCode = $send.devCode
+
+$reg = Invoke-Api -Method POST -Path '/auth/register' -Body @{ phone = $phone; password = $password; smsCode = $smsCode }
 Assert-True ($null -ne $reg.tokens.accessToken -and $null -ne $reg.tokens.refreshToken) 'POST /auth/register'
 $access = $reg.tokens.accessToken
 $refresh = $reg.tokens.refreshToken
