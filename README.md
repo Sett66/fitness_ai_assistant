@@ -12,7 +12,8 @@
 - [`docs/HANDOFF-M4-REMAINING.md`](./docs/HANDOFF-M4-REMAINING.md) — M4 收口清单（**已关闭**）
 - [`docs/PRD.md`](./docs/PRD.md) — 产品需求
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — 架构说明
-- [`docs/adr/`](./docs/adr/) — 架构决策（**0007 Coach** · **0008 Agent**）
+- [`docs/issues/report/README.md`](./docs/issues/report/README.md) — **Phase 2 体检报告分析** 分切片实施文档
+- [`docs/adr/`](./docs/adr/) — 架构决策（**0007 Coach** · **0008 Agent** · **0009 体检报告**）
 
 ## 技术栈一句话总结
 
@@ -106,7 +107,7 @@ pnpm dev
 - [x] **Agent Epic 正式关闭**（2026-07-19：`m5`/`m4` 脚本 + 真机定位/天气/健身房）
 - [x] **M5 精简关闭**（E1：`apps/mobile/.env` 注入 API/存储；**不做** APK CI / Sentry，见 [`HANDOFF-M5.md`](docs/HANDOFF-M5.md) §7）
 - [ ] **MEAL-QUALITY-01**（饮食计划与食物库对齐；可选下一优先）
-- [ ] **M6 / Phase 2**（社区、报告等，按需）
+- [ ] **M6 / Phase 2 · 体检报告分析**（切片评审通过，见 [`docs/issues/report/`](docs/issues/report/README.md) + [ADR 0009](docs/adr/0009-health-report-analysis.md)；社交延后）
 
 **产品备注**：仪表盘**不**做「今日体重」独立卡片；体重仅在档案与消耗估算中使用（见 PRD F6 注）。
 
