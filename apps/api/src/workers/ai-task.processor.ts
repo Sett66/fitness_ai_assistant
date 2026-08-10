@@ -7,12 +7,13 @@ import {
   runMealPlanGenerator,
   runMealVision,
   runMealVisionWithAdvice,
+  runReportExtract,
   runWorkoutPlanGenerator,
   type LlmUsage,
 } from '@fitness/ai-core';
 import type { Prisma } from '@fitness/db';
 import type { MealType } from '@fitness/shared';
-import { MealVisionTaskInputSchema } from '@fitness/shared';
+import { HEALTH_METRIC_CATALOG, MealVisionTaskInputSchema } from '@fitness/shared';
 import type { Job } from 'bullmq';
 
 import { ConversationSideEffectService } from '../domain/conversation-side-effect.service';
@@ -103,6 +104,12 @@ export class AiTaskProcessor extends WorkerHost {
           durationMs: Date.now() - startedAt,
         },
       });
+      if (run.taskType === 'REPORT_ANALYZE') {
+        await this.prisma.client.healthReport.updateMany({
+          where: { aiRunId },
+          data: { status: 'FAILED' },
+        });
+      }
       await this.conversationSideEffects.finalizeAssistantMessage(aiRunId, {
         status: 'FAILED',
         taskType: run.taskType,
@@ -132,6 +139,10 @@ export class AiTaskProcessor extends WorkerHost {
 
     if (taskType === 'MEAL_VISION') {
       return this.dispatchMealVision(userId, model, clientInput, timezoneOffsetMinutes);
+    }
+
+    if (taskType === 'REPORT_ANALYZE') {
+      return this.dispatchReportAnalyze(userId, aiRunId, clientInput);
     }
 
     if (taskType === 'PLAN_GENERATE_WORKOUT') {
@@ -310,6 +321,58 @@ export class AiTaskProcessor extends WorkerHost {
     }
 
     return { outputJson: result, usage: output.usage };
+  }
+
+  private async dispatchReportAnalyze(
+    userId: string,
+    aiRunId: string,
+    clientInput: Record<string, unknown>,
+  ): Promise<AiTaskOutput> {
+    const reportId = typeof clientInput.reportId === 'string' ? clientInput.reportId : '';
+    if (!reportId) {
+      throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'REPORT_ANALYZE 缺少 reportId');
+    }
+
+    const report = await this.prisma.client.healthReport.update({
+      where: { id: reportId, userId, aiRunId },
+      data: { status: 'RUNNING' },
+    });
+
+    const media = await this.prisma.client.media.findMany({
+      where: {
+        id: { in: report.sourceMediaIds },
+        ownerUserId: userId,
+        status: 'READY',
+      },
+    });
+    const imageMedia = media.filter((item) => item.mime.toLowerCase().startsWith('image/'));
+    if (imageMedia.length === 0) {
+      throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'REPORT-01 仅支持图片体检报告');
+    }
+
+    const imageUrls = await Promise.all(
+      imageMedia.map((item) => this.storage.getObjectAsDataUrl(item.objectKey)),
+    );
+    const output = await runReportExtract({
+      imageUrls,
+      catalog: HEALTH_METRIC_CATALOG.map(({ key, nameZh, aliases, unit }) => ({
+        key,
+        nameZh,
+        aliases,
+        unit,
+      })),
+    });
+
+    await this.prisma.client.healthReport.update({
+      where: { id: report.id },
+      data: {
+        status: 'DONE',
+        reportDate: output.result.reportDate ?? null,
+        metrics: toJsonValue(output.result),
+      },
+    });
+
+    return { outputJson: output.result, usage: output.usage };
   }
 
   private async resolveMealImageUrl(

@@ -170,24 +170,25 @@ model User {
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime?
 
-  avatarMedia     Media?          @relation("UserAvatar", fields: [avatarMediaId], references: [id])
-  profile         Profile?
-  strengthLevels  StrengthLevel[]
-  sessions        Session[]
-  customExercises Exercise[]
-  customFoods     Food[]
-  plans           Plan[]
-  workouts        WorkoutSession[]
-  mealLogs        MealLog[]
-  media           Media[]
-  aiRuns          AiRun[]
-  agentMemories   UserAgentMemory[]
-  conversations   Conversation[]
-  posts           Post[]
-  comments        Comment[]
-  reactions       Reaction[]
-  partnerProfile  PartnerProfile?
+  avatarMedia       Media?                 @relation("UserAvatar", fields: [avatarMediaId], references: [id])
+  profile           Profile?
+  strengthLevels    StrengthLevel[]
+  sessions          Session[]
+  customExercises   Exercise[]
+  customFoods       Food[]
+  plans             Plan[]
+  workouts          WorkoutSession[]
+  mealLogs          MealLog[]
+  media             Media[]
+  aiRuns            AiRun[]
+  agentMemories     UserAgentMemory[]
+  conversations     Conversation[]
+  posts             Post[]
+  comments          Comment[]
+  reactions         Reaction[]
+  partnerProfile    PartnerProfile?
   locationSnapshots UserLocationSnapshot[]
+  healthReports     HealthReport[]
 
   @@index([deletedAt])
 }
@@ -524,11 +525,12 @@ model AiRun {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  triggerMessage Message?    @relation("AiRunTriggerMessage", fields: [triggerMessageId], references: [id], onDelete: SetNull)
-  assistantMessage Message?  @relation("AiRunAssistantMessage")
-  plan         Plan?
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation     Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  triggerMessage   Message?      @relation("AiRunTriggerMessage", fields: [triggerMessageId], references: [id], onDelete: SetNull)
+  assistantMessage Message?      @relation("AiRunAssistantMessage")
+  plan             Plan?
+  healthReport     HealthReport?
 
   @@index([userId, taskType, status])
   @@index([userId, createdAt])
@@ -576,11 +578,33 @@ model Message {
   aiRunId        String?            @unique
   createdAt      DateTime           @default(now())
 
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  aiRun        AiRun?       @relation("AiRunAssistantMessage", fields: [aiRunId], references: [id], onDelete: SetNull)
-  triggeredRuns AiRun[]     @relation("AiRunTriggerMessage")
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  aiRun         AiRun?       @relation("AiRunAssistantMessage", fields: [aiRunId], references: [id], onDelete: SetNull)
+  triggeredRuns AiRun[]      @relation("AiRunTriggerMessage")
 
   @@index([conversationId, createdAt])
+}
+
+model HealthReport {
+  id             String       @id @default(cuid())
+  userId         String
+  reportDate     DateTime?
+  status         AiTaskStatus @default(QUEUED)
+  sourceMediaIds String[]     @default([])
+  pageMediaIds   String[]     @default([])
+  metrics        Json?
+  riskAssessment Json?
+  healthContext  String?
+  aiRunId        String?      @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiRun AiRun? @relation(fields: [aiRunId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([deletedAt])
 }
 
 // =================================================================

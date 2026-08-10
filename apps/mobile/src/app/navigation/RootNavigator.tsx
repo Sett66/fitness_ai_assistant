@@ -26,6 +26,9 @@ import { PlanListScreen } from '../../features/plan/PlanListScreen';
 import { PlanDetailScreen } from '../../features/plan/PlanDetailScreen';
 import { WorkoutScreen } from '../../features/workout/WorkoutScreen';
 import { MealVisionResultScreen } from '../../features/nutrition/MealVisionResultScreen';
+import { ReportDetailScreen } from '../../features/report/ReportDetailScreen';
+import { ReportListScreen } from '../../features/report/ReportListScreen';
+import { ReportUploadScreen } from '../../features/report/ReportUploadScreen';
 import type { MealType } from '@fitness/shared';
 
 export type AuthStackParamList = {
@@ -48,6 +51,9 @@ export type RootStackParamList = {
   PlanList: undefined;
   PlanDetail: { planId: string };
   MealVisionResult: { result: unknown; mealType: MealType };
+  ReportList: undefined;
+  ReportUpload: undefined;
+  ReportDetail: { reportId: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -161,6 +167,21 @@ export function RootNavigator({ mode }: RootNavigatorProps) {
             name="MealVisionResult"
             component={MealVisionResultScreen}
             options={{ title: '识别结果' }}
+          />
+          <RootStack.Screen
+            name="ReportList"
+            component={ReportListScreen}
+            options={{ title: '体检报告' }}
+          />
+          <RootStack.Screen
+            name="ReportUpload"
+            component={ReportUploadScreen}
+            options={{ title: '上传报告' }}
+          />
+          <RootStack.Screen
+            name="ReportDetail"
+            component={ReportDetailScreen}
+            options={{ title: '报告详情' }}
           />
         </>
       )}

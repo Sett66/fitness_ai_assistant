@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Button, ErrorText, Input, Label, Screen, Subtitle, Title } from '@fitness/ui';
 import type { Gender, Goal } from '@fitness/shared';
 
+import type { RootStackParamList } from '../../app/navigation/RootNavigator';
 import { useLogout } from '../../api/endpoints/auth';
 import { useMe, usePatchProfile, useUpdateMe } from '../../api/endpoints/users';
 import { useLocationConsent } from '../location';
@@ -20,8 +23,10 @@ import { StrengthLevelEditor } from './components/StrengthLevelEditor';
 import { ageLabel, genderLabel, goalLabel, trainingYearsLabel } from './profile-labels';
 
 type EditSheet = 'identity' | 'basic' | 'training' | 'strength' | null;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ProfileScreen() {
+  const navigation = useNavigation<Nav>();
   const me = useMe();
   const logout = useLogout();
   const updateMe = useUpdateMe();
@@ -162,6 +167,17 @@ export function ProfileScreen() {
 
             <ProfileSectionCard title="运动表现" onEdit={() => setEditSheet('strength')}>
               <ProfileStrengthSummary />
+            </ProfileSectionCard>
+
+            <ProfileSectionCard title="健康数据">
+              <ProfileInfoRow label="体检报告" value="AI 指标抽取" />
+              <View className="pt-2">
+                <Button
+                  title="查看体检报告"
+                  variant="secondary"
+                  onPress={() => navigation.navigate('ReportList')}
+                />
+              </View>
             </ProfileSectionCard>
 
             <ProfileSectionCard title="位置权限">

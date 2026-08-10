@@ -8,7 +8,7 @@ export const AI_TASK_DAILY_LIMITS: Readonly<Partial<Record<string, number>>> = {
   PLAN_GENERATE_MEAL: 2,
   MEAL_VISION: 10,
   MESOCYCLE_REVIEW: 2,
-  REPORT_ANALYZE: 2,
+  REPORT_ANALYZE: 3,
 };
 
 /** 长期记忆异步抽取日限（与 COACH_CHAT 同量级，防刷） */

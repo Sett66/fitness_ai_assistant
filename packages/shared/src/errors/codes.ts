@@ -40,6 +40,9 @@ export const ERROR_CODE_VALUES = [
   'AI_TASK_LIMIT_EXCEEDED',
   'AI_TASK_PARSE_FAILED',
 
+  // 体检报告
+  'HEALTH_REPORT_NOT_FOUND',
+
   // Coach 对话
   'CONVERSATION_NOT_FOUND',
 

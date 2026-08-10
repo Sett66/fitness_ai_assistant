@@ -19,6 +19,7 @@ import { AiTasksModule } from './modules/ai-tasks/ai-tasks.module';
 import { MealLogsModule } from './modules/meal-logs/meal-logs.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { DomainModule } from './domain/domain.module';
 import { AppController } from './app.controller';
 
@@ -51,6 +52,7 @@ import { AppController } from './app.controller';
     MealLogsModule,
     PlansModule,
     ConversationsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

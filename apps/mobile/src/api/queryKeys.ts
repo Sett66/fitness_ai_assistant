@@ -7,6 +7,8 @@ export const queryKeys = {
   mealLogs: (date?: string) => ['meal-logs', date ?? 'all'] as const,
   plans: (type?: string) => ['plans', type ?? 'all'] as const,
   plan: (id: string) => ['plan', id] as const,
+  reports: ['reports'] as const,
+  report: (id: string) => ['report', id] as const,
   aiTask: (id: string) => ['ai-task', id] as const,
   workoutSessions: ['workout-sessions'] as const,
   exercises: ['exercises'] as const,

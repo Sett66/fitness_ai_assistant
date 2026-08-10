@@ -8,6 +8,7 @@ export * from './plan';
 export * from './nutrition';
 export * from './media';
 export * from './ai-task';
+export * from './health-report';
 export * from './ai-context';
 export * from './agent';
 export * from './conversation';

@@ -40,6 +40,8 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   AI_TASK_LIMIT_EXCEEDED: '今日 AI 任务次数已达上限',
   AI_TASK_PARSE_FAILED: 'AI 输出解析失败',
 
+  HEALTH_REPORT_NOT_FOUND: '体检报告不存在',
+
   CONVERSATION_NOT_FOUND: '对话不存在',
 
   PLAN_NOT_FOUND: '计划不存在',
@@ -71,4 +73,6 @@ export const termsZhCN: Readonly<Record<string, string>> = {
   ONBOARDING_STEP_BASIC: '基础体征',
   ONBOARDING_STEP_IDENTITY: '账号与目标',
   ONBOARDING_STEP_OPTIONAL: '训练背景',
+  HEALTH_REPORT_DISCLAIMER:
+    '本分析仅从健身和生活方式角度提供参考，不构成医疗诊断、治疗建议或用药指导。如指标明显异常或身体不适，请及时咨询医生。',
 };
