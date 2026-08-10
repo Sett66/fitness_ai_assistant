@@ -268,7 +268,8 @@ fitness-ai-assistant/
 │       ├── 0004-presigned-upload.md
 │       ├── 0007-coach-conversation-and-chat.md
 │       ├── 0008-coach-agent-tools-and-memory.md
-│       └── 0009-health-report-analysis.md
+│       ├── 0009-health-report-analysis.md
+│       └── 0010-coach-chat-observability-langfuse.md
 │
 ├── scripts/
 │   ├── dev.ps1                          # Windows: 一键启动后端 + 数据库
@@ -471,7 +472,7 @@ MinIO 实现走 `@aws-sdk/client-s3 + @aws-sdk/s3-request-presigner`，未来换
 | 触发条件           | 演进动作                                                                                                       |
 | ------------------ | -------------------------------------------------------------------------------------------------------------- |
 | DAU > 100          | 把 worker 拆成独立部署单元（同 codebase，`apps/api` 分两个容器）                                               |
-| AI 调用 > 1k/天    | 加 LangSmith / 自建 trace UI，prompt 改为 prompt-version 管理                                                  |
+| AI 调用 > 1k/天    | 评估 LangSmith 或统一 OTel 出口；Coach `COACH_CHAT` 观测见 ADR 0010（Langfuse）                                |
 | 食物识别准确率瓶颈 | 沉淀用户纠正样本 → 训练自有视觉模型 → 走 ONNX Runtime 端侧（可选）                                             |
 | 社区上线           | 启用 `(social)` 模块 + 简单内容审核（关键词 + LLM 兜底）                                                       |
 | 体检报告上线       | 启用 `(reports)` 模块（**ADR 0009**：改用 Qwen-VL 多模态抽取替代独立 OCR；PDF 服务端 pdfjs 渲染 + 两阶段评估） |
