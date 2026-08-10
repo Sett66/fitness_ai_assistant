@@ -1,6 +1,6 @@
 import { CoachChatOutputSchema, LLM_MODELS } from '@fitness/shared';
 import { createDeepSeekClient } from '../../llm/deepseek';
-import type { OpenAiCompatibleJsonClient } from '../../llm/openai-compatible';
+import type { CoachChatLlmClient } from '../../llm/tracing-client';
 import type { ChatMessage, LlmUsage } from '../../llm/types';
 import { COACH_SUGGESTED_ACTIONS_PROMPT } from '../../prompts/coach-system';
 import type { CoachChatOutput } from './schema';
@@ -8,7 +8,7 @@ import type { CoachChatOutput } from './schema';
 export const inferSuggestedActions = async (
   latestUserText: string,
   reply: string,
-  options?: { model?: string; client?: OpenAiCompatibleJsonClient },
+  options?: { model?: string; client?: CoachChatLlmClient },
 ): Promise<{ suggestedActions?: CoachChatOutput['suggestedActions']; usage: LlmUsage }> => {
   const client = options?.client ?? createDeepSeekClient();
   const messages: ChatMessage[] = [

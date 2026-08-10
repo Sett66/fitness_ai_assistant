@@ -15,6 +15,27 @@ export const envValidationSchema = Joi.object({
   S3_FORCE_PATH_STYLE: Joi.boolean().truthy('true').falsy('false').default(true),
   S3_PUBLIC_ENDPOINT: Joi.string().optional().allow('', null),
   COACH_AGENT_ENABLED: Joi.string().valid('true', 'false').default('false'),
+  LANGFUSE_ENABLED: Joi.string().valid('true', 'false').default('false'),
+  LANGFUSE_PUBLIC_KEY: Joi.when('LANGFUSE_ENABLED', {
+    is: 'true',
+    then: Joi.when('NODE_ENV', {
+      is: 'test',
+      then: Joi.string().optional().allow('', null),
+      otherwise: Joi.string().required(),
+    }),
+    otherwise: Joi.string().optional().allow('', null),
+  }),
+  LANGFUSE_SECRET_KEY: Joi.when('LANGFUSE_ENABLED', {
+    is: 'true',
+    then: Joi.when('NODE_ENV', {
+      is: 'test',
+      then: Joi.string().optional().allow('', null),
+      otherwise: Joi.string().required(),
+    }),
+    otherwise: Joi.string().optional().allow('', null),
+  }),
+  LANGFUSE_BASE_URL: Joi.string().uri().default('https://cloud.langfuse.com'),
+  LANGFUSE_SAMPLE_RATE: Joi.number().min(0).max(1).default(1),
   AMAP_WEB_KEY: Joi.when('NODE_ENV', {
     is: 'production',
     then: Joi.string().required(),
@@ -43,6 +64,11 @@ export type EnvShape = {
   S3_FORCE_PATH_STYLE: boolean;
   S3_PUBLIC_ENDPOINT?: string;
   COACH_AGENT_ENABLED: 'true' | 'false';
+  LANGFUSE_ENABLED: 'true' | 'false';
+  LANGFUSE_PUBLIC_KEY?: string;
+  LANGFUSE_SECRET_KEY?: string;
+  LANGFUSE_BASE_URL: string;
+  LANGFUSE_SAMPLE_RATE: number;
   AMAP_WEB_KEY?: string;
   AMAP_WEB_SECRET?: string;
   OPEN_METEO_BASE_URL?: string;
@@ -72,6 +98,11 @@ export function mapEnv(env: NodeJS.ProcessEnv): EnvShape {
     S3_FORCE_PATH_STYLE: forceRaw === 'true',
     S3_PUBLIC_ENDPOINT: parseOptionalUrl(env.S3_PUBLIC_ENDPOINT),
     COACH_AGENT_ENABLED: env.COACH_AGENT_ENABLED === 'true' ? 'true' : 'false',
+    LANGFUSE_ENABLED: env.LANGFUSE_ENABLED === 'true' ? 'true' : 'false',
+    LANGFUSE_PUBLIC_KEY: parseOptionalUrl(env.LANGFUSE_PUBLIC_KEY),
+    LANGFUSE_SECRET_KEY: parseOptionalUrl(env.LANGFUSE_SECRET_KEY),
+    LANGFUSE_BASE_URL: env.LANGFUSE_BASE_URL ?? 'https://cloud.langfuse.com',
+    LANGFUSE_SAMPLE_RATE: env.LANGFUSE_SAMPLE_RATE ? Number(env.LANGFUSE_SAMPLE_RATE) : 1,
     AMAP_WEB_KEY: parseOptionalUrl(env.AMAP_WEB_KEY),
     AMAP_WEB_SECRET: parseOptionalUrl(env.AMAP_WEB_SECRET),
     OPEN_METEO_BASE_URL: parseOptionalUrl(env.OPEN_METEO_BASE_URL),

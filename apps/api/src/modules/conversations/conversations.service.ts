@@ -33,6 +33,8 @@ import { ConversationSideEffectService } from '../../domain/conversation-side-ef
 import { ConversationTaskService } from '../../domain/conversation-task.service';
 import { UserContextService } from '../../domain/user-context.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import type { CoachChatTraceSession } from '../../infra/observability/coach-chat-trace.session';
+import { LangfuseCoachTraceService } from '../../infra/observability/langfuse-coach-trace.service';
 import { MealLogsService } from '../meal-logs/meal-logs.service';
 
 export type SseEmitFn = (event: string, data: unknown) => void;
@@ -106,6 +108,7 @@ export class ConversationsService {
     private readonly coachImageContext: CoachImageContextService,
     private readonly conversationTask: ConversationTaskService,
     private readonly conversationSideEffects: ConversationSideEffectService,
+    private readonly langfuseCoachTrace: LangfuseCoachTraceService,
   ) {}
 
   async getDefault(user: JwtUserPayload): Promise<ConversationWithMessages> {
@@ -373,12 +376,21 @@ export class ConversationsService {
       pendingAssistantMessageId: pendingAssistant.id,
     });
 
+    const coachAgentEnabled = this.agentConfig.isCoachAgentEnabled();
+    const traceSession = this.langfuseCoachTrace.beginCoachChatTrace({
+      aiRunId: run.id,
+      conversationId,
+      userId: user.userId,
+      model,
+      coachAgent: coachAgentEnabled,
+    });
+
     try {
       const history = await this.loadCoachChatHistory(conversationId);
       const userCtx = await this.userContext.build(user.userId, { timezoneOffsetMinutes });
       const memoryFacts = await this.agentMemory.listForPrompt(user.userId);
 
-      if (this.agentConfig.isCoachAgentEnabled()) {
+      if (coachAgentEnabled) {
         await this.runCoachAgentStreamPath({
           user,
           conversationId,
@@ -396,13 +408,17 @@ export class ConversationsService {
           startedAt,
           model,
           emit,
+          traceSession,
         });
         return;
       }
 
       const stream = runCoachChatStream(
         { latestUserText, history, userContext: userCtx, memoryFacts },
-        { model },
+        {
+          model,
+          client: traceSession?.createTracedDeepSeekClient(),
+        },
       );
 
       let result = await stream.next();
@@ -425,6 +441,8 @@ export class ConversationsService {
         startedAt,
       });
 
+      traceSession?.complete({ output: finalResult.reply });
+
       emit('done', {
         assistantMessageId: pendingAssistant.id,
         userMessageId: userMessage.id,
@@ -443,6 +461,8 @@ export class ConversationsService {
       const message = this.toStreamErrorMessage(err);
       const code =
         err instanceof AiCoreError ? err.code : err instanceof BizException ? err.code : undefined;
+
+      traceSession?.fail(message);
 
       await this.prisma.client.message.update({
         where: { id: pendingAssistant.id },
@@ -463,6 +483,8 @@ export class ConversationsService {
       });
 
       emit('error', { message, code });
+    } finally {
+      void traceSession?.flushAsync();
     }
   }
 
@@ -483,6 +505,7 @@ export class ConversationsService {
     startedAt: number;
     model: string;
     emit: SseEmitFn;
+    traceSession?: CoachChatTraceSession | null;
   }): Promise<void> {
     const runner = this.coachAgentRunner.run(
       params.user.userId,
@@ -531,6 +554,8 @@ export class ConversationsService {
       startedAt: params.startedAt,
       toolTrace,
     });
+
+    params.traceSession?.complete({ output: finalReply });
 
     params.emit('done', {
       assistantMessageId: params.pendingAssistantId,

@@ -6,7 +6,7 @@
 | **Blocked by** | ADR 0010（Accepted） |
 | **Blocks**     | OBS-02               |
 | **估时**       | 1 天                 |
-| **状态**       | ⬜ 未开工            |
+| **状态**       | ✅ 已完成            |
 
 ---
 
@@ -110,11 +110,11 @@ type LlmTracingHooks = {
 
 ## Acceptance criteria
 
-- [ ] `LANGFUSE_ENABLED=false` 时，`pnpm typecheck` 通过，非 Agent COACH_CHAT 行为与合并前一致（无额外延迟可感知）
-- [ ] `LANGFUSE_ENABLED=true` + 有效 Cloud Key 时，发一轮非 Agent `CHAT`，Langfuse UI 出现 trace（id = `aiRunId`），含 ≥2 个 generation（stream + suggestedActions）
-- [ ] trace 含 `sessionId=conversationId`、`userId`、完整 messages（含 system prompt）
-- [ ] Langfuse 上报失败不影响 SSE 正常返回 `done`（降级为无 trace，打 warn 日志）
-- [ ] env schema 与 `.env.example`（若有）已同步
+- [x] `LANGFUSE_ENABLED=false` 时，`pnpm typecheck` 通过，非 Agent COACH_CHAT 行为与合并前一致（无额外延迟可感知）
+- [x] `LANGFUSE_ENABLED=true` + 有效 Cloud Key 时，发一轮非 Agent `CHAT`，Langfuse UI 出现 trace（id = `aiRunId`），含 ≥2 个 generation（stream + suggestedActions）
+- [x] trace 含 `sessionId=conversationId`、`userId`、完整 messages（含 system prompt）
+- [x] Langfuse 上报失败不影响 SSE 正常返回 `done`（降级为无 trace，打 warn 日志）
+- [x] env schema 与 `.env.example`（若有）已同步
 
 ---
 

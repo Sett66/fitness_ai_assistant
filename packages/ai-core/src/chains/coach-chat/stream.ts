@@ -1,7 +1,7 @@
 import { LLM_MODELS } from '@fitness/shared';
 import { mergeLlmUsage } from '../meal-vision/advice';
 import { createDeepSeekClient } from '../../llm/deepseek';
-import type { OpenAiCompatibleJsonClient } from '../../llm/openai-compatible';
+import type { CoachChatLlmClient } from '../../llm/tracing-client';
 import type { ChatMessage, LlmUsage } from '../../llm/types';
 import { buildCoachSystemPrompt } from './build-system-prompt';
 import { inferSuggestedActions } from './infer-suggested-actions';
@@ -20,7 +20,7 @@ export type CoachChatStreamResult = {
 
 export async function* runCoachChatStream(
   input: unknown,
-  options?: { model?: string; client?: OpenAiCompatibleJsonClient },
+  options?: { model?: string; client?: CoachChatLlmClient },
 ): AsyncGenerator<CoachChatStreamChunk, CoachChatStreamResult> {
   const parsed = RunCoachChatInputSchema.parse(input);
   const client = options?.client ?? createDeepSeekClient();

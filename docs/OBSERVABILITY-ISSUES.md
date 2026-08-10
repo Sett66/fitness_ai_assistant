@@ -28,7 +28,7 @@ flowchart TD
 | Wave | Issues   | 可演示结果                           | 状态 |
 | ---- | -------- | ------------------------------------ | ---- |
 | W0   | ADR 0010 | 架构决策 Accepted                    | ✅   |
-| W1   | OBS-01   | 非 Agent CHAT 在 Langfuse 可见 trace | ⬜   |
+| W1   | OBS-01   | 非 Agent CHAT 在 Langfuse 可见 trace | ✅   |
 | W2   | OBS-02   | Agent 天气/POI 全链路 trace          | ⬜   |
 | W3   | OBS-03   | 验收脚本 + HANDOFF                   | ⬜   |
 | W4   | OBS-04   | 工具描述 Prompt 版本化（Phase 2）    | ⬜   |

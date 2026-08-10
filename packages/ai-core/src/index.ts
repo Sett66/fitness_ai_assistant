@@ -9,6 +9,13 @@ export type { DescribeCoachImagesResult } from './chains/coach-image-describe';
 export { createDeepSeekClient } from './llm/deepseek';
 export { createJsonClientForModel } from './llm/factory';
 export { createQwenVlClient } from './llm/qwen-vl';
+export type { CoachChatLlmClient } from './llm/tracing-client';
+export { wrapLlmClientWithTracing } from './llm/tracing-client';
+export type {
+  LlmGenerationEndInput,
+  LlmGenerationStartInput,
+  LlmTracingHooks,
+} from './llm/tracing-types';
 export type { JsonChatClient, JsonChatOutput, LlmUsage } from './llm/types';
 export { parseJsonWithSchema } from './parsers/json-zod';
 export { runMealPlanGenerator, runWorkoutPlanGenerator } from './graphs/plan-generator';
