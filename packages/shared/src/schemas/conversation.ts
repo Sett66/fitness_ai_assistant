@@ -121,6 +121,15 @@ export const CoachMessageAcceptedResponseSchema = z.object({
 });
 export type CoachMessageAcceptedResponse = z.infer<typeof CoachMessageAcceptedResponseSchema>;
 
+/** Langfuse trace 指针（AiRun.outputJson.observability；LANGFUSE_ENABLED 时可选写入） */
+export const CoachChatObservabilitySchema = z.object({
+  traceId: z.string(),
+  traceUrl: z.string().optional(),
+  generationCount: z.number().int().nonnegative().optional(),
+  toolSpanCount: z.number().int().nonnegative().optional(),
+});
+export type CoachChatObservability = z.infer<typeof CoachChatObservabilitySchema>;
+
 export const CoachChatOutputSchema = z.object({
   reply: z.string().max(8000),
   suggestedActions: z
@@ -132,6 +141,8 @@ export const CoachChatOutputSchema = z.object({
     )
     .max(4)
     .optional(),
+  toolTrace: z.array(CoachToolTraceItemSchema).optional(),
+  observability: CoachChatObservabilitySchema.optional(),
 });
 export type CoachChatOutput = z.infer<typeof CoachChatOutputSchema>;
 

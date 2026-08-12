@@ -121,14 +121,15 @@ pnpm dev
 
 ## Roadmap
 
-| 阶段   | 目标                     | 状态                                                                                  |
-| ------ | ------------------------ | ------------------------------------------------------------------------------------- |
-| M0–M1  | 架构与基础设施           | ✅                                                                                    |
-| M2     | 后端 MVP                 | ✅                                                                                    |
-| M3     | AI 核心闭环              | ✅ · [`HANDOFF-M3.md`](./docs/HANDOFF-M3.md)                                          |
-| **M4** | 移动端 MVP + Coach       | **✅ 已关闭** · [`HANDOFF-M4-REMAINING.md`](./docs/HANDOFF-M4-REMAINING.md)           |
-| **M5** | 联调、真 Agent、配置注入 | **✅ 精简关闭** · [`HANDOFF-M5.md`](./docs/HANDOFF-M5.md)（APK CI / Sentry 刻意不做） |
-| M6+    | Phase 2 / 可选加厚       | 报告、社区、MEAL-QUALITY 等                                                           |
+| 阶段                   | 目标                     | 状态                                                                                  |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------- |
+| M0–M1                  | 架构与基础设施           | ✅                                                                                    |
+| M2                     | 后端 MVP                 | ✅                                                                                    |
+| M3                     | AI 核心闭环              | ✅ · [`HANDOFF-M3.md`](./docs/HANDOFF-M3.md)                                          |
+| **M4**                 | 移动端 MVP + Coach       | **✅ 已关闭** · [`HANDOFF-M4-REMAINING.md`](./docs/HANDOFF-M4-REMAINING.md)           |
+| **M5**                 | 联调、真 Agent、配置注入 | **✅ 精简关闭** · [`HANDOFF-M5.md`](./docs/HANDOFF-M5.md)（APK CI / Sentry 刻意不做） |
+| **Coach 观测 Phase 1** | Langfuse trace 闭环      | **✅** · [`HANDOFF-OBSERVABILITY.md`](./docs/HANDOFF-OBSERVABILITY.md)                |
+| M6+                    | Phase 2 / 可选加厚       | 报告、社区、MEAL-QUALITY、Coach Prompt Management 等                                  |
 
 ## 项目约定
 

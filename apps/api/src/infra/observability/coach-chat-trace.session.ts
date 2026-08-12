@@ -31,12 +31,21 @@ type ObservationParent = LangfuseSpan | LangfuseAgent;
 
 const PARENT_SPAN_ID = '0123456789abcdef';
 
+export type CoachChatObservabilityPointer = {
+  traceId: string;
+  traceUrl?: string;
+  generationCount?: number;
+  toolSpanCount?: number;
+};
+
 export class CoachChatTraceSession {
   private readonly generations = new Map<string, LangfuseGeneration>();
   private langfuseTraceId = '';
   private rootSpan: LangfuseSpan | null = null;
   private agentObservation: LangfuseAgent | null = null;
   private closed = false;
+  private generationCount = 0;
+  private toolSpanCount = 0;
 
   constructor(
     private readonly params: BeginCoachChatTraceParams,
@@ -50,6 +59,19 @@ export class CoachChatTraceSession {
   getTraceUrl(): string {
     const baseUrl = this.params.baseUrl.replace(/\/$/, '');
     return `${baseUrl}/trace/${this.langfuseTraceId}`;
+  }
+
+  getObservabilityPointer(): CoachChatObservabilityPointer | null {
+    if (!this.langfuseTraceId) {
+      return null;
+    }
+
+    return {
+      traceId: this.langfuseTraceId,
+      traceUrl: this.getTraceUrl(),
+      generationCount: this.generationCount,
+      toolSpanCount: this.toolSpanCount,
+    };
   }
 
   async run<T>(fn: () => Promise<T>): Promise<T> {
@@ -114,6 +136,7 @@ export class CoachChatTraceSession {
     ok: boolean;
     durationMs: number;
   }): void {
+    this.toolSpanCount += 1;
     try {
       const tool = this.getObservationParent().startObservation(
         `tool:${params.name}`,
@@ -200,6 +223,7 @@ export class CoachChatTraceSession {
   private createTracingHooks(): LlmTracingHooks {
     return {
       onGenerationStart: (input) => {
+        this.generationCount += 1;
         const generation = this.getObservationParent().startObservation(
           input.name,
           {

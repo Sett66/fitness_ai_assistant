@@ -2,6 +2,7 @@ import { AiCoreError, runCoachChatStream } from '@fitness/ai-core';
 import { Injectable, Logger } from '@nestjs/common';
 import type {
   AiTaskType,
+  CoachChatObservability,
   CoachChatOutput,
   CoachMessageAcceptedResponse,
   CoachToolTraceItem,
@@ -443,9 +444,7 @@ export class ConversationsService {
           suggestedActions,
           usage: finalResult.usage,
           startedAt,
-          observability: traceSession
-            ? { traceId: traceSession.getTraceId(), traceUrl: traceSession.getTraceUrl() }
-            : undefined,
+          observability: traceSession?.getObservabilityPointer() ?? undefined,
         });
 
         traceSession?.complete({ output: finalResult.reply });
@@ -577,9 +576,7 @@ export class ConversationsService {
       usage,
       startedAt: params.startedAt,
       toolTrace,
-      observability: params.traceSession
-        ? { traceId: params.traceSession.getTraceId(), traceUrl: params.traceSession.getTraceUrl() }
-        : undefined,
+      observability: params.traceSession?.getObservabilityPointer() ?? undefined,
     });
 
     params.traceSession?.complete({ output: finalReply });
@@ -611,7 +608,7 @@ export class ConversationsService {
     usage: { tokenIn: number; tokenOut: number; costCny: number };
     startedAt: number;
     toolTrace?: CoachToolTraceItem[];
-    observability?: { traceId: string; traceUrl: string };
+    observability?: CoachChatObservability;
   }): Promise<void> {
     await this.prisma.client.message.update({
       where: { id: params.pendingAssistantId },

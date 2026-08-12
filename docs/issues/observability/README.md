@@ -3,7 +3,7 @@
 > **Epic**：`COACH_CHAT` 可观测与调试 — Langfuse Cloud + `OpenAiCompatibleJsonClient` 包装层  
 > **架构依据**：[ADR 0010](../../adr/0010-coach-chat-observability-langfuse.md)  
 > **前提**：M5 Agent Epic 已关闭；`COACH_AGENT_ENABLED` 可 true/false  
-> **状态（2026-08-10）**：OBS-01、OBS-02 已完成；OBS-03 待实施
+> **状态（2026-08-12）**：OBS-01、OBS-02、OBS-03 已完成；OBS-04 待实施
 
 ## 给接手 Agent 的通用说明
 
@@ -45,7 +45,7 @@ docs/adr/0008-coach-agent-tools-and-memory.md
 | ------ | ------------------------ | ---- | -------- | ------------------------------------------------- | ------- |
 | OBS-01 | [OBS-01.md](./OBS-01.md) | AFK  | ADR 0010 | Langfuse SDK、env、flag + 非 Agent 路径 E2E trace | ✅ Done |
 | OBS-02 | [OBS-02.md](./OBS-02.md) | AFK  | OBS-01   | Agent ReAct + tool span 全链路 trace              | ✅ Done |
-| OBS-03 | [OBS-03.md](./OBS-03.md) | AFK  | OBS-02   | 验收脚本、AiRun 指针、HANDOFF 文档                |
+| OBS-03 | [OBS-03.md](./OBS-03.md) | AFK  | OBS-02   | 验收脚本、AiRun 指针、HANDOFF 文档                | ✅ Done |
 | OBS-04 | [OBS-04.md](./OBS-04.md) | AFK  | OBS-03   | Phase 2：Langfuse Prompt Management（工具描述）   |
 
 ### 依赖图

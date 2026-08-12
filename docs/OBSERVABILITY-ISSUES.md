@@ -2,7 +2,7 @@
 
 > **来源**：grill-me 决策（2026-08-10）+ [ADR 0010](./adr/0010-coach-chat-observability-langfuse.md)  
 > **范围**：Phase 1 Langfuse trace（`COACH_CHAT`）；Phase 2 Prompt Management  
-> **Epic 状态**：⬜ 待实施  
+> **Epic 状态**：Phase 1 待关闭（OBS-04 为 Phase 2）  
 > **实施文档**：[`docs/issues/observability/README.md`](./issues/observability/README.md)
 
 ---
@@ -29,8 +29,8 @@ flowchart TD
 | ---- | -------- | ------------------------------------ | ---- |
 | W0   | ADR 0010 | 架构决策 Accepted                    | ✅   |
 | W1   | OBS-01   | 非 Agent CHAT 在 Langfuse 可见 trace | ✅   |
-| W2   | OBS-02   | Agent 天气/POI 全链路 trace          | ⬜   |
-| W3   | OBS-03   | 验收脚本 + HANDOFF                   | ⬜   |
+| W2   | OBS-02   | Agent 天气/POI 全链路 trace          | ✅   |
+| W3   | OBS-03   | 验收脚本 + HANDOFF                   | ✅   |
 | W4   | OBS-04   | 工具描述 Prompt 版本化（Phase 2）    | ⬜   |
 
 ---

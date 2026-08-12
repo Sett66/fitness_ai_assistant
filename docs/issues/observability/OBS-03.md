@@ -6,7 +6,7 @@
 | **Blocked by** | [OBS-02](./OBS-02.md) |
 | **Blocks**     | OBS-04                |
 | **估时**       | 0.5–1 天              |
-| **状态**       | ⬜ 未开工             |
+| **状态**       | ✅ 已完成             |
 
 ---
 
@@ -97,11 +97,11 @@ observability?: {
 
 ## Acceptance criteria
 
-- [ ] `observability-acceptance.ps1` 在本地可跑（`-SkipCoachChat` / 无 Key 时优雅跳过）
-- [ ] `-RequireLangfuse` 模式下，成功跑通后 `AiRun.outputJson.observability.traceId` 非空
-- [ ] `HANDOFF-OBSERVABILITY.md` 含 env 表与手测步骤
-- [ ] `LANGFUSE_ENABLED=false` 时脚本仍可通过（不断言 observability 字段）
-- [ ] `pnpm lint && pnpm typecheck` 通过
+- [x] `observability-acceptance.ps1` 在本地可跑（`-SkipCoachChat` / 无 Key 时优雅跳过）
+- [x] `-RequireLangfuse` 模式下，成功跑通后 `AiRun.outputJson.observability.traceId` 非空
+- [x] `HANDOFF-OBSERVABILITY.md` 含 env 表与手测步骤
+- [x] `LANGFUSE_ENABLED=false` 时脚本仍可通过（不断言 observability 字段）
+- [x] `pnpm lint && pnpm typecheck` 通过
 
 ---
 
