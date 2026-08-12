@@ -9,6 +9,7 @@ import type { LlmTracingGenerationNames, LlmTracingHooks } from './tracing-types
 const DEFAULT_GENERATION_NAMES: LlmTracingGenerationNames = {
   stream: 'coach-chat-stream',
   json: 'coach-infer-suggested-actions',
+  react: 'coach-agent-react',
 };
 
 export type CoachChatLlmClient = Pick<
@@ -26,12 +27,12 @@ export function wrapLlmClientWithTracing(
     ...generationNames,
   };
 
-  const startGeneration = (name: string, model: string, messages: unknown[]): string => {
+  const startGeneration = (name: string, model: string, input: unknown): string => {
     if (!hooks.onGenerationStart) {
       return randomUUID();
     }
     try {
-      return hooks.onGenerationStart({ name, model, messages });
+      return hooks.onGenerationStart({ name, model, input });
     } catch {
       return randomUUID();
     }
@@ -104,8 +105,32 @@ export function wrapLlmClientWithTracing(
       }
     },
 
-    chatWithTools(input: ChatWithToolsInput): Promise<ChatWithToolsOutput> {
-      return inner.chatWithTools(input);
+    async chatWithTools(input: ChatWithToolsInput): Promise<ChatWithToolsOutput> {
+      const generationName = input.tracingGenerationName ?? names.react;
+      const tracingInput = {
+        messages: input.messages,
+        tools: input.tools.map((tool) => ({
+          name: tool.function.name,
+          description: tool.function.description,
+        })),
+      };
+      const generationId = startGeneration(generationName, input.model, tracingInput);
+
+      try {
+        const result = await inner.chatWithTools(input);
+        endGeneration({
+          generationId,
+          output: JSON.stringify(result.message),
+          usage: result.usage,
+        });
+        return result;
+      } catch (err: unknown) {
+        endGeneration({
+          generationId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
     },
   };
 }

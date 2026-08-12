@@ -6,7 +6,7 @@
 | **Blocked by** | [OBS-01](./OBS-01.md) |
 | **Blocks**     | OBS-03                |
 | **估时**       | 1 天                  |
-| **状态**       | ⬜ 未开工             |
+| **状态**       | ✅ 已完成             |
 
 ---
 
@@ -78,11 +78,11 @@
 
 ## Acceptance criteria
 
-- [ ] `COACH_AGENT_ENABLED=true` + `LANGFUSE_ENABLED=true` 时，发送带 `locationContext` 的天气相关问题，Langfuse trace 含 `chatWithTools` generation（≥1）、`tool:get_weather` span、最终 stream generation
-- [ ] 工具失败路径（如日限、缺 Key）在 Langfuse 中可见 span 且 `ok=false`，SSE 仍正常返回
-- [ ] 同一 `aiRunId` 对应单一 trace，generation/span 无重复翻倍
-- [ ] `LANGFUSE_ENABLED=false` 时 Agent 行为与 OBS-02 合并前一致
-- [ ] 多轮 ReAct（如先 `geocode_place` 再 `search_nearby_gyms`）在 UI 时间线顺序正确
+- [x] `COACH_AGENT_ENABLED=true` + `LANGFUSE_ENABLED=true` 时，发送带 `locationContext` 的天气相关问题，Langfuse trace 含 `chatWithTools` generation（≥1）、`tool:get_weather` span、最终 stream generation
+- [x] 工具失败路径（如日限、缺 Key）在 Langfuse 中可见 span 且 `ok=false`，SSE 仍正常返回
+- [x] 同一 `aiRunId` 对应单一 trace，generation/span 无重复翻倍
+- [x] `LANGFUSE_ENABLED=false` 时 Agent 行为与 OBS-02 合并前一致
+- [x] 多轮 ReAct（如先 `geocode_place` 再 `search_nearby_gyms`）在 UI 时间线顺序正确
 
 ---
 

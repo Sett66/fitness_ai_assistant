@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 
-import { loadApiEnv } from './load-api-env';
+import { bootstrapApiEnv } from './bootstrap-api-env';
 
-loadApiEnv();
+bootstrapApiEnv();
 
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';

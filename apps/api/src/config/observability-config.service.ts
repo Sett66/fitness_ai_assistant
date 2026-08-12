@@ -40,4 +40,8 @@ export class ObservabilityConfigService {
     }
     return Math.random() < rate;
   }
+
+  getEnvironment(): string {
+    return this.config.get<string>('NODE_ENV', 'development') ?? 'development';
+  }
 }

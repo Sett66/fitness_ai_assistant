@@ -5,7 +5,7 @@ import { LLM_MODELS } from '@fitness/shared';
 
 import { mergeLlmUsage } from '../../chains/meal-vision/advice';
 import { createDeepSeekClient } from '../../llm/deepseek';
-import type { OpenAiCompatibleJsonClient } from '../../llm/openai-compatible';
+import type { CoachChatLlmClient } from '../../llm/tracing-client';
 import type { AgentChatMessage } from '../../llm/tool-types';
 import type { LlmUsage } from '../../llm/types';
 import {
@@ -27,7 +27,7 @@ export type InvokeToolFn = (name: CoachToolName, input: unknown) => Promise<Invo
 export type CreateCoachAgentGraphOptions = {
   invokeTool: InvokeToolFn;
   model?: string;
-  client?: OpenAiCompatibleJsonClient;
+  client?: CoachChatLlmClient;
 };
 
 const CoachAgentStateAnnotation = Annotation.Root({
@@ -101,6 +101,7 @@ export function createCoachAgentGraph(options: CreateCoachAgentGraphOptions) {
       messages: state.messages,
       tools: COACH_AGENT_TOOL_DEFINITIONS,
       temperature: 0.3,
+      tracingGenerationName: `coach-agent-react-${state.iteration}`,
     });
 
     const assistantMessage = response.message;

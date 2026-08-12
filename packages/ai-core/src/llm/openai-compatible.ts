@@ -222,9 +222,13 @@ export class OpenAiCompatibleJsonClient implements JsonChatClient {
       );
     }
 
-    if (!usage) {
-      yield { delta: '', text, usage: { tokenIn: 0, tokenOut: 0, costCny: 0 } };
-    }
+    // Providers often send usage in a final chunk without delta content; always emit
+    // one terminal chunk so consumers and tracing hooks receive token counts.
+    yield {
+      delta: '',
+      text,
+      usage: usage ?? { tokenIn: 0, tokenOut: 0, costCny: 0 },
+    };
   }
 
   private toUsage(payload: ChatCompletionResponse | StreamCompletionChunk): LlmUsage {

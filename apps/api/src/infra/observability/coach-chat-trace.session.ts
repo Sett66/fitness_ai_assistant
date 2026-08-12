@@ -2,11 +2,19 @@ import {
   createDeepSeekClient,
   type CoachChatLlmClient,
   wrapLlmClientWithTracing,
+  type LlmTracingGenerationNames,
 } from '@fitness/ai-core';
 import type { LlmTracingHooks } from '@fitness/ai-core';
-import { randomUUID } from 'node:crypto';
+import type { CoachToolName } from '@fitness/shared';
 
-import type { Langfuse, LangfuseGenerationClient, LangfuseTraceClient } from 'langfuse';
+import { forceFlushLangfuse } from '../../instrumentation';
+import { traceSessionStorage } from './coach-chat-trace.context';
+import {
+  loadLangfuseTracing,
+  type LangfuseAgent,
+  type LangfuseGeneration,
+  type LangfuseSpan,
+} from './langfuse-tracing.runtime';
 
 export type BeginCoachChatTraceParams = {
   aiRunId: string;
@@ -14,20 +22,124 @@ export type BeginCoachChatTraceParams = {
   userId: string;
   model: string;
   coachAgent: boolean;
+  userInput: string;
+  environment?: string;
+  baseUrl: string;
 };
 
+type ObservationParent = LangfuseSpan | LangfuseAgent;
+
+const PARENT_SPAN_ID = '0123456789abcdef';
+
 export class CoachChatTraceSession {
-  private readonly generations = new Map<string, LangfuseGenerationClient>();
+  private readonly generations = new Map<string, LangfuseGeneration>();
+  private langfuseTraceId = '';
+  private rootSpan: LangfuseSpan | null = null;
+  private agentObservation: LangfuseAgent | null = null;
   private closed = false;
 
   constructor(
-    private readonly trace: LangfuseTraceClient,
-    private readonly langfuse: Langfuse,
-    private readonly onWarn: (message: string) => void,
+    private readonly params: BeginCoachChatTraceParams,
+    private readonly onWarnFn: (message: string) => void,
   ) {}
 
-  createTracedDeepSeekClient(): CoachChatLlmClient {
-    return wrapLlmClientWithTracing(createDeepSeekClient(), this.createTracingHooks());
+  getTraceId(): string {
+    return this.langfuseTraceId;
+  }
+
+  getTraceUrl(): string {
+    const baseUrl = this.params.baseUrl.replace(/\/$/, '');
+    return `${baseUrl}/trace/${this.langfuseTraceId}`;
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    const tracing = loadLangfuseTracing();
+    this.langfuseTraceId = await tracing.createTraceId(this.params.aiRunId);
+
+    return tracing.startActiveObservation(
+      'COACH_CHAT',
+      async (rootSpan) => {
+        this.rootSpan = rootSpan;
+        rootSpan.update({ input: { message: this.params.userInput } });
+
+        tracing.updateActiveTrace({
+          name: 'COACH_CHAT',
+          userId: this.params.userId,
+          sessionId: this.params.conversationId,
+          input: { message: this.params.userInput },
+          environment: this.params.environment,
+          tags: ['COACH_CHAT', this.params.coachAgent ? 'coach-agent' : 'coach-stream'],
+          metadata: {
+            taskType: 'COACH_CHAT',
+            coachAgent: this.params.coachAgent,
+            model: this.params.model,
+            aiRunId: this.params.aiRunId,
+          },
+        });
+
+        if (this.params.coachAgent) {
+          this.agentObservation = rootSpan.startObservation(
+            'coach-agent',
+            { input: { message: this.params.userInput } },
+            { asType: 'agent' },
+          );
+        }
+
+        return traceSessionStorage.run(this, fn);
+      },
+      {
+        parentSpanContext: {
+          traceId: this.langfuseTraceId,
+          spanId: PARENT_SPAN_ID,
+          traceFlags: 1,
+        },
+      },
+    );
+  }
+
+  createTracedDeepSeekClient(
+    generationNames?: Partial<LlmTracingGenerationNames>,
+  ): CoachChatLlmClient {
+    return wrapLlmClientWithTracing(
+      createDeepSeekClient(),
+      this.createTracingHooks(),
+      generationNames,
+    );
+  }
+
+  recordToolSpan(params: {
+    name: CoachToolName;
+    input: unknown;
+    output?: unknown;
+    ok: boolean;
+    durationMs: number;
+  }): void {
+    try {
+      const tool = this.getObservationParent().startObservation(
+        `tool:${params.name}`,
+        {
+          input: params.input,
+          metadata: {
+            ok: params.ok,
+            durationMs: params.durationMs,
+          },
+        },
+        { asType: 'tool' },
+      );
+
+      tool
+        .update({
+          output: params.output,
+          level: params.ok ? 'DEFAULT' : 'ERROR',
+          metadata: {
+            ok: params.ok,
+            durationMs: params.durationMs,
+          },
+        })
+        .end();
+    } catch (err: unknown) {
+      this.warn(`Langfuse tool span 上报失败: ${this.formatError(err)}`);
+    }
   }
 
   complete(params?: { output?: string }): void {
@@ -36,11 +148,14 @@ export class CoachChatTraceSession {
     }
     this.closed = true;
     try {
-      this.trace.update({
-        output: params?.output,
-      });
+      if (this.agentObservation) {
+        this.agentObservation.update({ output: params?.output }).end();
+        this.agentObservation = null;
+      }
+      this.rootSpan?.update({ output: params?.output });
+      this.rootSpan?.updateTrace({ output: params?.output });
     } catch (err: unknown) {
-      this.onWarn(`Langfuse trace 完成更新失败: ${this.formatError(err)}`);
+      this.warn(`Langfuse trace 完成更新失败: ${this.formatError(err)}`);
     }
   }
 
@@ -50,52 +165,76 @@ export class CoachChatTraceSession {
     }
     this.closed = true;
     try {
-      this.trace.update({
+      if (this.agentObservation) {
+        this.agentObservation
+          .update({
+            output: { error },
+            level: 'ERROR',
+          })
+          .end();
+        this.agentObservation = null;
+      }
+      this.rootSpan?.update({
+        output: { error },
+        level: 'ERROR',
+      });
+      this.rootSpan?.updateTrace({
         output: { error },
         metadata: { failed: true },
       });
     } catch (err: unknown) {
-      this.onWarn(`Langfuse trace 失败更新失败: ${this.formatError(err)}`);
+      this.warn(`Langfuse trace 失败更新失败: ${this.formatError(err)}`);
     }
   }
 
   flushAsync(): Promise<void> {
-    return this.langfuse.flushAsync().catch((err: unknown) => {
-      this.onWarn(`Langfuse flush 失败: ${this.formatError(err)}`);
+    return forceFlushLangfuse().catch((err: unknown) => {
+      this.warn(`Langfuse flush 失败: ${this.formatError(err)}`);
     });
+  }
+
+  private getObservationParent(): ObservationParent {
+    return this.agentObservation ?? this.rootSpan!;
   }
 
   private createTracingHooks(): LlmTracingHooks {
     return {
       onGenerationStart: (input) => {
-        const generationId = randomUUID();
-        const generation = this.trace.generation({
-          id: generationId,
-          name: input.name,
-          model: input.model,
-          input: input.messages,
-        });
-        this.generations.set(generationId, generation);
-        return generationId;
+        const generation = this.getObservationParent().startObservation(
+          input.name,
+          {
+            model: input.model,
+            input: input.input,
+          },
+          { asType: 'generation' },
+        );
+        this.generations.set(generation.id, generation);
+        return generation.id;
       },
       onGenerationEnd: (input) => {
         const generation = this.generations.get(input.generationId);
         if (!generation) {
           return;
         }
-        generation.end({
-          output: input.error ? { error: input.error } : input.output,
-          level: input.error ? 'ERROR' : 'DEFAULT',
-          usage: input.usage
-            ? {
-                input: input.usage.tokenIn,
-                output: input.usage.tokenOut,
-              }
-            : undefined,
-        });
+        generation
+          .update({
+            output: input.error ? { error: input.error } : input.output,
+            level: input.error ? 'ERROR' : 'DEFAULT',
+            usageDetails: input.usage
+              ? {
+                  input: input.usage.tokenIn,
+                  output: input.usage.tokenOut,
+                }
+              : undefined,
+          })
+          .end();
         this.generations.delete(input.generationId);
       },
     };
+  }
+
+  private warn(message: string): void {
+    this.onWarnFn(message);
   }
 
   private formatError(err: unknown): string {
@@ -104,22 +243,8 @@ export class CoachChatTraceSession {
 }
 
 export function createCoachChatTraceSession(
-  langfuse: Langfuse,
   params: BeginCoachChatTraceParams,
   onWarn: (message: string) => void,
 ): CoachChatTraceSession {
-  const trace = langfuse.trace({
-    id: params.aiRunId,
-    name: 'COACH_CHAT',
-    userId: params.userId,
-    sessionId: params.conversationId,
-    metadata: {
-      taskType: 'COACH_CHAT',
-      coachAgent: params.coachAgent,
-      model: params.model,
-    },
-    tags: ['COACH_CHAT', params.coachAgent ? 'coach-agent' : 'coach-stream'],
-  });
-
-  return new CoachChatTraceSession(trace, langfuse, onWarn);
+  return new CoachChatTraceSession(params, onWarn);
 }

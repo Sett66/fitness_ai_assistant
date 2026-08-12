@@ -3,7 +3,7 @@
 > **Epic**：`COACH_CHAT` 可观测与调试 — Langfuse Cloud + `OpenAiCompatibleJsonClient` 包装层  
 > **架构依据**：[ADR 0010](../../adr/0010-coach-chat-observability-langfuse.md)  
 > **前提**：M5 Agent Epic 已关闭；`COACH_AGENT_ENABLED` 可 true/false  
-> **状态（2026-08-10）**：OBS-01 已完成；OBS-02 待实施
+> **状态（2026-08-10）**：OBS-01、OBS-02 已完成；OBS-03 待实施
 
 ## 给接手 Agent 的通用说明
 
@@ -24,12 +24,14 @@
 
 本地启动：
 pnpm install
-docker compose -f docker/docker-compose.yml up -d
-pnpm --filter api start:api
+pnpm dev:stack
+# 或分步：docker compose -f docker/docker-compose.yml up -d
+#         pnpm --filter @fitness/api dev
 pnpm lint && pnpm typecheck
 
 Langfuse（启用观测时）：
-在 Langfuse Cloud 创建项目，配置 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_ENABLED=true
+- **本地自托管**（推荐，`pnpm dev:stack`）：UI http://127.0.0.1:3100，首次 init Key 见 `apps/api/.env.example`
+- **Cloud**：在 Langfuse Cloud 创建项目，配置 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_ENABLED=true
 
 必读（按切片文档「前置阅读」为准）：
 docs/issues/observability/OBS-XX.md
@@ -42,7 +44,7 @@ docs/adr/0008-coach-agent-tools-and-memory.md
 | ID     | 文档                     | 类型 | 阻塞     | 交付                                              |
 | ------ | ------------------------ | ---- | -------- | ------------------------------------------------- | ------- |
 | OBS-01 | [OBS-01.md](./OBS-01.md) | AFK  | ADR 0010 | Langfuse SDK、env、flag + 非 Agent 路径 E2E trace | ✅ Done |
-| OBS-02 | [OBS-02.md](./OBS-02.md) | AFK  | OBS-01   | Agent ReAct + tool span 全链路 trace              |
+| OBS-02 | [OBS-02.md](./OBS-02.md) | AFK  | OBS-01   | Agent ReAct + tool span 全链路 trace              | ✅ Done |
 | OBS-03 | [OBS-03.md](./OBS-03.md) | AFK  | OBS-02   | 验收脚本、AiRun 指针、HANDOFF 文档                |
 | OBS-04 | [OBS-04.md](./OBS-04.md) | AFK  | OBS-03   | Phase 2：Langfuse Prompt Management（工具描述）   |
 

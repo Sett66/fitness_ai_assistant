@@ -10,6 +10,7 @@ import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { AmapClient } from '../../infra/geo/amap.client';
 import { WeatherClient } from '../../infra/geo/weather.client';
+import { CoachToolSpanService } from '../../infra/observability/coach-tool-span.service';
 import { AgentMemoryService } from '../agent-memory.service';
 import { ConversationTaskService } from '../conversation-task.service';
 import { UserContextService } from '../user-context.service';
@@ -40,14 +41,44 @@ export class ToolRegistryService {
     private readonly weather: WeatherClient,
     private readonly toolUsage: ToolUsageService,
     private readonly conversationTask: ConversationTaskService,
+    private readonly coachToolSpan: CoachToolSpanService,
   ) {}
 
   async execute(name: CoachToolName, input: unknown, ctx: ToolContext): Promise<unknown> {
-    const limited = await this.checkDailyLimit(name, ctx);
-    if (limited) {
-      return limited;
-    }
+    const startedAt = Date.now();
+    let output: unknown;
+    let ok = true;
 
+    try {
+      const limited = await this.checkDailyLimit(name, ctx);
+      if (limited) {
+        output = limited;
+        ok = false;
+        return limited;
+      }
+
+      output = await this.dispatchTool(name, input, ctx);
+      return output;
+    } catch (err: unknown) {
+      ok = false;
+      output = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      this.coachToolSpan.recordToolExecution({
+        name,
+        input,
+        output,
+        ok,
+        durationMs: Date.now() - startedAt,
+      });
+    }
+  }
+
+  private async dispatchTool(
+    name: CoachToolName,
+    input: unknown,
+    ctx: ToolContext,
+  ): Promise<unknown> {
     switch (name) {
       case 'get_user_fitness_snapshot':
         return this.getUserFitnessSnapshot(input, ctx);

@@ -3,7 +3,7 @@ import type { LlmUsage } from './types';
 export type LlmGenerationStartInput = {
   name: string;
   model: string;
-  messages: unknown[];
+  input: unknown;
 };
 
 export type LlmGenerationEndInput = {
@@ -21,4 +21,5 @@ export type LlmTracingHooks = {
 export type LlmTracingGenerationNames = {
   stream: string;
   json: string;
+  react: string;
 };

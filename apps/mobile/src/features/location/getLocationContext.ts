@@ -15,7 +15,7 @@ export async function getLocationContext(): Promise<LocationContext | null> {
   try {
     const result = await requestGeolocation({
       enableHighAccuracy: true,
-      timeout: 8000,
+      timeout: 10000,
       maximumAge: 60_000,
     });
     return toLocationContext(result);

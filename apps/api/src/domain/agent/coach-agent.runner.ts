@@ -1,6 +1,7 @@
 import {
   runCoachAgentStream,
   type CoachAgentRunnerEvent,
+  type CoachChatLlmClient,
   type RunCoachAgentStreamInput,
 } from '@fitness/ai-core';
 import { Injectable } from '@nestjs/common';
@@ -31,7 +32,7 @@ export class CoachAgentRunner {
   run(
     userId: string,
     input: CoachAgentRunInput,
-    options?: { model?: string },
+    options?: { model?: string; client?: CoachChatLlmClient },
   ): AsyncGenerator<CoachAgentRunnerEvent> {
     const sessionToolCounts: Partial<Record<CoachToolName, number>> = {};
 
@@ -62,6 +63,7 @@ export class CoachAgentRunner {
       },
       {
         model: options?.model,
+        client: options?.client,
         invokeTool,
       },
     );

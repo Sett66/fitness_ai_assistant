@@ -1,0 +1,175 @@
+# Langfuse v4 自托管（与 fitness 基础设施并行，不共用 Postgres/Redis/MinIO）
+#
+# 用法（仓库根目录）：
+#   docker compose -f docker/docker-compose.yml -f docker/langfuse.compose.yml up -d
+#
+# UI：http://127.0.0.1:3100
+# 内部依赖仅 Docker 内网，不映射宿主机端口，避免与 fitness 的 5432/6379/9000 冲突。
+# 服务名均带 langfuse- 前缀，避免与 docker-compose.yml 中 postgres/redis/minio 重名。
+
+services:
+  langfuse-postgres:
+    image: docker.io/postgres:17
+    container_name: fitness-langfuse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: lf_dev_postgres
+      POSTGRES_DB: postgres
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - langfuse
+
+  langfuse-redis:
+    image: docker.io/redis:7
+    container_name: fitness-langfuse-redis
+    restart: unless-stopped
+    command: >
+      --requirepass lf_dev_redis_secret
+      --maxmemory-policy noeviction
+    volumes:
+      - langfuse_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "lf_dev_redis_secret", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+    networks:
+      - langfuse
+
+  langfuse-minio:
+    image: cgr.dev/chainguard/minio
+    container_name: fitness-langfuse-minio
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: lf_dev_minio_secret
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+    networks:
+      - langfuse
+
+  langfuse-clickhouse:
+    image: docker.io/clickhouse/clickhouse-server:25.12
+    container_name: fitness-langfuse-clickhouse
+    restart: unless-stopped
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: lf_dev_clickhouse
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+    networks:
+      - langfuse
+
+  langfuse-worker:
+    image: docker.io/langfuse/langfuse-worker:4
+    container_name: fitness-langfuse-worker
+    restart: unless-stopped
+    depends_on: &langfuse-depends-on
+      langfuse-postgres:
+        condition: service_healthy
+      langfuse-minio:
+        condition: service_healthy
+      langfuse-redis:
+        condition: service_healthy
+      langfuse-clickhouse:
+        condition: service_healthy
+    environment: &langfuse-worker-env
+      NEXTAUTH_URL: http://127.0.0.1:3100
+      DATABASE_URL: postgresql://postgres:lf_dev_postgres@langfuse-postgres:5432/postgres
+      SALT: lf_dev_salt
+      ENCRYPTION_KEY: a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+      TELEMETRY_ENABLED: "false"
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+      CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+      CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+      CLICKHOUSE_USER: clickhouse
+      CLICKHOUSE_PASSWORD: lf_dev_clickhouse
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      LANGFUSE_USE_AZURE_BLOB: "false"
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: lf_dev_minio_secret
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: lf_dev_minio_secret
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+      REDIS_HOST: langfuse-redis
+      REDIS_PORT: "6379"
+      REDIS_AUTH: lf_dev_redis_secret
+    networks:
+      - langfuse
+
+  langfuse-web:
+    image: docker.io/langfuse/langfuse:4
+    container_name: fitness-langfuse-web
+    restart: unless-stopped
+    depends_on: *langfuse-depends-on
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      <<: *langfuse-worker-env
+      NEXTAUTH_SECRET: lf_dev_nextauth_secret
+      # 首次启动自动创建组织/项目/API Key（与 apps/api/.env.example 中本地 Key 一致）
+      LANGFUSE_INIT_ORG_ID: fitness-local
+      LANGFUSE_INIT_ORG_NAME: Fitness Local
+      LANGFUSE_INIT_PROJECT_ID: fitness-coach
+      LANGFUSE_INIT_PROJECT_NAME: Coach Chat
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-lf-fitness-local
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-lf-fitness-local
+      LANGFUSE_INIT_USER_EMAIL: dev@example.com
+      LANGFUSE_INIT_USER_NAME: Dev
+      LANGFUSE_INIT_USER_PASSWORD: password123
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:3000/api/public/health || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - langfuse
+
+volumes:
+  langfuse_postgres_data:
+  langfuse_redis_data:
+  langfuse_minio_data:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
+
+networks:
+  langfuse:
+    name: fitness_langfuse_net
+    driver: bridge

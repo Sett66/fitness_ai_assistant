@@ -14,6 +14,7 @@ export { wrapLlmClientWithTracing } from './llm/tracing-client';
 export type {
   LlmGenerationEndInput,
   LlmGenerationStartInput,
+  LlmTracingGenerationNames,
   LlmTracingHooks,
 } from './llm/tracing-types';
 export type { JsonChatClient, JsonChatOutput, LlmUsage } from './llm/types';

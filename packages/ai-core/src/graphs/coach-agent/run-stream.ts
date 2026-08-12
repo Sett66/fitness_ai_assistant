@@ -11,7 +11,7 @@ import { inferSuggestedActions } from '../../chains/coach-chat/infer-suggested-a
 import type { CoachChatHistoryItem } from '../../chains/coach-chat/schema';
 import { mergeLlmUsage } from '../../chains/meal-vision/advice';
 import { createDeepSeekClient } from '../../llm/deepseek';
-import type { OpenAiCompatibleJsonClient } from '../../llm/openai-compatible';
+import type { CoachChatLlmClient } from '../../llm/tracing-client';
 import type { AgentChatMessage } from '../../llm/tool-types';
 import type { LlmUsage } from '../../llm/types';
 import {
@@ -46,7 +46,7 @@ export type CoachAgentStreamDoneEvent = {
 export type CoachAgentRunnerEvent = CoachAgentStreamEvent | CoachAgentStreamDoneEvent;
 
 export type RunCoachAgentStreamOptions = CreateCoachAgentGraphOptions & {
-  client?: OpenAiCompatibleJsonClient;
+  client?: CoachChatLlmClient;
 };
 
 const buildInitialMessages = (input: RunCoachAgentStreamInput): AgentChatMessage[] => {

@@ -28,6 +28,8 @@ export type ChatWithToolsInput = {
   messages: AgentChatMessage[];
   tools: ToolDefinition[];
   temperature?: number;
+  /** Langfuse generation name override for ReAct iterations */
+  tracingGenerationName?: string;
 };
 
 export type ChatWithToolsOutput = {

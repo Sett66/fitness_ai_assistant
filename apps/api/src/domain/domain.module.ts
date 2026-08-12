@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 
 import { AgentConfigService } from '../config/agent-config.service';
 import { GeoModule } from '../infra/geo/geo.module';
+import { ObservabilityModule } from '../infra/observability/observability.module';
 import { StorageModule } from '../infra/storage/storage.module';
 import { CoachAgentRunner } from './agent/coach-agent.runner';
 import { CoachImageContextService } from './coach-image-context.service';
@@ -17,7 +18,7 @@ import { UserContextService } from './user-context.service';
 
 @Global()
 @Module({
-  imports: [GeoModule, StorageModule],
+  imports: [GeoModule, ObservabilityModule, StorageModule],
   providers: [
     AgentConfigService,
     AgentMemoryService,

@@ -383,108 +383,126 @@ export class ConversationsService {
       userId: user.userId,
       model,
       coachAgent: coachAgentEnabled,
+      userInput: latestUserText,
     });
 
-    try {
-      const history = await this.loadCoachChatHistory(conversationId);
-      const userCtx = await this.userContext.build(user.userId, { timezoneOffsetMinutes });
-      const memoryFacts = await this.agentMemory.listForPrompt(user.userId);
+    const runStream = async (): Promise<void> => {
+      try {
+        const history = await this.loadCoachChatHistory(conversationId, {
+          excludeMessageIds: [userMessage.id, pendingAssistant.id],
+        });
+        const userCtx = await this.userContext.build(user.userId, { timezoneOffsetMinutes });
+        const memoryFacts = await this.agentMemory.listForPrompt(user.userId);
 
-      if (coachAgentEnabled) {
-        await this.runCoachAgentStreamPath({
-          user,
-          conversationId,
-          latestUserText,
-          rawUserText,
-          imageObjectKeys,
-          history,
-          userCtx,
-          memoryFacts,
-          timezoneOffsetMinutes,
-          locationContext: input.locationContext,
+        if (coachAgentEnabled) {
+          await this.runCoachAgentStreamPath({
+            user,
+            conversationId,
+            latestUserText,
+            rawUserText,
+            imageObjectKeys,
+            history,
+            userCtx,
+            memoryFacts,
+            timezoneOffsetMinutes,
+            locationContext: input.locationContext,
+            pendingAssistantId: pendingAssistant.id,
+            userMessageId: userMessage.id,
+            runId: run.id,
+            startedAt,
+            model,
+            emit,
+            traceSession,
+          });
+          return;
+        }
+
+        const stream = runCoachChatStream(
+          { latestUserText, history, userContext: userCtx, memoryFacts },
+          {
+            model,
+            client: traceSession?.createTracedDeepSeekClient(),
+          },
+        );
+
+        let result = await stream.next();
+        while (!result.done) {
+          emit('delta', { text: result.value.text });
+          result = await stream.next();
+        }
+
+        const finalResult = result.value;
+        const suggestedActions = finalResult.suggestedActions ?? [];
+
+        await this.persistCoachChatSuccess({
           pendingAssistantId: pendingAssistant.id,
           userMessageId: userMessage.id,
           runId: run.id,
+          conversationId,
+          reply: finalResult.reply,
+          suggestedActions,
+          usage: finalResult.usage,
           startedAt,
-          model,
-          emit,
-          traceSession,
+          observability: traceSession
+            ? { traceId: traceSession.getTraceId(), traceUrl: traceSession.getTraceUrl() }
+            : undefined,
         });
-        return;
+
+        traceSession?.complete({ output: finalResult.reply });
+
+        emit('done', {
+          assistantMessageId: pendingAssistant.id,
+          userMessageId: userMessage.id,
+          suggestedActions,
+          usage: finalResult.usage,
+        });
+
+        void this.enqueueMemoryExtractSafely(user, {
+          conversationId,
+          userMessageId: userMessage.id,
+          assistantMessageId: pendingAssistant.id,
+          latestUserText: rawUserText || displayContent,
+          assistantReply: finalResult.reply,
+        });
+      } catch (err: unknown) {
+        const message = this.toStreamErrorMessage(err);
+        const code =
+          err instanceof AiCoreError
+            ? err.code
+            : err instanceof BizException
+              ? err.code
+              : undefined;
+
+        traceSession?.fail(message);
+
+        await this.prisma.client.message.update({
+          where: { id: pendingAssistant.id },
+          data: {
+            contentType: 'SYSTEM_NOTICE',
+            content: message,
+            metadata: { taskStatus: 'FAILED', taskType: 'COACH_CHAT' } as Prisma.InputJsonValue,
+          },
+        });
+
+        await this.prisma.client.aiRun.update({
+          where: { id: run.id },
+          data: {
+            status: 'FAILED',
+            errorMsg: message,
+            durationMs: Date.now() - startedAt,
+          },
+        });
+
+        emit('error', { message, code });
+      } finally {
+        void traceSession?.flushAsync();
       }
+    };
 
-      const stream = runCoachChatStream(
-        { latestUserText, history, userContext: userCtx, memoryFacts },
-        {
-          model,
-          client: traceSession?.createTracedDeepSeekClient(),
-        },
-      );
-
-      let result = await stream.next();
-      while (!result.done) {
-        emit('delta', { text: result.value.text });
-        result = await stream.next();
-      }
-
-      const finalResult = result.value;
-      const suggestedActions = finalResult.suggestedActions ?? [];
-
-      await this.persistCoachChatSuccess({
-        pendingAssistantId: pendingAssistant.id,
-        userMessageId: userMessage.id,
-        runId: run.id,
-        conversationId,
-        reply: finalResult.reply,
-        suggestedActions,
-        usage: finalResult.usage,
-        startedAt,
-      });
-
-      traceSession?.complete({ output: finalResult.reply });
-
-      emit('done', {
-        assistantMessageId: pendingAssistant.id,
-        userMessageId: userMessage.id,
-        suggestedActions,
-        usage: finalResult.usage,
-      });
-
-      void this.enqueueMemoryExtractSafely(user, {
-        conversationId,
-        userMessageId: userMessage.id,
-        assistantMessageId: pendingAssistant.id,
-        latestUserText: rawUserText || displayContent,
-        assistantReply: finalResult.reply,
-      });
-    } catch (err: unknown) {
-      const message = this.toStreamErrorMessage(err);
-      const code =
-        err instanceof AiCoreError ? err.code : err instanceof BizException ? err.code : undefined;
-
-      traceSession?.fail(message);
-
-      await this.prisma.client.message.update({
-        where: { id: pendingAssistant.id },
-        data: {
-          contentType: 'SYSTEM_NOTICE',
-          content: message,
-          metadata: { taskStatus: 'FAILED', taskType: 'COACH_CHAT' } as Prisma.InputJsonValue,
-        },
-      });
-
-      await this.prisma.client.aiRun.update({
-        where: { id: run.id },
-        data: {
-          status: 'FAILED',
-          errorMsg: message,
-          durationMs: Date.now() - startedAt,
-        },
-      });
-
-      emit('error', { message, code });
-    } finally {
-      void traceSession?.flushAsync();
+    if (traceSession) {
+      await traceSession.run(runStream);
+    } else {
+      await runStream();
     }
   }
 
@@ -507,6 +525,12 @@ export class ConversationsService {
     emit: SseEmitFn;
     traceSession?: CoachChatTraceSession | null;
   }): Promise<void> {
+    const agentClient = params.traceSession?.createTracedDeepSeekClient({
+      stream: 'coach-agent-final-stream',
+      json: 'coach-infer-suggested-actions',
+      react: 'coach-agent-react',
+    });
+
     const runner = this.coachAgentRunner.run(
       params.user.userId,
       {
@@ -519,7 +543,7 @@ export class ConversationsService {
         conversationId: params.conversationId,
         triggerMessageId: params.userMessageId,
       },
-      { model: params.model },
+      { model: params.model, client: agentClient },
     );
 
     let finalReply = '';
@@ -553,6 +577,9 @@ export class ConversationsService {
       usage,
       startedAt: params.startedAt,
       toolTrace,
+      observability: params.traceSession
+        ? { traceId: params.traceSession.getTraceId(), traceUrl: params.traceSession.getTraceUrl() }
+        : undefined,
     });
 
     params.traceSession?.complete({ output: finalReply });
@@ -584,6 +611,7 @@ export class ConversationsService {
     usage: { tokenIn: number; tokenOut: number; costCny: number };
     startedAt: number;
     toolTrace?: CoachToolTraceItem[];
+    observability?: { traceId: string; traceUrl: string };
   }): Promise<void> {
     await this.prisma.client.message.update({
       where: { id: params.pendingAssistantId },
@@ -608,6 +636,7 @@ export class ConversationsService {
           reply: params.reply,
           suggestedActions: params.suggestedActions,
           ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
+          ...(params.observability ? { observability: params.observability } : {}),
         } as Prisma.InputJsonValue,
         tokenIn: params.usage.tokenIn,
         tokenOut: params.usage.tokenOut,
@@ -637,14 +666,20 @@ export class ConversationsService {
     });
   }
 
-  private async loadCoachChatHistory(conversationId: string) {
+  private async loadCoachChatHistory(
+    conversationId: string,
+    options?: { excludeMessageIds?: string[] },
+  ) {
     await this.conversationSideEffects.reconcileStaleAssistantMessages(conversationId);
+
+    const excludeIds = new Set(options?.excludeMessageIds ?? []);
 
     const historyRows = await this.prisma.client.message.findMany({
       where: {
         conversationId,
         role: { in: ['USER', 'ASSISTANT'] },
         contentType: { in: ['TEXT', 'IMAGE', 'PLAN_CARD', 'MEAL_VISION_CARD'] },
+        ...(excludeIds.size ? { id: { notIn: [...excludeIds] } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: 12,
