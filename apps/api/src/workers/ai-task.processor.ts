@@ -14,10 +14,11 @@ import {
   type LlmUsage,
 } from '@fitness/ai-core';
 import type { Prisma } from '@fitness/db';
-import type { MealType } from '@fitness/shared';
+import type { HealthReportMetrics, MealType } from '@fitness/shared';
 import {
   collectCriticalHits,
   HEALTH_METRIC_CATALOG,
+  HealthReportMetricsSchema,
   MEDIA_MAX_SIZE_BYTES,
   MealVisionTaskInputSchema,
   REPORT_PDF_MAX_PAGES,
@@ -120,6 +121,12 @@ export class AiTaskProcessor extends WorkerHost {
           data: { status: 'FAILED' },
         });
       }
+      if (run.taskType === 'REPORT_REASSESS') {
+        await this.prisma.client.healthReport.updateMany({
+          where: { aiRunId },
+          data: { status: 'DONE' },
+        });
+      }
       await this.conversationSideEffects.finalizeAssistantMessage(aiRunId, {
         status: 'FAILED',
         taskType: run.taskType,
@@ -153,6 +160,10 @@ export class AiTaskProcessor extends WorkerHost {
 
     if (taskType === 'REPORT_ANALYZE') {
       return this.dispatchReportAnalyze(userId, aiRunId, clientInput);
+    }
+
+    if (taskType === 'REPORT_REASSESS') {
+      return this.dispatchReportReassess(userId, clientInput);
     }
 
     if (taskType === 'PLAN_GENERATE_WORKOUT') {
@@ -393,23 +404,9 @@ export class AiTaskProcessor extends WorkerHost {
     let healthContext: string | null = null;
 
     try {
-      const profile = await this.prisma.client.profile.findUnique({ where: { userId } });
-      const assessed = await runReportAssess({
-        metrics: output.result,
-        profile: profile
-          ? {
-              gender: profile.gender,
-              birthDate: profile.birthDate,
-              heightCm: profile.heightCm,
-              weightKg: profile.weightKg,
-              trainingYears: profile.trainingYears,
-              goal: profile.goal,
-            }
-          : null,
-        criticalHits: collectCriticalHits(output.result),
-      });
-      riskAssessment = assessed.result.riskAssessment;
-      healthContext = assessed.result.healthContext;
+      const assessed = await this.runStage2Assess(userId, output.result);
+      riskAssessment = assessed.riskAssessment;
+      healthContext = assessed.healthContext;
       usage = mergeLlmUsage(output.usage, assessed.usage);
     } catch (err: unknown) {
       this.logger.warn(`报告阶段2评估失败，指标仍保留: ${report.id}: ${this.toErrorMessage(err)}`);
@@ -434,6 +431,94 @@ export class AiTaskProcessor extends WorkerHost {
         pageTruncated: normalized.truncated,
       },
       usage,
+    };
+  }
+
+  private async dispatchReportReassess(
+    userId: string,
+    clientInput: Record<string, unknown>,
+  ): Promise<AiTaskOutput> {
+    const reportId = typeof clientInput.reportId === 'string' ? clientInput.reportId : '';
+    if (!reportId) {
+      throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'REPORT_REASSESS 缺少 reportId');
+    }
+
+    const report = await this.prisma.client.healthReport.findFirst({
+      where: { id: reportId, userId, deletedAt: null },
+    });
+    if (!report) {
+      throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'REPORT_REASSESS 找不到体检报告');
+    }
+
+    const parsed = HealthReportMetricsSchema.safeParse(report.metrics);
+    if (!parsed.success) {
+      throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'REPORT_REASSESS 缺少可评估的指标');
+    }
+
+    await this.prisma.client.healthReport.update({
+      where: { id: report.id },
+      data: { status: 'RUNNING' },
+    });
+
+    const pageTruncated = clientInput.pageTruncated === true;
+    let riskAssessment: unknown = report.riskAssessment;
+    let healthContext: string | null = report.healthContext;
+    let usage: LlmUsage = { tokenIn: 0, tokenOut: 0, costCny: 0 };
+
+    try {
+      const assessed = await this.runStage2Assess(userId, parsed.data);
+      riskAssessment = assessed.riskAssessment;
+      healthContext = assessed.healthContext;
+      usage = assessed.usage;
+    } catch (err: unknown) {
+      this.logger.warn(
+        `报告重评估失败，保留原评估与指标: ${report.id}: ${this.toErrorMessage(err)}`,
+      );
+    }
+
+    await this.prisma.client.healthReport.update({
+      where: { id: report.id },
+      data: {
+        status: 'DONE',
+        riskAssessment: riskAssessment == null ? undefined : toJsonValue(riskAssessment),
+        healthContext,
+      },
+    });
+
+    return {
+      outputJson: {
+        stage: 'ASSESS_ONLY',
+        riskAssessment,
+        healthContext,
+        pageTruncated,
+      },
+      usage,
+    };
+  }
+
+  private async runStage2Assess(
+    userId: string,
+    metrics: HealthReportMetrics,
+  ): Promise<{ riskAssessment: unknown; healthContext: string; usage: LlmUsage }> {
+    const profile = await this.prisma.client.profile.findUnique({ where: { userId } });
+    const assessed = await runReportAssess({
+      metrics,
+      profile: profile
+        ? {
+            gender: profile.gender,
+            birthDate: profile.birthDate,
+            heightCm: profile.heightCm,
+            weightKg: profile.weightKg,
+            trainingYears: profile.trainingYears,
+            goal: profile.goal,
+          }
+        : null,
+      criticalHits: collectCriticalHits(metrics),
+    });
+    return {
+      riskAssessment: assessed.result.riskAssessment,
+      healthContext: assessed.result.healthContext,
+      usage: assessed.usage,
     };
   }
 

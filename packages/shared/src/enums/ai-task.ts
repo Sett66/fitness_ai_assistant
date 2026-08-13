@@ -9,6 +9,7 @@ export const AI_TASK_TYPE_VALUES = [
   'MEMORY_EXTRACT',
   'MESOCYCLE_REVIEW',
   'REPORT_ANALYZE',
+  'REPORT_REASSESS',
 ] as const;
 export const AiTaskTypeSchema = z.enum(AI_TASK_TYPE_VALUES);
 export type AiTaskType = z.infer<typeof AiTaskTypeSchema>;

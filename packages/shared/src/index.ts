@@ -23,4 +23,5 @@ export * from './utils/sanitize-report-metrics-json';
 export * from './utils/format-metric-display';
 export * from './utils/collect-critical-hits';
 export * from './utils/apply-risk-guardrails';
+export * from './utils/apply-health-report-metric-edits';
 export { errorMessagesZhCN, termsZhCN } from './i18n/zh-CN';

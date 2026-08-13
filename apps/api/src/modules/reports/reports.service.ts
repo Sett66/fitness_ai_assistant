@@ -1,18 +1,22 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
+import type { Prisma } from '@fitness/db';
 import type {
   CreateHealthReportResponse,
   HealthReportDetail,
   HealthReportListResponse,
   HealthReportMetrics,
   RiskAssessment,
+  UpdateHealthReportMetricsResponse,
 } from '@fitness/shared';
 import {
   CreateHealthReportRequestSchema,
   HealthReportMetricsSchema,
   LLM_MODELS,
   RiskAssessmentSchema,
+  UpdateHealthReportMetricsRequestSchema,
+  applyHealthReportMetricEdits,
   errorMessagesZhCN,
   getAiTaskDailyLimit,
   termsZhCN,
@@ -170,9 +174,108 @@ export class ReportsService {
     };
   }
 
+  async updateMetrics(
+    user: JwtUserPayload,
+    id: string,
+    body: unknown,
+  ): Promise<UpdateHealthReportMetricsResponse> {
+    const input = parseWith(UpdateHealthReportMetricsRequestSchema, body);
+    const report = await this.prisma.client.healthReport.findFirst({
+      where: { id, userId: user.userId, deletedAt: null },
+    });
+    if (!report) {
+      throw new BizException(
+        'HEALTH_REPORT_NOT_FOUND',
+        errorMessagesZhCN.HEALTH_REPORT_NOT_FOUND,
+        404,
+      );
+    }
+    if (report.status !== 'DONE') {
+      throw new BizException(
+        'HEALTH_REPORT_NOT_READY',
+        errorMessagesZhCN.HEALTH_REPORT_NOT_READY,
+        409,
+      );
+    }
+
+    const existing = parseMetrics(report.metrics);
+    if (!existing) {
+      throw new BizException(
+        'HEALTH_REPORT_NOT_READY',
+        errorMessagesZhCN.HEALTH_REPORT_NOT_READY,
+        409,
+      );
+    }
+
+    const applied = applyHealthReportMetricEdits(existing, input);
+    if (!applied.ok) {
+      throw new BizException(
+        'HEALTH_REPORT_INVALID_METRIC',
+        `${errorMessagesZhCN.HEALTH_REPORT_INVALID_METRIC}：${applied.error.keys.join(', ')}`,
+        400,
+      );
+    }
+
+    await this.assertDailyLimit(user.userId, 'REPORT_REASSESS');
+    const pageTruncated = await this.readPageTruncated(report.aiRunId);
+
+    const aiRun = await this.prisma.client.$transaction(async (tx) => {
+      const createdRun = await tx.aiRun.create({
+        data: {
+          userId: user.userId,
+          taskType: 'REPORT_REASSESS',
+          model: LLM_MODELS.DEEPSEEK_V4_PRO,
+          status: 'QUEUED',
+          inputJson: {
+            reportId: report.id,
+            stage: 'ASSESS_ONLY',
+            pageTruncated,
+          },
+        },
+      });
+      await tx.healthReport.update({
+        where: { id: report.id },
+        data: {
+          metrics: JSON.parse(JSON.stringify(applied.metrics)) as Prisma.InputJsonValue,
+          status: 'RUNNING',
+          aiRunId: createdRun.id,
+        },
+      });
+      return createdRun;
+    });
+
+    await this.queue.add(
+      AI_TASK_JOB_NAME,
+      { aiRunId: aiRun.id },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    );
+
+    return { reportId: report.id, taskId: aiRun.id };
+  }
+
+  async softDelete(user: JwtUserPayload, id: string): Promise<{ ok: true }> {
+    const result = await this.prisma.client.healthReport.updateMany({
+      where: { id, userId: user.userId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    if (result.count !== 1) {
+      throw new BizException(
+        'HEALTH_REPORT_NOT_FOUND',
+        errorMessagesZhCN.HEALTH_REPORT_NOT_FOUND,
+        404,
+      );
+    }
+    return { ok: true };
+  }
+
   private async assertDailyLimit(userId: string, taskType: string): Promise<void> {
-    // 本地开发调试：不限制体检报告分析次数
-    if (process.env.NODE_ENV === 'development') {
+    // 本地开发：分析次数不限，便于反复上传；重评估仍走独立日限，避免误刷 DeepSeek
+    if (process.env.NODE_ENV === 'development' && taskType === 'REPORT_ANALYZE') {
       return;
     }
 

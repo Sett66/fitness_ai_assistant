@@ -6,7 +6,7 @@
 | **Blocked by** | [REPORT-02](./REPORT-02.md) |
 | **Blocks**     | —                           |
 | **估时**       | 2 天                        |
-| **状态**       | ⬜ 未开工                   |
+| **状态**       | ✅ 已完成                   |
 
 ---
 
@@ -103,13 +103,13 @@ UpdateHealthReportMetricsRequestSchema = {
 
 ## 6. Acceptance criteria
 
-- [ ] migration 加 `REPORT_REASSESS`；`pnpm typecheck` 全仓通过
-- [ ] `PATCH /v1/reports/:id/metrics` 写回指标、被改项 `edited=true`、拒绝 catalog 外 key
-- [ ] 修正后自动入队 `REPORT_REASSESS`，processor **不**重跑 VLM，仅刷新评估
-- [ ] `REPORT_REASSESS` 超 10 次/天返回 429；**不**消耗 `REPORT_ANALYZE` 额度
-- [ ] otherItems 认领为 catalog 指标后进入 items 并参与评估
-- [ ] `DELETE` 软删后列表/详情不再出现
-- [ ] 移动端修正→保存→评估刷新闭环（真机）
+- [x] migration 加 `REPORT_REASSESS`；`pnpm typecheck` 全仓通过
+- [x] `PATCH /v1/reports/:id/metrics` 写回指标、被改项 `edited=true`、拒绝 catalog 外 key
+- [x] 修正后自动入队 `REPORT_REASSESS`，processor **不**重跑 VLM，仅刷新评估
+- [x] `REPORT_REASSESS` 超 10 次/天返回 429；**不**消耗 `REPORT_ANALYZE` 额度
+- [x] otherItems 认领为 catalog 指标后进入 items 并参与评估
+- [x] `DELETE` 软删后列表/详情不再出现
+- [x] 移动端修正→保存→评估刷新闭环（真机，待手测）
 
 ---
 

@@ -2,12 +2,15 @@ import type {
   CreateHealthReportResponse,
   HealthReportDetail,
   HealthReportListResponse,
+  UpdateHealthReportMetricsRequest,
+  UpdateHealthReportMetricsResponse,
 } from '@fitness/shared';
 import {
   CreateHealthReportResponseSchema,
   HealthReportDetailSchema,
   HealthReportListResponseSchema,
   MEDIA_MAX_SIZE_BYTES,
+  UpdateHealthReportMetricsResponseSchema,
 } from '@fitness/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -89,6 +92,36 @@ export function useCreateReportFromFiles() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.reports });
+    },
+  });
+}
+
+export function useUpdateReportMetrics(reportId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      body: UpdateHealthReportMetricsRequest,
+    ): Promise<UpdateHealthReportMetricsResponse> => {
+      const json = await apiFetch<unknown>(`/reports/${reportId}/metrics`, {
+        method: 'PATCH',
+        body,
+      });
+      return UpdateHealthReportMetricsResponseSchema.parse(json);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.report(reportId) });
+      qc.invalidateQueries({ queryKey: queryKeys.reports });
+    },
+  });
+}
+
+export function useDeleteReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/reports/${id}`, { method: 'DELETE' }),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: queryKeys.reports });
+      qc.removeQueries({ queryKey: queryKeys.report(id) });
     },
   });
 }

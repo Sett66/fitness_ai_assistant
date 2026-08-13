@@ -126,6 +126,7 @@ enum AiTaskType {
   MEMORY_EXTRACT
   MESOCYCLE_REVIEW
   REPORT_ANALYZE
+  REPORT_REASSESS
 }
 
 enum AiTaskStatus {

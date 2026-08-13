@@ -52,6 +52,17 @@ export const CreateHealthReportResponseSchema = z.object({
 });
 export type CreateHealthReportResponse = z.infer<typeof CreateHealthReportResponseSchema>;
 
+export const UpdateHealthReportMetricsRequestSchema = z.object({
+  items: z.array(HealthMetricItemSchema),
+  otherItems: z.array(HealthOtherItemSchema).optional(),
+});
+export type UpdateHealthReportMetricsRequest = z.infer<
+  typeof UpdateHealthReportMetricsRequestSchema
+>;
+
+export const UpdateHealthReportMetricsResponseSchema = CreateHealthReportResponseSchema;
+export type UpdateHealthReportMetricsResponse = CreateHealthReportResponse;
+
 export const HealthReportListItemSchema = z.object({
   id: IdSchema,
   reportDate: DateTimeSchema.nullable().optional(),

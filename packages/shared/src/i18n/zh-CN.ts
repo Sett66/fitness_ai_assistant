@@ -42,6 +42,8 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   AI_TASK_PARSE_FAILED: 'AI 输出解析失败',
 
   HEALTH_REPORT_NOT_FOUND: '体检报告不存在',
+  HEALTH_REPORT_NOT_READY: '报告尚未分析完成，无法修正指标',
+  HEALTH_REPORT_INVALID_METRIC: '指标不合法：key 必须在目录内，且不能重复',
 
   CONVERSATION_NOT_FOUND: '对话不存在',
 
@@ -80,4 +82,5 @@ export const termsZhCN: Readonly<Record<string, string>> = {
   HEALTH_REPORT_SEE_DOCTOR_HINT:
     '评估中存在危急或需医疗关注的指标，请尽快咨询医生。以下内容仅供健身参考，不构成诊断。',
   HEALTH_REPORT_PDF_PAGE_TRUNCATED: `PDF 页数超过上限，仅分析并预览前 ${REPORT_PDF_MAX_PAGES} 页。`,
+  HEALTH_REPORT_EDITED_BADGE: '已人工校正',
 };

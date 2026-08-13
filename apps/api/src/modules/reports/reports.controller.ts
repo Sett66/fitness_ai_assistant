@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
@@ -19,6 +19,20 @@ export class ReportsController {
   @Get()
   list(@CurrentUser() user: JwtUserPayload) {
     return this.reports.list(user);
+  }
+
+  @Patch(':id/metrics')
+  updateMetrics(
+    @CurrentUser() user: JwtUserPayload,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.reports.updateMetrics(user, id, body);
+  }
+
+  @Delete(':id')
+  remove(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
+    return this.reports.softDelete(user, id);
   }
 
   @Get(':id')
