@@ -5,6 +5,7 @@ export const parseJsonWithSchema = <TSchema extends z.ZodTypeAny>(
   schema: TSchema,
   rawText: string,
   label: string,
+  sanitize?: (parsed: unknown) => unknown,
 ): z.output<TSchema> => {
   const jsonText = extractJsonText(rawText);
   let parsed: unknown;
@@ -14,7 +15,8 @@ export const parseJsonWithSchema = <TSchema extends z.ZodTypeAny>(
     throw new AiCoreError('AI_TASK_PARSE_FAILED', `${label} 不是合法 JSON`, err);
   }
 
-  const result = schema.safeParse(parsed);
+  const sanitized = sanitize ? sanitize(parsed) : parsed;
+  const result = schema.safeParse(sanitized);
   if (!result.success) {
     throw new AiCoreError(
       'AI_TASK_PARSE_FAILED',

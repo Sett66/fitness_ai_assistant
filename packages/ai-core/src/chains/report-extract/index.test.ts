@@ -40,6 +40,48 @@ describe('runReportExtract', () => {
     assert.equal(output.result.otherItems.length, 0);
   });
 
+  it('preserves string reference ranges before Zod validation', async () => {
+    const output = await runReportExtract(
+      {
+        imageUrls: ['data:image/png;base64,abc'],
+        catalog: [{ key: 'SBP', nameZh: '收缩压', aliases: ['SBP'], unit: 'mmHg' }],
+      },
+      {
+        client: {
+          generateJson: async () => ({
+            text: JSON.stringify({
+              items: [
+                {
+                  key: 'SBP',
+                  nameZh: '收缩压',
+                  value: 120,
+                  unit: 'mmHg',
+                  refLow: '130',
+                  refHigh: '175',
+                  flag: 'NORMAL',
+                },
+                {
+                  key: 'URINE_PROTEIN',
+                  nameZh: '尿蛋白',
+                  value: '-',
+                  unit: '',
+                  refLow: '阴性',
+                  flag: 'NORMAL',
+                },
+              ],
+              otherItems: [],
+            }),
+            usage: { tokenIn: 10, tokenOut: 20, costCny: 0.01 },
+          }),
+        },
+      },
+    );
+
+    assert.equal(output.result.items.find((item) => item.key === 'SBP')?.refLow, 130);
+    assert.equal(output.result.items.find((item) => item.key === 'SBP')?.refHigh, 175);
+    assert.equal(output.result.items.find((item) => item.key === 'URINE_PROTEIN')?.refText, '阴性');
+  });
+
   it('normalizes hallucinated RHR with blood count unit into otherItems', async () => {
     const output = await runReportExtract(
       {

@@ -1,5 +1,10 @@
 import type { HealthReportMetrics } from '@fitness/shared';
-import { HealthReportMetricsSchema, LLM_MODELS, normalizeReportMetrics } from '@fitness/shared';
+import {
+  HealthReportMetricsSchema,
+  LLM_MODELS,
+  normalizeReportMetrics,
+  sanitizeReportMetricsJson,
+} from '@fitness/shared';
 import { createQwenVlClient } from '../../llm/qwen-vl';
 import type { JsonChatClient, LlmUsage } from '../../llm/types';
 import { parseJsonWithSchema } from '../../parsers/json-zod';
@@ -41,6 +46,7 @@ export const runReportExtract = async (
     HealthReportMetricsSchema,
     response.text,
     'HealthReportMetrics',
+    sanitizeReportMetricsJson,
   );
   return {
     result: normalizeReportMetrics(parsed),

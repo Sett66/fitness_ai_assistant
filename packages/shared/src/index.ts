@@ -19,4 +19,6 @@ export * from './utils/nutrition-tdee';
 export * from './utils/strength-format';
 export * from './utils/scale-food-nutrition';
 export * from './utils/normalize-report-metrics';
+export * from './utils/sanitize-report-metrics-json';
+export * from './utils/format-metric-display';
 export { errorMessagesZhCN, termsZhCN } from './i18n/zh-CN';

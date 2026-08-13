@@ -154,6 +154,11 @@ export class ReportsService {
   }
 
   private async assertDailyLimit(userId: string, taskType: string): Promise<void> {
+    // 本地开发调试：不限制体检报告分析次数
+    if (process.env.NODE_ENV === 'development') {
+      return;
+    }
+
     const now = new Date();
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const count = await this.prisma.client.aiRun.count({

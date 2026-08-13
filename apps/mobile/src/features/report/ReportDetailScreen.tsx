@@ -1,7 +1,7 @@
 import { Image, ScrollView, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HealthMetricCategory, HealthMetricItem } from '@fitness/shared';
-import { getMetricByKey } from '@fitness/shared';
+import { formatMetricDisplayValue, getMetricByKey } from '@fitness/shared';
 
 import { Card, ErrorText, LoadingScreen, Screen, Subtitle, Title } from '@fitness/ui';
 
@@ -113,8 +113,8 @@ export function ReportDetailScreen({ route }: Props) {
                   </Text>
                 </View>
                 <Subtitle>
-                  {String(item.value)}
-                  {item.unit ? ` ${item.unit}` : ''}
+                  {formatMetricDisplayValue(item.value, item.unit)}
+                  {formatRefRange(item)}
                 </Subtitle>
               </View>
             ))}
@@ -140,8 +140,7 @@ function MetricRow({ item }: { item: HealthMetricItem }) {
         </Text>
       </View>
       <Subtitle>
-        {String(item.value)}
-        {item.unit ? ` ${item.unit}` : ''}
+        {formatMetricDisplayValue(item.value, item.unit)}
         {formatRefRange(item)}
       </Subtitle>
     </View>
@@ -158,7 +157,8 @@ function groupMetricsByCategory(
   }, {});
 }
 
-function formatRefRange(item: HealthMetricItem): string {
+function formatRefRange(item: Pick<HealthMetricItem, 'refLow' | 'refHigh' | 'refText'>): string {
+  if (item.refText) return ` · 参考 ${item.refText}`;
   if (item.refLow == null && item.refHigh == null) return '';
   if (item.refLow != null && item.refHigh != null) return ` · 参考 ${item.refLow}-${item.refHigh}`;
   if (item.refLow != null) return ` · 参考 ≥${item.refLow}`;

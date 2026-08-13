@@ -62,4 +62,52 @@ describe('normalizeReportMetrics', () => {
     assert.equal(result.items[0]?.key, 'WBC');
     assert.equal(result.items[0]?.nameZh, '白细胞');
   });
+
+  it('remaps urine glucose mislabeled as FPG', () => {
+    const result = normalizeReportMetrics({
+      items: [
+        {
+          key: 'FPG',
+          nameZh: '葡萄糖',
+          value: '-',
+          unit: 'mmol/L',
+          flag: 'NORMAL',
+        },
+      ],
+      otherItems: [
+        { nameZh: '蛋白质', value: '++', unit: 'g/l', flag: 'HIGH' },
+        { nameZh: '丙氨酸氨基转移酶', value: 16, unit: 'U/L', flag: 'NORMAL' },
+      ],
+    });
+
+    assert.equal(
+      result.items.find((item) => item.key === 'FPG'),
+      undefined,
+    );
+    assert.equal(result.items.find((item) => item.key === 'URINE_GLU')?.value, '-');
+    assert.equal(result.items.find((item) => item.key === 'URINE_PROTEIN')?.value, '++');
+    assert.equal(result.items.find((item) => item.key === 'ALT')?.value, 16);
+  });
+
+  it('promotes remaining urine microscopy items from otherItems', () => {
+    const result = normalizeReportMetrics({
+      items: [],
+      otherItems: [
+        { nameZh: '颜色', value: '浅黄', unit: '', flag: 'NORMAL' },
+        { nameZh: '浊度', value: '清晰', unit: '', flag: 'NORMAL' },
+        { nameZh: '结晶(镜检)', value: '阴性', unit: 'HP', flag: 'NORMAL' },
+        { nameZh: '管型(镜检)', value: '阴性', unit: 'LP', flag: 'NORMAL' },
+        { nameZh: '鳞状上皮细胞(镜检)', value: '少见', unit: 'HP', flag: 'NORMAL' },
+      ],
+    });
+
+    assert.deepEqual(result.items.map((item) => item.key).sort(), [
+      'URINE_CASTS',
+      'URINE_COLOR',
+      'URINE_CRYSTALS',
+      'URINE_SQUAMOUS_EPI',
+      'URINE_TURBIDITY',
+    ]);
+    assert.equal(result.otherItems.length, 0);
+  });
 });

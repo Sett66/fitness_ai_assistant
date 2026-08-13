@@ -6,6 +6,7 @@ export const healthMetricCategoryLabels: Record<HealthMetricCategory, string> = 
   GLUCOSE: '血糖',
   LIVER: '肝功',
   KIDNEY: '肾功',
+  URINE: '尿液分析',
   HORMONE: '激素',
   BLOOD: '血常规',
   THYROID: '甲功',

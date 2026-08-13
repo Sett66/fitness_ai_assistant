@@ -16,6 +16,7 @@ export const HealthMetricItemSchema = z.object({
   unit: z.string().max(32),
   refLow: z.number().optional(),
   refHigh: z.number().optional(),
+  refText: z.string().max(128).optional(),
   flag: MetricFlagSchema,
   edited: z.boolean().optional(),
 });
@@ -25,6 +26,9 @@ export const HealthOtherItemSchema = z.object({
   nameZh: z.string().min(1).max(128),
   value: z.union([z.number(), z.string().min(1).max(128)]),
   unit: z.string().max(32),
+  refLow: z.number().optional(),
+  refHigh: z.number().optional(),
+  refText: z.string().max(128).optional(),
   flag: MetricFlagSchema,
 });
 export type HealthOtherItem = z.infer<typeof HealthOtherItemSchema>;
