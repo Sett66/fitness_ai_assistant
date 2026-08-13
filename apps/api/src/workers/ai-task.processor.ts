@@ -3,17 +3,23 @@ import { Logger } from '@nestjs/common';
 import {
   AiCoreError,
   extractMemoryFacts,
+  mergeLlmUsage,
   runCoachChat,
   runMealPlanGenerator,
   runMealVision,
   runMealVisionWithAdvice,
+  runReportAssess,
   runReportExtract,
   runWorkoutPlanGenerator,
   type LlmUsage,
 } from '@fitness/ai-core';
 import type { Prisma } from '@fitness/db';
 import type { MealType } from '@fitness/shared';
-import { HEALTH_METRIC_CATALOG, MealVisionTaskInputSchema } from '@fitness/shared';
+import {
+  collectCriticalHits,
+  HEALTH_METRIC_CATALOG,
+  MealVisionTaskInputSchema,
+} from '@fitness/shared';
 import type { Job } from 'bullmq';
 
 import { ConversationSideEffectService } from '../domain/conversation-side-effect.service';
@@ -366,13 +372,55 @@ export class AiTaskProcessor extends WorkerHost {
     await this.prisma.client.healthReport.update({
       where: { id: report.id },
       data: {
-        status: 'DONE',
         reportDate: output.result.reportDate ?? null,
         metrics: toJsonValue(output.result),
       },
     });
 
-    return { outputJson: output.result, usage: output.usage };
+    let usage = output.usage;
+    let riskAssessment: unknown = null;
+    let healthContext: string | null = null;
+
+    try {
+      const profile = await this.prisma.client.profile.findUnique({ where: { userId } });
+      const assessed = await runReportAssess({
+        metrics: output.result,
+        profile: profile
+          ? {
+              gender: profile.gender,
+              birthDate: profile.birthDate,
+              heightCm: profile.heightCm,
+              weightKg: profile.weightKg,
+              trainingYears: profile.trainingYears,
+              goal: profile.goal,
+            }
+          : null,
+        criticalHits: collectCriticalHits(output.result),
+      });
+      riskAssessment = assessed.result.riskAssessment;
+      healthContext = assessed.result.healthContext;
+      usage = mergeLlmUsage(output.usage, assessed.usage);
+    } catch (err: unknown) {
+      this.logger.warn(`报告阶段2评估失败，指标仍保留: ${report.id}: ${this.toErrorMessage(err)}`);
+    }
+
+    await this.prisma.client.healthReport.update({
+      where: { id: report.id },
+      data: {
+        status: 'DONE',
+        riskAssessment: riskAssessment == null ? undefined : toJsonValue(riskAssessment),
+        healthContext,
+      },
+    });
+
+    return {
+      outputJson: {
+        metrics: output.result,
+        riskAssessment,
+        healthContext,
+      },
+      usage,
+    };
   }
 
   private async resolveMealImageUrl(

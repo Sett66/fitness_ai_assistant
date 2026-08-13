@@ -6,7 +6,7 @@
 | **Blocked by** | [REPORT-01](./REPORT-01.md) |
 | **Blocks**     | REPORT-04、REPORT-05        |
 | **估时**       | 2–3 天                      |
-| **状态**       | ⬜ 未开工                   |
+| **状态**       | ✅ 已完成                   |
 
 ---
 
@@ -106,12 +106,12 @@ RiskAssessmentSchema = {
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过
-- [ ] 分析完 `HealthReport.riskAssessment` 有 `overallSummary` 与 findings，`healthContext` 非空
-- [ ] 命中 catalog criticalHigh 的指标 → 对应 finding `severity=URGENT` 且 `seeDoctorAdvised=true`
-- [ ] prompt 产出不含诊断/开药措辞（人工抽检 + 至少 1 个 parse 单测）
-- [ ] 阶段 2 失败时指标仍可见（status=DONE、riskAssessment=null）
-- [ ] 移动端评估块按 severity 着色，URGENT 显示就医提示
+- [x] `pnpm typecheck` 全仓通过
+- [x] 分析完 `HealthReport.riskAssessment` 有 `overallSummary` 与 findings，`healthContext` 非空
+- [x] 命中 catalog criticalHigh 的指标 → 对应 finding `severity=URGENT` 且 `seeDoctorAdvised=true`
+- [x] prompt 产出不含诊断/开药措辞（人工抽检 + 至少 1 个 parse 单测）
+- [x] 阶段 2 失败时指标仍可见（status=DONE、riskAssessment=null）
+- [x] 移动端评估块按 severity 着色，URGENT 显示就医提示
 
 ---
 

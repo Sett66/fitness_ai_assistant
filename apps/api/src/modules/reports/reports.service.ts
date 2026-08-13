@@ -6,11 +6,13 @@ import type {
   HealthReportDetail,
   HealthReportListResponse,
   HealthReportMetrics,
+  RiskAssessment,
 } from '@fitness/shared';
 import {
   CreateHealthReportRequestSchema,
   HealthReportMetricsSchema,
   LLM_MODELS,
+  RiskAssessmentSchema,
   errorMessagesZhCN,
   getAiTaskDailyLimit,
   termsZhCN,
@@ -145,7 +147,7 @@ export class ReportsService {
       status: report.status,
       reportDate: report.reportDate,
       metrics: parseMetrics(report.metrics),
-      riskAssessment: report.riskAssessment ?? null,
+      riskAssessment: parseRiskAssessment(report.riskAssessment),
       sourceImageUrls,
       disclaimer: HEALTH_REPORT_DISCLAIMER,
       createdAt: report.createdAt,
@@ -177,6 +179,12 @@ export class ReportsService {
 function parseMetrics(value: unknown): HealthReportMetrics | null {
   if (value == null) return null;
   const parsed = HealthReportMetricsSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function parseRiskAssessment(value: unknown): RiskAssessment | null {
+  if (value == null) return null;
+  const parsed = RiskAssessmentSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
 

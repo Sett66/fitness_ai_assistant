@@ -66,12 +66,30 @@ export const HealthReportListResponseSchema = z.object({
 });
 export type HealthReportListResponse = z.infer<typeof HealthReportListResponseSchema>;
 
+export const RiskSeveritySchema = z.enum(['NORMAL', 'ATTENTION', 'URGENT']);
+export type RiskSeverity = z.infer<typeof RiskSeveritySchema>;
+
+export const RiskFindingSchema = z.object({
+  metricKey: z.string().min(1).max(64).optional(),
+  title: z.string().min(1).max(120),
+  detail: z.string().min(1).max(1024),
+  severity: RiskSeveritySchema,
+});
+export type RiskFinding = z.infer<typeof RiskFindingSchema>;
+
+export const RiskAssessmentSchema = z.object({
+  overallSummary: z.string().min(1).max(2048),
+  findings: z.array(RiskFindingSchema).default([]),
+  seeDoctorAdvised: z.boolean().default(false),
+});
+export type RiskAssessment = z.infer<typeof RiskAssessmentSchema>;
+
 export const HealthReportDetailSchema = z.object({
   id: IdSchema,
   status: AiTaskStatusSchema,
   reportDate: DateTimeSchema.nullable().optional(),
   metrics: HealthReportMetricsSchema.nullable(),
-  riskAssessment: z.unknown().nullable(),
+  riskAssessment: RiskAssessmentSchema.nullable(),
   sourceImageUrls: z.array(z.string().url()),
   disclaimer: z.string().min(1).max(1024),
   createdAt: DateTimeSchema,

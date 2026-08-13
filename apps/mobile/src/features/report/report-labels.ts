@@ -1,4 +1,4 @@
-import type { HealthMetricCategory } from '@fitness/shared';
+import type { HealthMetricCategory, RiskSeverity } from '@fitness/shared';
 
 export const healthMetricCategoryLabels: Record<HealthMetricCategory, string> = {
   METABOLIC: '代谢',
@@ -47,4 +47,26 @@ export function metricFlagLabel(flag: string): string {
 export function formatReportDate(value?: Date | string | null): string {
   if (!value) return '未知日期';
   return new Date(value).toLocaleDateString();
+}
+
+export function riskSeverityLabel(severity: RiskSeverity | string): string {
+  switch (severity) {
+    case 'URGENT':
+      return '危急';
+    case 'ATTENTION':
+      return '关注';
+    default:
+      return '正常';
+  }
+}
+
+export function riskSeverityClassName(severity: RiskSeverity | string): string {
+  switch (severity) {
+    case 'URGENT':
+      return 'font-semibold text-destructive';
+    case 'ATTENTION':
+      return 'font-semibold text-amber-400';
+    default:
+      return 'text-muted';
+  }
 }

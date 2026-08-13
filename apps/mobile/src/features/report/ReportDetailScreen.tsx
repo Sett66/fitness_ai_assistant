@@ -1,7 +1,7 @@
 import { Image, ScrollView, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { HealthMetricCategory, HealthMetricItem } from '@fitness/shared';
-import { formatMetricDisplayValue, getMetricByKey } from '@fitness/shared';
+import type { HealthMetricCategory, HealthMetricItem, RiskFinding } from '@fitness/shared';
+import { formatMetricDisplayValue, getMetricByKey, termsZhCN } from '@fitness/shared';
 
 import { Card, ErrorText, LoadingScreen, Screen, Subtitle, Title } from '@fitness/ui';
 
@@ -12,6 +12,8 @@ import {
   healthMetricCategoryLabels,
   metricFlagLabel,
   reportStatusLabel,
+  riskSeverityClassName,
+  riskSeverityLabel,
 } from './report-labels';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ReportDetail'>;
@@ -49,7 +51,16 @@ export function ReportDetailScreen({ route }: Props) {
         {isPending ? (
           <Card>
             <Title className="text-base">分析中</Title>
-            <Subtitle>AI 正在抽取指标，页面会自动刷新。</Subtitle>
+            <Subtitle>AI 正在抽取指标并生成评估，页面会自动刷新。</Subtitle>
+          </Card>
+        ) : null}
+
+        {data.status === 'DONE' && data.riskAssessment?.seeDoctorAdvised ? (
+          <Card className="border-destructive">
+            <Title className="text-base text-destructive">
+              {termsZhCN.HEALTH_REPORT_SEE_DOCTOR}
+            </Title>
+            <Subtitle>{termsZhCN.HEALTH_REPORT_SEE_DOCTOR_HINT}</Subtitle>
           </Card>
         ) : null}
 
@@ -77,6 +88,19 @@ export function ReportDetailScreen({ route }: Props) {
                 />
               ))}
             </ScrollView>
+          </Card>
+        ) : null}
+
+        {data.status === 'DONE' && data.riskAssessment ? (
+          <Card className="gap-3">
+            <Title className="text-base">AI 评估</Title>
+            <Subtitle>{data.riskAssessment.overallSummary}</Subtitle>
+            {sortFindings(data.riskAssessment.findings).map((finding) => (
+              <FindingRow
+                key={`${finding.metricKey ?? finding.title}-${finding.severity}`}
+                finding={finding}
+              />
+            ))}
           </Card>
         ) : null}
 
@@ -126,6 +150,28 @@ export function ReportDetailScreen({ route }: Props) {
         </Card>
       </ScrollView>
     </Screen>
+  );
+}
+
+function FindingRow({ finding }: { finding: RiskFinding }) {
+  return (
+    <View className="border-b border-border py-2">
+      <View className="flex-row justify-between gap-3">
+        <Text className="flex-1 text-foreground">{finding.title}</Text>
+        <Text className={riskSeverityClassName(finding.severity)}>
+          {riskSeverityLabel(finding.severity)}
+        </Text>
+      </View>
+      <Subtitle>{finding.detail}</Subtitle>
+    </View>
+  );
+}
+
+const SEVERITY_ORDER: Record<string, number> = { URGENT: 0, ATTENTION: 1, NORMAL: 2 };
+
+function sortFindings(findings: RiskFinding[]): RiskFinding[] {
+  return [...findings].sort(
+    (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9),
   );
 }
 

@@ -6,7 +6,7 @@
 | **Blocked by** | ADR 0009（Accepted） |
 | **Blocks**     | REPORT-02、03、06    |
 | **估时**       | 3–4 天               |
-| **状态**       | ⬜ 未开工            |
+| **状态**       | ✅ 已完成            |
 
 ---
 
@@ -195,13 +195,13 @@ HealthReportDetailSchema = {
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm --filter db migrate:dev` 生成 `HealthReport` 表，`pnpm typecheck` 全仓通过
-- [ ] `POST /v1/reports` 用图片 mediaIds 返回 `{ reportId, taskId }`，超 3 次/天返回 `AI_TASK_LIMIT_EXCEEDED` 429
-- [ ] worker 消费后 `HealthReport.metrics.items` 含 catalog 归一后的结构化指标，未命中项进 `otherItems`
-- [ ] `GET /v1/reports/:id` 返回预签名图片 URL、指标与免责声明
-- [ ] 移动端：我的 → 体检报告 → 传图 → 分析中 → 详情看到分类指标表 + 免责声明（Android 真机/模拟器）
-- [ ] catalog ref 范围经人工校对（含睾酮性别差异）
-- [ ] `report-extract` 至少 1 个 parse 单测（含未命中→otherItems 用例）
+- [x] `pnpm --filter db migrate:dev` 生成 `HealthReport` 表，`pnpm typecheck` 全仓通过
+- [x] `POST /v1/reports` 用图片 mediaIds 返回 `{ reportId, taskId }`，超 3 次/天返回 `AI_TASK_LIMIT_EXCEEDED` 429
+- [x] worker 消费后 `HealthReport.metrics.items` 含 catalog 归一后的结构化指标，未命中项进 `otherItems`
+- [x] `GET /v1/reports/:id` 返回预签名图片 URL、指标与免责声明
+- [x] 移动端：我的 → 体检报告 → 传图 → 分析中 → 详情看到分类指标表 + 免责声明（Android 真机/模拟器）
+- [x] catalog ref 范围经人工校对（含睾酮性别差异）
+- [x] `report-extract` 至少 1 个 parse 单测（含未命中→otherItems 用例）
 
 ---
 

@@ -5,5 +5,5 @@
     "noEmit": false,
     "incremental": false
   },
-  "exclude": ["dist", "node_modules", ".turbo", "**/*spec.ts"]
+  "exclude": ["dist", "node_modules", ".turbo", "**/*spec.ts", "**/*.test.ts"]
 }

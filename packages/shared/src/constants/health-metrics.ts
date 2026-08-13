@@ -23,6 +23,10 @@ export type HealthMetricCatalogItem = {
   fitnessRelevant: boolean;
   refLow?: number;
   refHigh?: number;
+  /** 危急低值：命中后评估 severity 升 URGENT。仅填有明确临床危急阈值的指标。 */
+  criticalLow?: number;
+  /** 危急高值：命中后评估 severity 升 URGENT。仅填有明确临床危急阈值的指标。 */
+  criticalHigh?: number;
 };
 
 // 参考区间来自公开临床检验常用成人范围；不同实验室、性别与年龄可能不同，展示时优先采用报告原文参考值。
@@ -54,6 +58,9 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 90,
     refHigh: 139,
+    // 高血压急症 / 休克常见危急阈值
+    criticalLow: 80,
+    criticalHigh: 180,
   },
   {
     key: 'DBP',
@@ -64,6 +71,8 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 60,
     refHigh: 89,
+    criticalLow: 50,
+    criticalHigh: 120,
   },
   {
     key: 'FPG',
@@ -74,6 +83,9 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 3.9,
     refHigh: 6.1,
+    // 临床检验危急值常见：低血糖 <2.8，高血糖危象 >22.2 mmol/L
+    criticalLow: 2.8,
+    criticalHigh: 22.2,
   },
   {
     key: 'HBA1C',
@@ -140,6 +152,8 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 7,
     refHigh: 40,
+    // 约 10× 参考上限，提示急性肝损伤需就医
+    criticalHigh: 400,
   },
   {
     key: 'AST',
@@ -150,6 +164,7 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 13,
     refHigh: 35,
+    criticalHigh: 400,
   },
   {
     key: 'GGT',
@@ -210,6 +225,8 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 57,
     refHigh: 111,
+    // 约 5 mg/dL，临床肌酐危急值常用阈值
+    criticalHigh: 442,
   },
   {
     key: 'EGFR',
@@ -219,6 +236,8 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     category: 'KIDNEY',
     fitnessRelevant: true,
     refLow: 90,
+    // CKD G5 水平，需尽快就医评估
+    criticalLow: 15,
   },
   {
     key: 'URINE_GLU',
@@ -369,6 +388,8 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 3.5,
     refHigh: 9.5,
+    criticalLow: 2.0,
+    criticalHigh: 30,
   },
   {
     key: 'RBC',
@@ -389,6 +410,7 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 100,
     refHigh: 300,
+    criticalLow: 50,
   },
   {
     key: 'HCT',
@@ -439,6 +461,8 @@ export const HEALTH_METRIC_CATALOG: readonly HealthMetricCatalogItem[] = [
     fitnessRelevant: true,
     refLow: 120,
     refHigh: 160,
+    criticalLow: 60,
+    criticalHigh: 200,
   },
   {
     key: 'NEUT',

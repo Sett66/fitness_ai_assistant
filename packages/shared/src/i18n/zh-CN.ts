@@ -75,4 +75,7 @@ export const termsZhCN: Readonly<Record<string, string>> = {
   ONBOARDING_STEP_OPTIONAL: '训练背景',
   HEALTH_REPORT_DISCLAIMER:
     '本分析仅从健身和生活方式角度提供参考，不构成医疗诊断、治疗建议或用药指导。如指标明显异常或身体不适，请及时咨询医生。',
+  HEALTH_REPORT_SEE_DOCTOR: '建议尽快就医',
+  HEALTH_REPORT_SEE_DOCTOR_HINT:
+    '评估中存在危急或需医疗关注的指标，请尽快咨询医生。以下内容仅供健身参考，不构成诊断。',
 };

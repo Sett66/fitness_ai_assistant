@@ -3,6 +3,8 @@ export { runMealVision, runMealVisionWithAdvice } from './chains/meal-vision';
 export type { MealVisionOutput } from './chains/meal-vision';
 export { runReportExtract } from './chains/report-extract';
 export type { ReportExtractOutput } from './chains/report-extract';
+export { runReportAssess } from './chains/report-assess';
+export type { ReportAssessOutput, ReportAssessResult } from './chains/report-assess';
 export { runMealVisionAdvice, mergeLlmUsage } from './chains/meal-vision/advice';
 export { describeCoachImages, buildAugmentedUserText } from './chains/coach-image-describe';
 export type { DescribeCoachImagesResult } from './chains/coach-image-describe';

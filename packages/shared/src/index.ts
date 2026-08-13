@@ -21,4 +21,6 @@ export * from './utils/scale-food-nutrition';
 export * from './utils/normalize-report-metrics';
 export * from './utils/sanitize-report-metrics-json';
 export * from './utils/format-metric-display';
+export * from './utils/collect-critical-hits';
+export * from './utils/apply-risk-guardrails';
 export { errorMessagesZhCN, termsZhCN } from './i18n/zh-CN';
