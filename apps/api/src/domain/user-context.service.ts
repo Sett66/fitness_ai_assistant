@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { UserAiContext } from '@fitness/shared';
-import { WorkoutPlanPreferencesSchema } from '@fitness/shared';
+import {
+  pickLatestHealthContext,
+  WorkoutPlanPreferencesSchema,
+  type UserAiContext,
+} from '@fitness/shared';
 
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { NutritionDailyService } from './nutrition-daily.service';
@@ -16,28 +19,30 @@ export class UserContextService {
     userId: string,
     options?: { timezoneOffsetMinutes?: number },
   ): Promise<UserAiContext> {
-    const [profile, strengthLevels, activeWorkout, activeMeal, todayNutrition] = await Promise.all([
-      this.prisma.client.profile.findUnique({ where: { userId } }),
-      this.prisma.client.strengthLevel.findMany({
-        where: { userId },
-        include: { exercise: { select: { nameZh: true, equipment: true } } },
-        orderBy: { recordedAt: 'desc' },
-        take: 20,
-      }),
-      this.prisma.client.plan.findFirst({
-        where: { userId, type: 'WORKOUT', status: 'ACTIVE', deletedAt: null },
-        orderBy: { startDate: 'desc' },
-        include: { workoutDays: { take: 3, orderBy: [{ weekIdx: 'asc' }, { dayIdx: 'asc' }] } },
-      }),
-      this.prisma.client.plan.findFirst({
-        where: { userId, type: 'MEAL', status: 'ACTIVE', deletedAt: null },
-        orderBy: { startDate: 'desc' },
-        include: { mealDays: { take: 2, orderBy: [{ weekIdx: 'asc' }, { dayIdx: 'asc' }] } },
-      }),
-      this.nutritionDaily.buildTodaySummary(userId, {
-        timezoneOffsetMinutes: options?.timezoneOffsetMinutes,
-      }),
-    ]);
+    const [profile, strengthLevels, activeWorkout, activeMeal, todayNutrition, healthContext] =
+      await Promise.all([
+        this.prisma.client.profile.findUnique({ where: { userId } }),
+        this.prisma.client.strengthLevel.findMany({
+          where: { userId },
+          include: { exercise: { select: { nameZh: true, equipment: true } } },
+          orderBy: { recordedAt: 'desc' },
+          take: 20,
+        }),
+        this.prisma.client.plan.findFirst({
+          where: { userId, type: 'WORKOUT', status: 'ACTIVE', deletedAt: null },
+          orderBy: { startDate: 'desc' },
+          include: { workoutDays: { take: 3, orderBy: [{ weekIdx: 'asc' }, { dayIdx: 'asc' }] } },
+        }),
+        this.prisma.client.plan.findFirst({
+          where: { userId, type: 'MEAL', status: 'ACTIVE', deletedAt: null },
+          orderBy: { startDate: 'desc' },
+          include: { mealDays: { take: 2, orderBy: [{ weekIdx: 'asc' }, { dayIdx: 'asc' }] } },
+        }),
+        this.nutritionDaily.buildTodaySummary(userId, {
+          timezoneOffsetMinutes: options?.timezoneOffsetMinutes,
+        }),
+        this.getLatestHealthContext(userId),
+      ]);
 
     return {
       profile: profile
@@ -77,7 +82,24 @@ export class UserContextService {
           }
         : null,
       todayNutrition: todayNutrition ?? undefined,
+      ...(healthContext ? { healthContext } : {}),
     };
+  }
+
+  async getLatestHealthContext(userId: string, now: Date = new Date()): Promise<string | null> {
+    const reports = await this.prisma.client.healthReport.findMany({
+      where: {
+        userId,
+        status: 'DONE',
+        deletedAt: null,
+        healthContext: { not: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      select: { healthContext: true, reportDate: true, createdAt: true },
+    });
+
+    return pickLatestHealthContext(reports, now);
   }
 
   async mergePlanGeneratorInput(
@@ -108,12 +130,15 @@ export class UserContextService {
         ? WorkoutPlanPreferencesSchema.parse(clientInput.preferences)
         : undefined;
 
+    const restClientInput = { ...clientInput };
+    delete restClientInput.healthContext;
+
     return {
-      ...clientInput,
-      profile: ctx.profile ?? clientInput.profile,
+      ...restClientInput,
+      profile: ctx.profile ?? restClientInput.profile,
       strengthLevels:
-        ctx.strengthLevels.length > 0 ? ctx.strengthLevels : clientInput.strengthLevels,
-      goal: clientInput.goal ?? goal,
+        ctx.strengthLevels.length > 0 ? ctx.strengthLevels : restClientInput.strengthLevels,
+      goal: restClientInput.goal ?? goal,
       preferences,
       availableExerciseNames: exercises.map((row) => row.nameZh),
       userContext: {
@@ -121,7 +146,8 @@ export class UserContextService {
         activeMealPlanSummary: ctx.activeMealPlan?.summary,
         todayNutrition: ctx.todayNutrition,
       },
-      notes: clientInput.notes,
+      notes: restClientInput.notes,
+      ...(ctx.healthContext ? { healthContext: ctx.healthContext } : {}),
     };
   }
 }

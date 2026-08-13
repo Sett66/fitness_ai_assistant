@@ -170,6 +170,7 @@ export class AiTaskProcessor extends WorkerHost {
       const merged = await this.userContext.mergePlanGeneratorInput(userId, clientInput, {
         timezoneOffsetMinutes,
       });
+      await this.persistPlanGeneratorHealthContext(aiRunId, clientInput, merged);
       const output = await runWorkoutPlanGenerator(merged, { model });
       const planId = await this.planPersistence.persistWorkoutPlan(
         userId,
@@ -187,6 +188,7 @@ export class AiTaskProcessor extends WorkerHost {
       const merged = await this.userContext.mergePlanGeneratorInput(userId, clientInput, {
         timezoneOffsetMinutes,
       });
+      await this.persistPlanGeneratorHealthContext(aiRunId, clientInput, merged);
       const output = await runMealPlanGenerator(merged, { model });
       const planId = await this.planPersistence.persistMealPlan(
         userId,
@@ -593,6 +595,29 @@ export class AiTaskProcessor extends WorkerHost {
       throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'objectKey 与当前用户不匹配');
     }
     return this.storage.getObjectAsDataUrl(objectKey);
+  }
+
+  /** 把服务端注入的 healthContext 回写到 AiRun.inputJson，便于验收；不 log 全文 */
+  private async persistPlanGeneratorHealthContext(
+    aiRunId: string,
+    clientInput: Record<string, unknown>,
+    merged: Record<string, unknown>,
+  ): Promise<void> {
+    const healthContext =
+      typeof merged.healthContext === 'string' ? merged.healthContext.trim() : '';
+    const nextInput = { ...clientInput };
+    delete nextInput.healthContext;
+    if (healthContext) {
+      nextInput.healthContext = healthContext;
+    }
+    const hadClient = typeof clientInput.healthContext === 'string';
+    if (!healthContext && !hadClient) {
+      return;
+    }
+    await this.prisma.client.aiRun.update({
+      where: { id: aiRunId },
+      data: { inputJson: toJsonValue(nextInput) },
+    });
   }
 
   private toErrorMessage(err: unknown): string {

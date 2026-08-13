@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { MealTypeSchema, PlanTypeSchema, WorkoutPlanPreferencesSchema } from '@fitness/shared';
+import {
+  HEALTH_CONTEXT_MAX_CHARS,
+  MealTypeSchema,
+  PlanTypeSchema,
+  WorkoutPlanPreferencesSchema,
+} from '@fitness/shared';
 import { PlanGeneratorUserContextSchema } from '@fitness/shared/schemas';
 import { MacrosSchema } from '@fitness/shared/schemas';
 
@@ -14,6 +19,7 @@ const PlanGeneratorBaseInputSchema = z.object({
   preferences: WorkoutPlanPreferencesSchema.optional(),
   availableExerciseNames: z.array(z.string().min(1).max(64)).max(100).optional(),
   userContext: PlanGeneratorUserContextSchema.optional(),
+  healthContext: z.string().max(HEALTH_CONTEXT_MAX_CHARS).optional(),
 });
 
 export const WorkoutPlanGeneratorInputSchema = PlanGeneratorBaseInputSchema.extend({

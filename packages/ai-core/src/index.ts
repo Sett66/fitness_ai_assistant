@@ -40,6 +40,7 @@ export type {
   RunCoachAgentStreamOptions,
 } from './graphs/coach-agent';
 export { formatMemoryBlock } from './memory/format-memory-block';
+export { formatHealthContextBlock } from './memory/format-health-context-block';
 export { extractMemoryFacts } from './memory/extract-memory-facts';
 export type {
   ExtractMemoryFactsInput,

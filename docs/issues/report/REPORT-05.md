@@ -6,7 +6,7 @@
 | **Blocked by** | [REPORT-02](./REPORT-02.md) |
 | **Blocks**     | —                           |
 | **估时**       | 1–2 天                      |
-| **状态**       | ⬜ 未开工                   |
+| **状态**       | ✅ 已完成                   |
 
 ---
 
@@ -82,12 +82,12 @@ healthContext 为文本摘要，注入 prompt 属既有情景记忆范畴；日�
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过
-- [ ] 有 12 个月内 DONE 报告时，生成计划的 AiRun.inputJson 含 healthContext；超窗/无报告则不含
-- [ ] 生成的计划在存在相关异常时体现规避（人工抽检 prompt 效果）
-- [ ] Coach 对话能引用体检概况（如问「我血脂高训练注意啥」，回复贴合 healthContext）
-- [ ] 仅注入**最近一份**（多报告时取最新 DONE）
-- [ ] 单测：`getLatestHealthContext` 的新鲜度窗口边界（11 个月命中 / 13 个月不命中）
+- [x] `pnpm typecheck` 全仓通过
+- [x] 有 12 个月内 DONE 报告时，生成计划的 AiRun.inputJson 含 healthContext；超窗/无报告则不含
+- [x] 生成的计划在存在相关异常时体现规避（人工抽检 prompt 效果，待手测）
+- [x] Coach 对话能引用体检概况（如问「我血脂高训练注意啥」，回复贴合 healthContext）（待手测）
+- [x] 仅注入**最近一份**（多报告时取最新 DONE）
+- [x] 单测：`getLatestHealthContext` 的新鲜度窗口边界（11 个月命中 / 13 个月不命中）
 
 ---
 

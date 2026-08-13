@@ -36,6 +36,7 @@ JSON 格式必须是：
   - BRO_SPLIT：按胸、背、肩、腿等分化
 - 若 preferences.includeCardio 为 true，每周至少 1 个有氧日或在力量日末尾安排 15-20 分钟有氧（从 availableExerciseNames 选跑步机等）。
 - 参考 profile、strengthLevels、goal、preferences、userContext（含今日饮食与既有计划摘要）设定组数、次数与重量。
+- 如提供健康约束（healthContext），在不违背训练目标前提下据此调整（如尿酸偏高降低高嘌呤与过高蛋白、静息心率偏高控制高强度有氧等）。定性为健身参考，不要输出医疗诊断或治疗方案。
 - strengthLevels 中：器械/杠铃动作看 oneRm、workingWeightKg；自重动作（exerciseEquipment=BODYWEIGHT）看 maxReps、loadAdjustmentKg（负值=辅助，正值=额外负重）。
 - 不要返回 Markdown、解释文字或额外字段。
 `.trim();
@@ -72,5 +73,6 @@ JSON 格式必须是：
 - 必须生成 weekIdx=0 且 dayIdx 0-6 共 7 个完整日菜单（每天 3-4 餐：早/午/晚，可加 SNACK）；7 天热量与宏量可有适度变化，避免完全复制粘贴。
 - mesocycleWeeks 字段与请求一致；days 数组只需包含第 1 周（weekIdx=0）的 7 天，不要重复写后续周。
 - 参考 profile、userContext.todayNutrition 中的目标热量与宏量，使每日 totalKcal 接近用户目标。
+- 如提供健康约束（healthContext），在不违背热量与宏量目标前提下据此调整食材与烹饪（如尿酸偏高减少高嘌呤海鲜内脏、血脂偏高控饱和脂肪等）。定性为健身参考，不要输出医疗诊断或治疗方案。
 - 不要返回 Markdown、解释文字或额外字段。
 `.trim();

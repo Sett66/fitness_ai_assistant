@@ -1,7 +1,6 @@
 import { getMetricByKey } from '../constants/health-metrics';
+import { HEALTH_CONTEXT_MAX_CHARS } from '../constants/health-report';
 import type { RiskAssessment } from '../schemas/health-report';
-
-export const HEALTH_CONTEXT_MAX_CHARS = 512;
 
 const SEE_DOCTOR_HINT = '建议尽快就医';
 

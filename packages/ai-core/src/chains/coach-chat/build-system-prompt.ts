@@ -1,5 +1,6 @@
 import type { AgentMemoryFact, LocationContext, UserAiContext } from '@fitness/shared';
 
+import { formatHealthContextBlock } from '../../memory/format-health-context-block';
 import { formatMemoryBlock } from '../../memory/format-memory-block';
 import { formatLocationContextBlock } from '../../memory/format-location-block';
 import {
@@ -21,11 +22,15 @@ export function buildCoachSystemPrompt(input: BuildCoachSystemPromptInput): stri
   if (input.mode === 'agent') {
     const parts = [COACH_AGENT_STREAM_SYSTEM_PROMPT];
     const memoryBlock = formatMemoryBlock(input.memoryFacts ?? []);
+    const healthBlock = formatHealthContextBlock(input.userContext.healthContext);
     const locationBlock = formatLocationContextBlock(input.locationContext);
     const contextBlock = buildCoachContextBlock(input.userContext);
 
     if (memoryBlock) {
       parts.push('', memoryBlock);
+    }
+    if (healthBlock) {
+      parts.push('', healthBlock);
     }
     if (locationBlock) {
       parts.push('', locationBlock);
@@ -36,11 +41,15 @@ export function buildCoachSystemPrompt(input: BuildCoachSystemPromptInput): stri
 
   const base = input.mode === 'json' ? COACH_SYSTEM_PROMPT : COACH_STREAM_SYSTEM_PROMPT;
   const memoryBlock = formatMemoryBlock(input.memoryFacts ?? []);
+  const healthBlock = formatHealthContextBlock(input.userContext.healthContext);
   const contextBlock = buildCoachContextBlock(input.userContext);
 
   const parts = [base];
   if (memoryBlock) {
     parts.push('', memoryBlock);
+  }
+  if (healthBlock) {
+    parts.push('', healthBlock);
   }
   parts.push('', '【用户上下文】', contextBlock);
   return parts.join('\n');

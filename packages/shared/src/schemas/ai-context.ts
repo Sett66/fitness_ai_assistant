@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HEALTH_CONTEXT_MAX_CHARS } from '../constants/health-report';
 import { ProfileSchema, StrengthLevelSchema } from './user';
 import { NutritionDailySummarySchema } from './nutrition';
 
@@ -21,6 +22,8 @@ export const UserAiContextSchema = z.object({
     .nullable()
     .optional(),
   todayNutrition: NutritionDailySummarySchema.nullable().optional(),
+  /** 最近一份新鲜 DONE 报告的健康约束摘要；无则省略 */
+  healthContext: z.string().max(HEALTH_CONTEXT_MAX_CHARS).optional(),
 });
 export type UserAiContext = z.infer<typeof UserAiContextSchema>;
 
