@@ -91,6 +91,7 @@ export const HealthReportDetailSchema = z.object({
   metrics: HealthReportMetricsSchema.nullable(),
   riskAssessment: RiskAssessmentSchema.nullable(),
   sourceImageUrls: z.array(z.string().url()),
+  pageTruncated: z.boolean().optional(),
   disclaimer: z.string().min(1).max(1024),
   createdAt: DateTimeSchema,
   updatedAt: DateTimeSchema,

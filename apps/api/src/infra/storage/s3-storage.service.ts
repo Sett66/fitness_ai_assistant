@@ -95,8 +95,44 @@ export class S3StorageService {
     return `${base}/${this.bucket}/${objectKey}`;
   }
 
+  async putObject(objectKey: string, body: Buffer, mime: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+        Body: body,
+        ContentType: mime,
+        ContentLength: body.length,
+      }),
+    );
+  }
+
+  async getObjectBuffer(objectKey: string, maxBytes = 50 * 1024 * 1024): Promise<Buffer> {
+    const meta = await this.head(objectKey);
+    if (!meta.exists) {
+      throw new Error(`S3 object not found: ${objectKey}`);
+    }
+    if (meta.sizeBytes != null && meta.sizeBytes > maxBytes) {
+      throw new Error(`Object exceeds limit (${maxBytes} bytes): ${objectKey}`);
+    }
+
+    const res = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: objectKey,
+      }),
+    );
+    const bytes = await res.Body?.transformToByteArray();
+    if (!bytes?.length) {
+      throw new Error(`S3 object empty: ${objectKey}`);
+    }
+    return Buffer.from(bytes);
+  }
+
   /**
-   * Worker 内直�?MinIO 读图并转�?data URL�?   * 本地开�?MinIO 无公网地址时，Qwen-VL 无法拉取 presignGet URL，需内联传图�?   */
+   * Worker 内直读 MinIO 并转为 data URL。
+   * 本地开发 MinIO 无公网地址时，Qwen-VL 无法拉取 presignGet URL，需内联传图。
+   */
   async getObjectAsDataUrl(objectKey: string, maxBytes = 10 * 1024 * 1024): Promise<string> {
     const meta = await this.head(objectKey);
     if (!meta.exists) {

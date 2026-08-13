@@ -56,6 +56,12 @@ export class ReportsService {
     if (media.length !== input.sourceMediaIds.length) {
       throw new BizException('MEDIA_NOT_FOUND', errorMessagesZhCN.MEDIA_NOT_FOUND, 404);
     }
+    const unsupported = media.filter(
+      (item) => !isImageMime(item.mime) && !isPdfMime(item.mime, item.objectKey),
+    );
+    if (unsupported.length > 0) {
+      throw new BizException('MEDIA_MIME_REJECTED', errorMessagesZhCN.MEDIA_MIME_REJECTED, 400);
+    }
 
     const { report, aiRun } = await this.prisma.client.$transaction(async (tx) => {
       const createdReport = await tx.healthReport.create({
@@ -129,18 +135,26 @@ export class ReportsService {
       );
     }
 
+    const previewIds = report.pageMediaIds.length > 0 ? report.pageMediaIds : report.sourceMediaIds;
     const media = await this.prisma.client.media.findMany({
       where: {
-        id: { in: report.sourceMediaIds },
+        id: { in: previewIds },
         ownerUserId: user.userId,
         status: 'READY',
       },
     });
-    const sourceImageUrls = await Promise.all(
-      media
-        .filter((item) => item.mime.toLowerCase().startsWith('image/'))
-        .map((item) => this.storage.presignGet(item.objectKey, REPORT_READ_URL_TTL_SEC)),
-    );
+    const mediaById = new Map(media.map((item) => [item.id, item]));
+    const sourceImageUrls = (
+      await Promise.all(
+        previewIds.map(async (id) => {
+          const item = mediaById.get(id);
+          if (!item || !isImageMime(item.mime)) return null;
+          return this.storage.presignGet(item.objectKey, REPORT_READ_URL_TTL_SEC);
+        }),
+      )
+    ).filter((url): url is string => url != null);
+
+    const pageTruncated = await this.readPageTruncated(report.aiRunId);
 
     return {
       id: report.id,
@@ -149,6 +163,7 @@ export class ReportsService {
       metrics: parseMetrics(report.metrics),
       riskAssessment: parseRiskAssessment(report.riskAssessment),
       sourceImageUrls,
+      pageTruncated: pageTruncated || undefined,
       disclaimer: HEALTH_REPORT_DISCLAIMER,
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
@@ -174,6 +189,22 @@ export class ReportsService {
       );
     }
   }
+
+  private async readPageTruncated(aiRunId: string | null): Promise<boolean> {
+    if (!aiRunId) return false;
+    const run = await this.prisma.client.aiRun.findUnique({
+      where: { id: aiRunId },
+      select: { outputJson: true },
+    });
+    if (
+      run?.outputJson == null ||
+      typeof run.outputJson !== 'object' ||
+      Array.isArray(run.outputJson)
+    ) {
+      return false;
+    }
+    return (run.outputJson as Record<string, unknown>).pageTruncated === true;
+  }
 }
 
 function parseMetrics(value: unknown): HealthReportMetrics | null {
@@ -191,4 +222,17 @@ function parseRiskAssessment(value: unknown): RiskAssessment | null {
 function countAbnormal(metrics: HealthReportMetrics | null): number {
   if (!metrics) return 0;
   return metrics.items.filter((item) => item.flag !== 'NORMAL').length;
+}
+
+function isImageMime(mime: string): boolean {
+  return mime.toLowerCase().startsWith('image/');
+}
+
+function isPdfMime(mime: string, objectKey: string): boolean {
+  const normalized = mime.toLowerCase();
+  return (
+    normalized === 'application/pdf' ||
+    normalized === 'application/x-pdf' ||
+    objectKey.toLowerCase().endsWith('.pdf')
+  );
 }

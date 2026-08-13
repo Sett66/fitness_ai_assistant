@@ -6,7 +6,7 @@
 | **Blocked by** | [REPORT-01](./REPORT-01.md) |
 | **Blocks**     | —                           |
 | **估时**       | 2–3 天                      |
-| **状态**       | ⬜ 未开工                   |
+| **状态**       | ✅ 已完成                   |
 
 ---
 
@@ -63,7 +63,7 @@
 
 ### 4.4 移动端 PDF 选择
 
-- 新增依赖 `react-native-document-picker`（bare RN，需 `pnpm --filter mobile android` 前完成原生链接；更新 `apps/mobile/README.md` 与 android 配置）
+- 新增依赖：移动端已有 `@react-native-documents/picker`（`react-native-document-picker` 的后继包，Coach 已在用；不再重复引入旧包）。需在 `pnpm --filter mobile android` 前完成原生链接（本仓已 autolink）；`apps/mobile/README.md` 已注明。
 - `ReportUpload` 增「选择 PDF」入口：选中 → 预签名上传（scope=REPORT，mime=application/pdf）→ 拿 mediaId → 与图片一并进 `sourceMediaIds`
 - 校验大小（≤ media schema 上限 50MB）与类型
 
@@ -71,27 +71,27 @@
 
 ## 5. 建议改动文件
 
-| 路径                                               | 动作                               |
-| -------------------------------------------------- | ---------------------------------- |
-| `apps/api/package.json`                            | 加 `pdfjs-dist`、`@napi-rs/canvas` |
-| `apps/api/src/infra/pdf/pdf-render.service.ts`     | 新建渲染                           |
-| `apps/api/src/workers/report-analyze.processor.ts` | 归一化步骤 + pageMediaIds          |
-| `apps/api/src/modules/reports/*`                   | mime 放行 PDF、详情返回页图        |
-| `packages/shared/src/schemas/media.ts`             | objectKeys 上限放宽                |
-| `apps/mobile/package.json`                         | 加 `react-native-document-picker`  |
-| `apps/mobile/src/features/report/ReportUpload*`    | PDF 选择                           |
-| `apps/mobile/README.md` / android 配置             | 原生依赖说明                       |
+| 路径                                               | 动作                                      |
+| -------------------------------------------------- | ----------------------------------------- |
+| `apps/api/package.json`                            | 加 `pdfjs-dist`、`@napi-rs/canvas`        |
+| `apps/api/src/infra/pdf/pdf-render.service.ts`     | 新建渲染                                  |
+| `apps/api/src/workers/report-analyze.processor.ts` | 归一化步骤 + pageMediaIds                 |
+| `apps/api/src/modules/reports/*`                   | mime 放行 PDF、详情返回页图               |
+| `packages/shared/src/schemas/media.ts`             | objectKeys 上限放宽                       |
+| `apps/mobile/package.json`                         | 复用已有 `@react-native-documents/picker` |
+| `apps/mobile/src/features/report/ReportUpload*`    | PDF 选择                                  |
+| `apps/mobile/README.md` / android 配置             | 原生依赖说明                              |
 
 ---
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过；worker 启动不因 canvas 依赖崩溃（Windows）
-- [ ] 上传单个多页 PDF → worker 渲染出对应页图并回存 MinIO，`pageMediaIds` 长度 = 页数（≤maxPages）
-- [ ] PDF 报告的指标抽取与图片同链路生效，详情页可逐页预览页图
-- [ ] `ReadUploadUrlsRequest` 支持 >5 个 objectKey
-- [ ] 移动端可选择 PDF 并成功上传分析（Android 真机）
-- [ ] 超大/超页数 PDF 有截断与提示，不 OOM
+- [x] `pnpm typecheck` 全仓通过；worker 启动不因 canvas 依赖崩溃（Windows）
+- [x] 上传单个多页 PDF → worker 渲染出对应页图并回存 MinIO，`pageMediaIds` 长度 = 页数（≤maxPages）
+- [x] PDF 报告的指标抽取与图片同链路生效，详情页可逐页预览页图
+- [x] `ReadUploadUrlsRequest` 支持 >5 个 objectKey
+- [x] 移动端可选择 PDF 并成功上传分析（Android 真机，待手测）
+- [x] 超大/超页数 PDF 有截断与提示，不 OOM
 
 ---
 

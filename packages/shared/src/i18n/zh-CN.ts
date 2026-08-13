@@ -1,3 +1,4 @@
+import { REPORT_PDF_MAX_PAGES } from '../constants/limits';
 import type { ErrorCode } from '../errors/codes';
 
 /**
@@ -78,4 +79,5 @@ export const termsZhCN: Readonly<Record<string, string>> = {
   HEALTH_REPORT_SEE_DOCTOR: '建议尽快就医',
   HEALTH_REPORT_SEE_DOCTOR_HINT:
     '评估中存在危急或需医疗关注的指标，请尽快咨询医生。以下内容仅供健身参考，不构成诊断。',
+  HEALTH_REPORT_PDF_PAGE_TRUNCATED: `PDF 页数超过上限，仅分析并预览前 ${REPORT_PDF_MAX_PAGES} 页。`,
 };

@@ -20,7 +20,7 @@ export function ReportListScreen() {
     <Screen>
       <View className="mb-4 gap-2">
         <Title>体检报告</Title>
-        <Subtitle>上传图片后，AI 会抽取结构化指标并标记异常项。</Subtitle>
+        <Subtitle>上传图片或 PDF 后，AI 会抽取结构化指标并标记异常项。</Subtitle>
         <Button title="上传新报告" onPress={() => navigation.navigate('ReportUpload')} />
         {reports.error ? <ErrorText message={reports.error.message} /> : null}
       </View>
@@ -44,7 +44,7 @@ export function ReportListScreen() {
             </Card>
           </Pressable>
         )}
-        ListEmptyComponent={<Subtitle>暂无体检报告，先上传一组报告图片。</Subtitle>}
+        ListEmptyComponent={<Subtitle>暂无体检报告，先上传报告图片或 PDF。</Subtitle>}
       />
     </Screen>
   );

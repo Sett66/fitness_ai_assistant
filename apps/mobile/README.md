@@ -82,9 +82,11 @@ MinIO 预签名 URL 由 API 按 `clientPublicEndpoint` 签发，**客户端不�
 - [x] Onboarding 末步生成训练 + 饮食双计划
 - [x] **Coach Tab**（多会话、SSE 流式对话、Markdown 表格、生成计划/识图/记餐）
 - [x] Social Tab 占位
+- [x] 体检报告（图片 + PDF；服务端 pdfjs 按页渲染）
 - [x] `@fitness/ui` 基础组件 + NativeWind
 
 ## 依赖版本
 
 - react-native **0.83.9**（≥ 0.82）
 - react **19.2.0**
+- PDF 选择：`@react-native-documents/picker`（autolink，无需额外 Android 权限；SAF 选文件）

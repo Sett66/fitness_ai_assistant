@@ -78,6 +78,7 @@ module.exports = [
       globals: {
         console: 'readonly',
         process: 'readonly',
+        Buffer: 'readonly',
         fetch: 'readonly',
         AbortSignal: 'readonly',
         setTimeout: 'readonly',

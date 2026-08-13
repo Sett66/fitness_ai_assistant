@@ -27,6 +27,15 @@ export const AI_TASK_POLL_BACKOFF_MS = [1000, 2000, 4000, 8000] as const;
 /** 媒体单文件大小上限：50 MB */
 export const MEDIA_MAX_SIZE_BYTES = 50 * 1024 * 1024;
 
+/** POST /v1/uploads/read-urls 单次 objectKeys 上限（多页报告预览会超过 5） */
+export const READ_UPLOAD_URLS_MAX_KEYS = 30;
+
+/** 体检报告 PDF 服务端按页渲染上限（超出截断） */
+export const REPORT_PDF_MAX_PAGES = 15;
+
+/** 体检报告 PDF 渲染 DPI（72 为 PDF 默认用户空间） */
+export const REPORT_PDF_RENDER_DPI = 150;
+
 /** access token TTL（ARCH §7：15 分钟） */
 export const ACCESS_TOKEN_TTL_SEC = 15 * 60;
 

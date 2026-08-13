@@ -18,7 +18,9 @@ import type { MealType } from '@fitness/shared';
 import {
   collectCriticalHits,
   HEALTH_METRIC_CATALOG,
+  MEDIA_MAX_SIZE_BYTES,
   MealVisionTaskInputSchema,
+  REPORT_PDF_MAX_PAGES,
 } from '@fitness/shared';
 import type { Job } from 'bullmq';
 
@@ -28,6 +30,7 @@ import { NutritionDailyService } from '../domain/nutrition-daily.service';
 import { PlanPersistenceService } from '../domain/plan-persistence.service';
 import { UserContextService } from '../domain/user-context.service';
 import { PrismaService } from '../infra/prisma/prisma.service';
+import { PdfRenderService } from '../infra/pdf/pdf-render.service';
 import { S3StorageService } from '../infra/storage/s3-storage.service';
 import {
   AI_TASK_QUEUE_NAME,
@@ -53,6 +56,7 @@ export class AiTaskProcessor extends WorkerHost {
     private readonly planPersistence: PlanPersistenceService,
     private readonly mealLogs: MealLogsService,
     private readonly storage: S3StorageService,
+    private readonly pdfRender: PdfRenderService,
     private readonly conversationSideEffects: ConversationSideEffectService,
   ) {
     super();
@@ -351,16 +355,23 @@ export class AiTaskProcessor extends WorkerHost {
         status: 'READY',
       },
     });
-    const imageMedia = media.filter((item) => item.mime.toLowerCase().startsWith('image/'));
-    if (imageMedia.length === 0) {
-      throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'REPORT-01 仅支持图片体检报告');
+    const byId = new Map(media.map((item) => [item.id, item]));
+    const ordered = report.sourceMediaIds
+      .map((id) => byId.get(id))
+      .filter((item): item is NonNullable<typeof item> => item != null);
+
+    const normalized = await this.normalizeReportPages(userId, report.id, ordered);
+    if (normalized.imageUrls.length === 0) {
+      throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', '体检报告没有可分析的图片或 PDF 页');
     }
 
-    const imageUrls = await Promise.all(
-      imageMedia.map((item) => this.storage.getObjectAsDataUrl(item.objectKey)),
-    );
+    await this.prisma.client.healthReport.update({
+      where: { id: report.id },
+      data: { pageMediaIds: normalized.pageMediaIds },
+    });
+
     const output = await runReportExtract({
-      imageUrls,
+      imageUrls: normalized.imageUrls,
       catalog: HEALTH_METRIC_CATALOG.map(({ key, nameZh, aliases, unit }) => ({
         key,
         nameZh,
@@ -418,9 +429,67 @@ export class AiTaskProcessor extends WorkerHost {
         metrics: output.result,
         riskAssessment,
         healthContext,
+        pageMediaIds: normalized.pageMediaIds,
+        pageCount: normalized.pageMediaIds.length,
+        pageTruncated: normalized.truncated,
       },
       usage,
     };
+  }
+
+  private async normalizeReportPages(
+    userId: string,
+    reportId: string,
+    sources: Array<{ id: string; mime: string; objectKey: string }>,
+  ): Promise<{ pageMediaIds: string[]; imageUrls: string[]; truncated: boolean }> {
+    const pageMediaIds: string[] = [];
+    const imageUrls: string[] = [];
+    let truncated = false;
+    let pdfPageIndex = 0;
+
+    for (const item of sources) {
+      if (isImageMime(item.mime)) {
+        pageMediaIds.push(item.id);
+        imageUrls.push(await this.storage.getObjectAsDataUrl(item.objectKey));
+        continue;
+      }
+
+      if (!isPdfMime(item.mime, item.objectKey)) {
+        this.logger.warn(`跳过不支持的报告媒体 mime=${item.mime} id=${item.id}`);
+        continue;
+      }
+
+      const pdfBuffer = await this.storage.getObjectBuffer(item.objectKey, MEDIA_MAX_SIZE_BYTES);
+      const rendered = await this.pdfRender.renderPdfToImages(pdfBuffer, {
+        maxPages: REPORT_PDF_MAX_PAGES,
+      });
+      truncated = truncated || rendered.truncated;
+
+      for (const pageBuffer of rendered.pages) {
+        pdfPageIndex += 1;
+        const objectKey = `report/${userId}/${reportId}/page-${pdfPageIndex}.png`;
+        await this.storage.putObject(objectKey, pageBuffer, 'image/png');
+        const pageMedia = await this.prisma.client.media.upsert({
+          where: { objectKey },
+          create: {
+            ownerUserId: userId,
+            objectKey,
+            mime: 'image/png',
+            sizeBytes: pageBuffer.length,
+            status: 'READY',
+          },
+          update: {
+            mime: 'image/png',
+            sizeBytes: pageBuffer.length,
+            status: 'READY',
+          },
+        });
+        pageMediaIds.push(pageMedia.id);
+        imageUrls.push(`data:image/png;base64,${pageBuffer.toString('base64')}`);
+      }
+    }
+
+    return { pageMediaIds, imageUrls, truncated };
   }
 
   private async resolveMealImageUrl(
@@ -451,6 +520,17 @@ export class AiTaskProcessor extends WorkerHost {
     return String(err).slice(0, 2048);
   }
 }
+
+const isImageMime = (mime: string): boolean => mime.toLowerCase().startsWith('image/');
+
+const isPdfMime = (mime: string, objectKey: string): boolean => {
+  const normalized = mime.toLowerCase();
+  return (
+    normalized === 'application/pdf' ||
+    normalized === 'application/x-pdf' ||
+    objectKey.toLowerCase().endsWith('.pdf')
+  );
+};
 
 const toJsonValue = (value: unknown): Prisma.InputJsonValue => {
   const jsonValue = JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue | undefined;

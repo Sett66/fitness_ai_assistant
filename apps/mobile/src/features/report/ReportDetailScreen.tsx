@@ -67,13 +67,19 @@ export function ReportDetailScreen({ route }: Props) {
         {data.status === 'FAILED' ? (
           <Card>
             <Title className="text-base">分析失败</Title>
-            <Subtitle>请确认上传的是清晰的体检报告图片后重试。</Subtitle>
+            <Subtitle>请确认上传的是清晰的体检报告图片或 PDF 后重试。</Subtitle>
+          </Card>
+        ) : null}
+
+        {data.pageTruncated ? (
+          <Card>
+            <Subtitle>{termsZhCN.HEALTH_REPORT_PDF_PAGE_TRUNCATED}</Subtitle>
           </Card>
         ) : null}
 
         {data.sourceImageUrls.length > 0 ? (
           <Card className="gap-3">
-            <Title className="text-base">原件预览</Title>
+            <Title className="text-base">页图预览</Title>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MediaStatusSchema } from '../enums';
+import { READ_UPLOAD_URLS_MAX_KEYS } from '../constants/limits';
 import { DateTimeSchema, IdSchema } from './_common';
 
 // ============================== Media 实体 ==============================
@@ -62,7 +63,7 @@ export type CompleteUploadResponse = z.infer<typeof CompleteUploadResponseSchema
 
 /** POST /v1/uploads/read-urls — 批量获取已上传对象的临时读 URL */
 export const ReadUploadUrlsRequestSchema = z.object({
-  objectKeys: z.array(z.string().min(1).max(512)).min(1).max(5),
+  objectKeys: z.array(z.string().min(1).max(512)).min(1).max(READ_UPLOAD_URLS_MAX_KEYS),
   /** 开发期：移动端指定 MinIO 可达地址，服务端按此 host 签发预签名读 URL */
   clientPublicEndpoint: z.string().url().optional(),
 });

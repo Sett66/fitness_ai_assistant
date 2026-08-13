@@ -1,4 +1,3 @@
-import type { Asset } from 'react-native-image-picker';
 import type {
   CreateHealthReportResponse,
   HealthReportDetail,
@@ -8,6 +7,7 @@ import {
   CreateHealthReportResponseSchema,
   HealthReportDetailSchema,
   HealthReportListResponseSchema,
+  MEDIA_MAX_SIZE_BYTES,
 } from '@fitness/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -41,24 +41,34 @@ export function useReportDetail(reportId: string, poll = false) {
   });
 }
 
-export function useCreateReportFromImages() {
+export type ReportSourceFile = {
+  uri: string;
+  mime: string;
+  sizeBytes: number;
+  name?: string;
+};
+
+export function useCreateReportFromFiles() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (assets: Asset[]): Promise<CreateHealthReportResponse> => {
+    mutationFn: async (files: ReportSourceFile[]): Promise<CreateHealthReportResponse> => {
       const sourceMediaIds: string[] = [];
 
-      for (const asset of assets) {
-        if (!asset.uri) continue;
-        const mime = asset.type ?? 'image/jpeg';
+      for (const file of files) {
+        if (!file.uri) continue;
+        if (file.sizeBytes > MEDIA_MAX_SIZE_BYTES) {
+          throw new Error('文件过大，单文件不能超过 50MB');
+        }
+        const mime = file.mime || 'image/jpeg';
         const signed = await apiFetch<{ uploadUrl: string; objectKey: string }>('/uploads/sign', {
           method: 'POST',
           body: presignRequestBody('REPORT', {
             mime,
-            sizeBytes: asset.fileSize ?? 500_000,
+            sizeBytes: file.sizeBytes > 0 ? file.sizeBytes : 500_000,
           }),
         });
 
-        await uploadToPresignedUrl(signed.uploadUrl, asset.uri, mime);
+        await uploadToPresignedUrl(signed.uploadUrl, file.uri, mime);
         const completed = await apiFetch<{ mediaId: string }>('/uploads/complete', {
           method: 'POST',
           body: {
