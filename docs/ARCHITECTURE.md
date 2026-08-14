@@ -474,6 +474,6 @@ MinIO 实现走 `@aws-sdk/client-s3 + @aws-sdk/s3-request-presigner`，未来换
 | DAU > 100          | 把 worker 拆成独立部署单元（同 codebase，`apps/api` 分两个容器）                                               |
 | AI 调用 > 1k/天    | 评估 LangSmith 或统一 OTel 出口；Coach `COACH_CHAT` 观测见 ADR 0010（Langfuse）                                |
 | 食物识别准确率瓶颈 | 沉淀用户纠正样本 → 训练自有视觉模型 → 走 ONNX Runtime 端侧（可选）                                             |
-| 社区上线           | 启用 `(social)` 模块 + 简单内容审核（关键词 + LLM 兜底）                                                       |
+| 社区上线           | 启用 `(social)` 模块（**ADR 0011**：公开广场、Meilisearch 检索、先发后审；不做关注 / 通知 / 举报）             |
 | 体检报告上线       | 启用 `(reports)` 模块（**ADR 0009**：改用 Qwen-VL 多模态抽取替代独立 OCR；PDF 服务端 pdfjs 渲染 + 两阶段评估） |
 | 出海需要           | 实现 `LLMProvider` OpenAI/Anthropic 版本、`StorageProvider` S3 版本、`PushProvider` FCM 版本                   |
