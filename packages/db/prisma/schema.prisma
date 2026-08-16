@@ -127,6 +127,7 @@ enum AiTaskType {
   MESOCYCLE_REVIEW
   REPORT_ANALYZE
   REPORT_REASSESS
+  SOCIAL_MODERATE
 }
 
 enum AiTaskStatus {
@@ -141,6 +142,12 @@ enum PostVisibility {
   PUBLIC
   FOLLOWERS
   PRIVATE
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum ReactionKind {
@@ -609,42 +616,47 @@ model HealthReport {
 }
 
 // =================================================================
-// Phase 2 占位（已建表，MVP 不开放对外 API）
+// Phase 2 · 社区（ADR 0011；PartnerProfile 仍为占位）
 // =================================================================
 
 model Post {
-  id         String         @id @default(cuid())
-  userId     String
-  body       String
-  mediaIds   String[]       @default([])
-  visibility PostVisibility @default(PUBLIC)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-  deletedAt  DateTime?
+  id               String           @id @default(cuid())
+  userId           String
+  body             String
+  mediaIds         String[]         @default([])
+  visibility       PostVisibility   @default(PUBLIC)
+  likeCount        Int              @default(0)
+  commentCount     Int              @default(0)
+  moderation       ModerationStatus @default(PENDING)
+  moderationReason String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   comments  Comment[]
   reactions Reaction[]
 
   @@index([userId, createdAt])
-  @@index([visibility, createdAt])
+  @@index([visibility, moderation, createdAt])
   @@index([deletedAt])
 }
 
 model Comment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   postId    String
   userId    String
   body      String
   parentId  String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
   post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
   replies Comment[] @relation("CommentReplies")
 
-  @@index([postId, createdAt])
+  @@index([postId, deletedAt, createdAt])
   @@index([userId])
   @@index([parentId])
 }

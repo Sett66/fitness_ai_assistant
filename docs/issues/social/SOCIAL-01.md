@@ -6,7 +6,7 @@
 | **Blocked by** | ADR 0011（Accepted）  |
 | **Blocks**     | SOCIAL-02、03、04、06 |
 | **估时**       | 3–4 天                |
-| **状态**       | ⬜ 未开工             |
+| **状态**       | ✅ 已完成             |
 
 ---
 
@@ -265,15 +265,15 @@ socialPost: (id: string) => ['social-post', id] as const,
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm --filter db migrate:dev --name social_mvp` 成功，`pnpm typecheck` 全仓通过
-- [ ] `POST /v1/social/posts` 能发纯文本帖与带图帖；`visibility: 'FOLLOWERS'` 返回 400 `SOCIAL_VISIBILITY_UNSUPPORTED`
-- [ ] 用他人的 `mediaId` 或未 `READY` 的 `mediaId` 发帖返回 400 `SOCIAL_MEDIA_INVALID`
-- [ ] `GET /v1/social/posts` 时间倒序分页正确，`nextCursor` 翻页无重复无遗漏；`PRIVATE` 帖子不出现在他人 feed
-- [ ] feed 一页 20 帖时**只发出常数条 SQL**（1 帖子 + 1 用户 + 1 媒体），可用 pino 日志或 Prisma `log: ['query']` 核验
-- [ ] 响应中**不含 `phone` 字段**；`displayName` 为空的用户显示为 `健身用户XXXX`
-- [ ] `DELETE` 自己的帖子后从 feed 消失；删他人帖子返回 404
-- [ ] 移动端：社区 Tab 打开即 feed，可发帖（含 3 张图）、下拉刷新、触底加载、删除自己的帖子（Android 真机 / 模拟器）
-- [ ] `features/coach/SocialPlaceholderScreen.tsx` 已删除且无残留引用
+- [x] `pnpm --filter db migrate:dev --name social_mvp` 成功，`pnpm typecheck` 全仓通过
+- [x] `POST /v1/social/posts` 能发纯文本帖与带图帖；`visibility: 'FOLLOWERS'` 返回 400 `SOCIAL_VISIBILITY_UNSUPPORTED`
+- [x] 用他人的 `mediaId` 或未 `READY` 的 `mediaId` 发帖返回 400 `SOCIAL_MEDIA_INVALID`
+- [x] `GET /v1/social/posts` 时间倒序分页正确，`nextCursor` 翻页无重复无遗漏；`PRIVATE` 帖子不出现在他人 feed
+- [x] feed 一页 20 帖时**只发出常数条 SQL**（1 帖子 + 1 用户 + 1 媒体），可用 pino 日志或 Prisma `log: ['query']` 核验
+- [x] 响应中**不含 `phone` 字段**；`displayName` 为空的用户显示为 `健身用户XXXX`
+- [x] `DELETE` 自己的帖子后从 feed 消失；删他人帖子返回 404
+- [x] 移动端：社区 Tab 打开即 feed，可发帖（含 3 张图）、下拉刷新、触底加载、删除自己的帖子（Android 真机 / 模拟器）
+- [x] `features/coach/SocialPlaceholderScreen.tsx` 已删除且无残留引用
 
 ---
 
@@ -284,7 +284,9 @@ pnpm --filter db migrate:dev --name social_mvp
 pnpm --filter shared build
 pnpm typecheck
 pnpm --filter api start:api
-# Swagger http://localhost:3000/swagger 手测 /v1/social/posts
+# 一键冒烟（纯文本 / 带图 / FOLLOWERS / phone / displayName / mediaId 校验）：
+.\scripts\social-01-smoke.ps1
+# 或 Swagger http://localhost:3000/swagger 手测 /v1/social/posts
 pnpm --filter mobile start
 ```
 

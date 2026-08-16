@@ -25,7 +25,13 @@ export type MediaResponse = z.infer<typeof MediaResponseSchema>;
 
 // ============================== Presigned 上传链路（ARCH §6） ==============================
 
-export const UPLOAD_SCOPE_VALUES = ['MEAL_PHOTO', 'EXERCISE_MEDIA', 'AVATAR', 'REPORT'] as const;
+export const UPLOAD_SCOPE_VALUES = [
+  'MEAL_PHOTO',
+  'EXERCISE_MEDIA',
+  'AVATAR',
+  'REPORT',
+  'POST_IMAGE',
+] as const;
 export const UploadScopeSchema = z.enum(UPLOAD_SCOPE_VALUES);
 export type UploadScope = z.infer<typeof UploadScopeSchema>;
 

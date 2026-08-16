@@ -9,6 +9,8 @@ export const queryKeys = {
   plan: (id: string) => ['plan', id] as const,
   reports: ['reports'] as const,
   report: (id: string) => ['report', id] as const,
+  socialFeed: ['social-feed'] as const,
+  socialPost: (id: string) => ['social-post', id] as const,
   aiTask: (id: string) => ['ai-task', id] as const,
   workoutSessions: ['workout-sessions'] as const,
   exercises: ['exercises'] as const,

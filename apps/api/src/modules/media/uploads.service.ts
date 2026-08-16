@@ -21,12 +21,13 @@ const PRESIGN_TTL_SEC = 15 * 60;
 /** 聊天记录读图：较长 TTL，避免列表里缩略图很快失效 */
 const READ_URL_TTL_SEC = 60 * 60;
 
-/** scope �?URL 路径前缀 */
+/** scope → URL 路径前缀 */
 const scopePrefix: Record<UploadScope, string> = {
   MEAL_PHOTO: 'meal',
   EXERCISE_MEDIA: 'exercise',
   AVATAR: 'avatar',
   REPORT: 'report',
+  POST_IMAGE: 'post',
 };
 
 @Injectable()
@@ -112,6 +113,14 @@ function assertMimeForScope(scope: UploadScope, mime: string): void {
 
   const isImage = m.startsWith('image/');
   const isPdf = m === 'application/pdf';
+
+  if (scope === 'POST_IMAGE') {
+    const allowed = m === 'image/jpeg' || m === 'image/png' || m === 'image/webp';
+    if (!allowed) {
+      throw new BizException('MEDIA_MIME_REJECTED', errorMessagesZhCN.MEDIA_MIME_REJECTED, 400);
+    }
+    return;
+  }
 
   if (scope === 'REPORT') {
     if (!isPdf && !isImage) {

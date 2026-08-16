@@ -52,6 +52,11 @@ export const ERROR_CODE_VALUES = [
   'PLAN_NOT_FOUND',
   'PLAN_IN_PROGRESS',
   'WORKOUT_NOT_FOUND',
+
+  // 社区
+  'SOCIAL_POST_NOT_FOUND',
+  'SOCIAL_MEDIA_INVALID',
+  'SOCIAL_VISIBILITY_UNSUPPORTED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODE_VALUES)[number];

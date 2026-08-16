@@ -19,7 +19,9 @@ import { LoginScreen } from '../../features/auth/LoginScreen';
 import { RegisterScreen } from '../../features/auth/RegisterScreen';
 import { ForgotPasswordScreen } from '../../features/auth/ForgotPasswordScreen';
 import { CoachScreen } from '../../features/coach/CoachScreen';
-import { SocialPlaceholderScreen } from '../../features/coach/SocialPlaceholderScreen';
+import { FeedScreen } from '../../features/social/FeedScreen';
+import { PostComposerScreen } from '../../features/social/PostComposerScreen';
+import { PostDetailScreen } from '../../features/social/PostDetailScreen';
 import { DashboardScreen } from '../../features/dashboard/DashboardScreen';
 import { ProfileScreen } from '../../features/profile/ProfileScreen';
 import { PlanListScreen } from '../../features/plan/PlanListScreen';
@@ -54,6 +56,8 @@ export type RootStackParamList = {
   ReportList: undefined;
   ReportUpload: undefined;
   ReportDetail: { reportId: string };
+  PostComposer: undefined;
+  PostDetail: { postId: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -123,7 +127,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Social"
-        component={SocialPlaceholderScreen}
+        component={FeedScreen}
         options={{
           title: '社区',
           tabBarLabel: tabLabel('社区'),
@@ -182,6 +186,16 @@ export function RootNavigator({ mode }: RootNavigatorProps) {
             name="ReportDetail"
             component={ReportDetailScreen}
             options={{ title: '报告详情' }}
+          />
+          <RootStack.Screen
+            name="PostComposer"
+            component={PostComposerScreen}
+            options={{ title: '发动态' }}
+          />
+          <RootStack.Screen
+            name="PostDetail"
+            component={PostDetailScreen}
+            options={{ title: '动态详情' }}
           />
         </>
       )}

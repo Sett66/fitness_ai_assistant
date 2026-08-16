@@ -51,7 +51,6 @@ const userData: CreateUserInput = { phone: '13800000000', password: 'abcd1234' }
 - ID 字段 `IdSchema` 仅校验长度（兼容 cuid2 / nanoid），格式严格校验留到 M2
 - 时间字段统一 `z.coerce.date()`，前端发 ISO 字符串、Prisma 拿到 Date
 
-## Phase 2 占位
+## Phase 2
 
-`schemas/phase2/` 下的 social / partner 模型仅声明实体形状，**MVP 不开放对外 API**。
-等 Phase 2 启用时再补 Create / Update / Response 系列。
+`schemas/phase2/social.ts` 已开放发帖 / feed 契约（ADR 0011）。`partner` 仍为占位。

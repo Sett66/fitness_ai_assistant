@@ -40,5 +40,6 @@ export const SOFT_DELETE_MODELS = [
   'WorkoutSession',
   'MealLog',
   'Post',
+  'Comment',
 ] as const;
 export type SoftDeleteModel = (typeof SOFT_DELETE_MODELS)[number];

@@ -50,6 +50,10 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   PLAN_NOT_FOUND: '计划不存在',
   PLAN_IN_PROGRESS: '正在生成中，请稍候',
   WORKOUT_NOT_FOUND: '打卡记录不存在',
+
+  SOCIAL_POST_NOT_FOUND: '动态不存在或已删除',
+  SOCIAL_MEDIA_INVALID: '图片无效，请重新选择',
+  SOCIAL_VISIBILITY_UNSUPPORTED: '暂不支持该可见性设置',
 };
 
 /**

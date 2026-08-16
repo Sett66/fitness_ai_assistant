@@ -21,6 +21,7 @@ import { MealLogsModule } from './modules/meal-logs/meal-logs.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { SocialModule } from './modules/social/social.module';
 import { DomainModule } from './domain/domain.module';
 import { AppController } from './app.controller';
 
@@ -55,6 +56,7 @@ import { AppController } from './app.controller';
     PlansModule,
     ConversationsModule,
     ReportsModule,
+    SocialModule,
   ],
   controllers: [AppController],
   providers: [
