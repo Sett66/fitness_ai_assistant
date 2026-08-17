@@ -22,6 +22,8 @@ import { CoachScreen } from '../../features/coach/CoachScreen';
 import { FeedScreen } from '../../features/social/FeedScreen';
 import { PostComposerScreen } from '../../features/social/PostComposerScreen';
 import { PostDetailScreen } from '../../features/social/PostDetailScreen';
+import { SocialSearchScreen } from '../../features/social/SocialSearchScreen';
+import { SocialUserScreen } from '../../features/social/SocialUserScreen';
 import { DashboardScreen } from '../../features/dashboard/DashboardScreen';
 import { ProfileScreen } from '../../features/profile/ProfileScreen';
 import { PlanListScreen } from '../../features/plan/PlanListScreen';
@@ -58,6 +60,8 @@ export type RootStackParamList = {
   ReportDetail: { reportId: string };
   PostComposer: undefined;
   PostDetail: { postId: string };
+  SocialSearch: undefined;
+  SocialUser: { userId: string };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -196,6 +200,16 @@ export function RootNavigator({ mode }: RootNavigatorProps) {
             name="PostDetail"
             component={PostDetailScreen}
             options={{ title: '动态详情' }}
+          />
+          <RootStack.Screen
+            name="SocialSearch"
+            component={SocialSearchScreen}
+            options={{ title: '搜索' }}
+          />
+          <RootStack.Screen
+            name="SocialUser"
+            component={SocialUserScreen}
+            options={{ title: '用户主页' }}
           />
         </>
       )}

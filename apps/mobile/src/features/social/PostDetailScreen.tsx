@@ -100,6 +100,7 @@ export function PostDetailScreen({ navigation, route }: Props) {
                 post={post}
                 divider={false}
                 onPress={() => undefined}
+                onAuthorPress={(userId) => navigation.navigate('SocialUser', { userId })}
                 onDelete={
                   post.isMine
                     ? () =>

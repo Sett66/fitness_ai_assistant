@@ -11,13 +11,20 @@ import { SocialAvatar } from './SocialAvatar';
 type PostCardProps = {
   post: PostSummary;
   onPress: () => void;
+  onAuthorPress?: (userId: string) => void;
   onDelete?: () => void;
   divider?: boolean;
 };
 
 const BODY_COLLAPSE_LEN = 140;
 
-export function PostCard({ post, onPress, onDelete, divider = true }: PostCardProps) {
+export function PostCard({
+  post,
+  onPress,
+  onAuthorPress,
+  onDelete,
+  divider = true,
+}: PostCardProps) {
   const [expanded, setExpanded] = useState(false);
   const collapsed = !expanded && post.body.length > BODY_COLLAPSE_LEN;
   const body = collapsed ? `${post.body.slice(0, BODY_COLLAPSE_LEN)}…` : post.body;
@@ -29,16 +36,27 @@ export function PostCard({ post, onPress, onDelete, divider = true }: PostCardPr
     ]);
   };
 
+  const openAuthor = (e: { stopPropagation?: () => void }) => {
+    e.stopPropagation?.();
+    onAuthorPress?.(post.author.id);
+  };
+
   return (
     <Pressable onPress={onPress} className={`px-4 py-3 ${divider ? 'border-b border-border' : ''}`}>
       <View className="flex-row items-start gap-3">
-        <SocialAvatar url={post.author.avatarUrl} name={post.author.displayName} size={40} />
+        <Pressable onPress={onAuthorPress ? openAuthor : undefined} disabled={!onAuthorPress}>
+          <SocialAvatar url={post.author.avatarUrl} name={post.author.displayName} size={40} />
+        </Pressable>
         <View className="flex-1">
           <View className="flex-row items-center justify-between gap-2">
-            <View className="flex-1">
+            <Pressable
+              onPress={onAuthorPress ? openAuthor : undefined}
+              disabled={!onAuthorPress}
+              className="flex-1"
+            >
               <Title className="text-base">{post.author.displayName}</Title>
               <Subtitle>{formatRelativeTime(post.createdAt)}</Subtitle>
-            </View>
+            </Pressable>
             {post.isMine && onDelete ? (
               <Pressable
                 hitSlop={8}
@@ -52,6 +70,16 @@ export function PostCard({ post, onPress, onDelete, divider = true }: PostCardPr
               </Pressable>
             ) : null}
           </View>
+          {post.isMine && post.visibility === 'PRIVATE' ? (
+            <Subtitle className="mt-1">仅自己可见</Subtitle>
+          ) : null}
+          {post.isMine && post.moderation === 'REJECTED' ? (
+            <View className="mt-2 rounded-lg border border-destructive bg-card px-2 py-1.5">
+              <Subtitle className="text-destructive">
+                {post.moderationReason ? `未通过审核：${post.moderationReason}` : '未通过审核'}
+              </Subtitle>
+            </View>
+          ) : null}
           <Text className="mt-2 text-base text-foreground leading-6">{body}</Text>
           {collapsed ? (
             <Pressable

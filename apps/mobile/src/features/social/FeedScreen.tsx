@@ -5,7 +5,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Button, ErrorText, Plus, Screen, Subtitle, Title } from '@fitness/ui';
+import { Button, ErrorText, Plus, Screen, Search, Subtitle, Title } from '@fitness/ui';
 
 import { useDeletePost, useSocialFeed } from '../../api/endpoints/social';
 import type { MainTabParamList, RootStackParamList } from '../../app/navigation/RootNavigator';
@@ -30,6 +30,13 @@ export function FeedScreen() {
       <View className="px-4 pb-2">
         <Title>社区</Title>
         <Subtitle>分享训练感受、饮食和进度</Subtitle>
+        <Pressable
+          onPress={() => navigation.navigate('SocialSearch')}
+          className="mt-3 flex-row items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5"
+        >
+          <Search color="#A1A1A1" size={18} strokeWidth={2} />
+          <Subtitle>搜索动态或用户</Subtitle>
+        </Pressable>
       </View>
 
       {errorMessage ? (
@@ -45,6 +52,7 @@ export function FeedScreen() {
           <PostCard
             post={item}
             onPress={() => navigation.navigate('PostDetail', { postId: item.id })}
+            onAuthorPress={(userId) => navigation.navigate('SocialUser', { userId })}
             onDelete={item.isMine ? () => deletePost.mutate(item.id) : undefined}
           />
         )}

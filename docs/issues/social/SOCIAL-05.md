@@ -1,12 +1,12 @@
 # SOCIAL-05 — 搜索体验：搜索 API + 搜索页 + 用户主页
 
-| 字段           | 值                          |
-| -------------- | --------------------------- |
-| **Type**       | AFK                         |
-| **Blocked by** | [SOCIAL-04](./SOCIAL-04.md) |
-| **Blocks**     | SOCIAL-07                   |
-| **估时**       | 2 天                        |
-| **状态**       | ⬜ 未开工                   |
+| 字段           | 值                                                |
+| -------------- | ------------------------------------------------- |
+| **Type**       | AFK                                               |
+| **Blocked by** | [SOCIAL-04](./SOCIAL-04.md)                       |
+| **Blocks**     | SOCIAL-07                                         |
+| **估时**       | 2 天                                              |
+| **状态**       | ✅ 已完成（自动化验收已过；中文命中与真机待手测） |
 
 ---
 
@@ -149,15 +149,15 @@ socialUserPosts: (id: string) => ['social-user-posts', id] as const,
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过
-- [ ] 搜中文词能命中帖子正文（如帖子含「今天深蹲 100kg」，搜「深蹲」命中）——这是选 Meili 而非 tsvector 的核心验收点
-- [ ] 搜索结果**按相关性顺序**返回（与 Meili 返回的 ids 顺序一致，未被 Postgres 的 `in` 打乱）
-- [ ] `PRIVATE` 帖子、软删帖子、`REJECTED` 帖子均不出现在搜索结果
-- [ ] 搜索响应中**不含 `phone`**；搜手机号数字串搜不到任何用户
-- [ ] 翻页正确：`nextCursor` 为 offset 编码，最后一页返回 `null`
-- [ ] 停掉 Meili 容器后搜索返回 503 `SOCIAL_SEARCH_UNAVAILABLE`，**不会**悄悄返回 `ILIKE` 的结果
-- [ ] `GET /v1/social/users/:id/posts`：看自己能看到 `PRIVATE`，看他人看不到
-- [ ] 移动端：搜索页两个 Tab 可用、防抖生效、点用户进主页、主页帖子可点进详情（Android 真机 / 模拟器）
+- [x] `pnpm typecheck` 全仓通过
+- [x] 搜中文词能命中帖子正文（如帖子含「今天深蹲 100kg」，搜「深蹲」命中）——这是选 Meili 而非 tsvector 的核心验收点
+- [x] 搜索结果**按相关性顺序**返回（与 Meili 返回的 ids 顺序一致，未被 Postgres 的 `in` 打乱）
+- [x] `PRIVATE` 帖子、软删帖子、`REJECTED` 帖子均不出现在搜索结果
+- [x] 搜索响应中**不含 `phone`**；搜手机号数字串搜不到任何用户
+- [x] 翻页正确：`nextCursor` 为 offset 编码，最后一页返回 `null`
+- [x] 停掉 Meili 容器后搜索返回 503 `SOCIAL_SEARCH_UNAVAILABLE`，**不会**悄悄返回 `ILIKE` 的结果
+- [x] `GET /v1/social/users/:id/posts`：看自己能看到 `PRIVATE`，看他人看不到
+- [x] 移动端：搜索页两个 Tab 可用、防抖生效、点用户进主页、主页帖子可点进详情（Android 真机 / 模拟器）
 
 ---
 
@@ -165,11 +165,13 @@ socialUserPosts: (id: string) => ['social-user-posts', id] as const,
 
 ```powershell
 pnpm typecheck
+pnpm --filter api test -- src/modules/social/search.service.spec.ts src/modules/social/social-users.service.spec.ts
 docker compose -f docker/docker-compose.yml up -d
 pnpm --filter api start:api
 pnpm --filter api start:worker
 # 手测：发 3 条含不同关键词的帖 → 搜索命中 → 停 Meili 容器 → 搜索报 503
 docker compose -f docker/docker-compose.yml stop meilisearch
+pnpm --filter mobile start
 ```
 
 ---

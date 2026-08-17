@@ -16,6 +16,7 @@ export {
   Moon,
   Play,
   Plus,
+  Search,
   Sun,
   Timer,
   User,

@@ -122,3 +122,36 @@ export const ReactionSchema = z.object({
   createdAt: DateTimeSchema,
 });
 export type Reaction = z.infer<typeof ReactionSchema>;
+
+export const SocialSearchTypeSchema = z.enum(['POST', 'USER']);
+export type SocialSearchType = z.infer<typeof SocialSearchTypeSchema>;
+
+export const SocialSearchQuerySchema = z.object({
+  q: z.string().trim().min(1).max(64),
+  type: SocialSearchTypeSchema.default('POST'),
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type SocialSearchQuery = z.infer<typeof SocialSearchQuerySchema>;
+
+export const SocialUserProfileSchema = z.object({
+  id: IdSchema,
+  displayName: z.string(),
+  avatarUrl: z.string().url().nullable(),
+  postCount: z.number().int().nonnegative(),
+  joinedAt: DateTimeSchema,
+});
+export type SocialUserProfile = z.infer<typeof SocialUserProfileSchema>;
+
+export const SocialUserListResponseSchema = paginatedSchema(SocialUserProfileSchema);
+export type SocialUserListResponse = z.infer<typeof SocialUserListResponseSchema>;
+
+export const SocialSearchResponseSchema = z.object({
+  type: SocialSearchTypeSchema,
+  posts: PostListResponseSchema.optional(),
+  users: SocialUserListResponseSchema.optional(),
+});
+export type SocialSearchResponse = z.infer<typeof SocialSearchResponseSchema>;
+
+export const SocialUserPostsQuerySchema = PaginationQuerySchema;
+export type SocialUserPostsQuery = z.infer<typeof SocialUserPostsQuerySchema>;

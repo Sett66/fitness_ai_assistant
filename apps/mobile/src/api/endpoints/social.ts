@@ -7,6 +7,9 @@ import type {
   LikeResponse,
   PostListResponse,
   PostSummary,
+  SocialSearchResponse,
+  SocialSearchType,
+  SocialUserProfile,
 } from '@fitness/shared';
 import {
   CommentLikeResponseSchema,
@@ -17,6 +20,8 @@ import {
   MEDIA_MAX_SIZE_BYTES,
   PostListResponseSchema,
   PostSummarySchema,
+  SocialSearchResponseSchema,
+  SocialUserProfileSchema,
 } from '@fitness/shared';
 import {
   useInfiniteQuery,
@@ -64,6 +69,9 @@ export function useCreatePost() {
     },
     onSuccess: (post) => {
       qc.invalidateQueries({ queryKey: queryKeys.socialFeed });
+      qc.invalidateQueries({ queryKey: ['social-search'] });
+      qc.invalidateQueries({ queryKey: ['social-user'] });
+      qc.invalidateQueries({ queryKey: ['social-user-posts'] });
       qc.setQueryData(queryKeys.socialPost(post.id), post);
     },
   });
@@ -118,16 +126,22 @@ export function useDeletePost() {
     mutationFn: (id: string) => apiFetch(`/social/posts/${id}`, { method: 'DELETE' }),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: queryKeys.socialFeed });
+      qc.invalidateQueries({ queryKey: ['social-search'] });
+      qc.invalidateQueries({ queryKey: ['social-user'] });
+      qc.invalidateQueries({ queryKey: ['social-user-posts'] });
       qc.removeQueries({ queryKey: queryKeys.socialPost(id) });
     },
   });
 }
 
 type SocialFeedInfinite = InfiniteData<PostListResponse, string | undefined>;
+type SocialSearchInfinite = InfiniteData<SocialSearchResponse, string | undefined>;
 
 type LikeCacheSnapshot = {
   feed: SocialFeedInfinite | undefined;
   detail: PostSummary | undefined;
+  searches: [readonly unknown[], SocialSearchInfinite | undefined][];
+  userPosts: [readonly unknown[], SocialFeedInfinite | undefined][];
 };
 
 function patchPostLike(post: PostSummary, likedByMe: boolean): PostSummary {
@@ -139,19 +153,58 @@ function patchPostLike(post: PostSummary, likedByMe: boolean): PostSummary {
   };
 }
 
-function patchFeedLike(
+function patchFeedItems(
   data: SocialFeedInfinite | undefined,
   postId: string,
-  likedByMe: boolean,
+  patch: (post: PostSummary) => PostSummary,
 ): SocialFeedInfinite | undefined {
   if (!data) return data;
   return {
     ...data,
     pages: data.pages.map((page) => ({
       ...page,
-      items: page.items.map((item) => (item.id === postId ? patchPostLike(item, likedByMe) : item)),
+      items: page.items.map((item) => (item.id === postId ? patch(item) : item)),
     })),
   };
+}
+
+function patchSearchItems(
+  data: SocialSearchInfinite | undefined,
+  postId: string,
+  patch: (post: PostSummary) => PostSummary,
+): SocialSearchInfinite | undefined {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      posts: page.posts
+        ? {
+            ...page.posts,
+            items: page.posts.items.map((item) => (item.id === postId ? patch(item) : item)),
+          }
+        : page.posts,
+    })),
+  };
+}
+
+function patchPostInAllLists(
+  qc: QueryClient,
+  postId: string,
+  patch: (post: PostSummary) => PostSummary,
+): void {
+  const feed = qc.getQueryData<SocialFeedInfinite>(queryKeys.socialFeed);
+  qc.setQueryData(queryKeys.socialFeed, patchFeedItems(feed, postId, patch));
+  const detail = qc.getQueryData<PostSummary>(queryKeys.socialPost(postId));
+  if (detail) {
+    qc.setQueryData(queryKeys.socialPost(postId), patch(detail));
+  }
+  qc.setQueriesData<SocialSearchInfinite>({ queryKey: ['social-search', 'POST'] }, (data) =>
+    patchSearchItems(data, postId, patch),
+  );
+  qc.setQueriesData<SocialFeedInfinite>({ queryKey: ['social-user-posts'] }, (data) =>
+    patchFeedItems(data, postId, patch),
+  );
 }
 
 function snapshotAndPatchLike(
@@ -161,11 +214,10 @@ function snapshotAndPatchLike(
 ): LikeCacheSnapshot {
   const feed = qc.getQueryData<SocialFeedInfinite>(queryKeys.socialFeed);
   const detail = qc.getQueryData<PostSummary>(queryKeys.socialPost(postId));
-  qc.setQueryData(queryKeys.socialFeed, patchFeedLike(feed, postId, likedByMe));
-  if (detail) {
-    qc.setQueryData(queryKeys.socialPost(postId), patchPostLike(detail, likedByMe));
-  }
-  return { feed, detail };
+  const searches = qc.getQueriesData<SocialSearchInfinite>({ queryKey: ['social-search', 'POST'] });
+  const userPosts = qc.getQueriesData<SocialFeedInfinite>({ queryKey: ['social-user-posts'] });
+  patchPostInAllLists(qc, postId, (post) => patchPostLike(post, likedByMe));
+  return { feed, detail, searches, userPosts };
 }
 
 function restoreLikeSnapshot(qc: QueryClient, postId: string, snap: LikeCacheSnapshot): void {
@@ -175,31 +227,20 @@ function restoreLikeSnapshot(qc: QueryClient, postId: string, snap: LikeCacheSna
   } else {
     qc.setQueryData(queryKeys.socialPost(postId), snap.detail);
   }
+  for (const [key, data] of snap.searches) {
+    qc.setQueryData(key, data);
+  }
+  for (const [key, data] of snap.userPosts) {
+    qc.setQueryData(key, data);
+  }
 }
 
 function applyLikeResponse(qc: QueryClient, res: LikeResponse): void {
-  const feed = qc.getQueryData<SocialFeedInfinite>(queryKeys.socialFeed);
-  if (feed) {
-    qc.setQueryData(queryKeys.socialFeed, {
-      ...feed,
-      pages: feed.pages.map((page) => ({
-        ...page,
-        items: page.items.map((item) =>
-          item.id === res.postId
-            ? { ...item, likeCount: res.likeCount, likedByMe: res.likedByMe }
-            : item,
-        ),
-      })),
-    });
-  }
-  const detail = qc.getQueryData<PostSummary>(queryKeys.socialPost(res.postId));
-  if (detail) {
-    qc.setQueryData(queryKeys.socialPost(res.postId), {
-      ...detail,
-      likeCount: res.likeCount,
-      likedByMe: res.likedByMe,
-    });
-  }
+  patchPostInAllLists(qc, res.postId, (post) => ({
+    ...post,
+    likeCount: res.likeCount,
+    likedByMe: res.likedByMe,
+  }));
 }
 
 function useLikeMutation(likedByMe: boolean) {
@@ -238,30 +279,8 @@ function patchPostCommentCount(post: PostSummary, delta: number): PostSummary {
   return { ...post, commentCount: Math.max(0, post.commentCount + delta) };
 }
 
-function patchFeedCommentCount(
-  data: SocialFeedInfinite | undefined,
-  postId: string,
-  delta: number,
-): SocialFeedInfinite | undefined {
-  if (!data) return data;
-  return {
-    ...data,
-    pages: data.pages.map((page) => ({
-      ...page,
-      items: page.items.map((item) =>
-        item.id === postId ? patchPostCommentCount(item, delta) : item,
-      ),
-    })),
-  };
-}
-
 function bumpCommentCount(qc: QueryClient, postId: string, delta: number): void {
-  const feed = qc.getQueryData<SocialFeedInfinite>(queryKeys.socialFeed);
-  qc.setQueryData(queryKeys.socialFeed, patchFeedCommentCount(feed, postId, delta));
-  const detail = qc.getQueryData<PostSummary>(queryKeys.socialPost(postId));
-  if (detail) {
-    qc.setQueryData(queryKeys.socialPost(postId), patchPostCommentCount(detail, delta));
-  }
+  patchPostInAllLists(qc, postId, (post) => patchPostCommentCount(post, delta));
 }
 
 function appendCommentToCache(qc: QueryClient, postId: string, comment: CommentSummary): void {
@@ -443,4 +462,51 @@ export function useLikeComment() {
 
 export function useUnlikeComment() {
   return useCommentLikeMutation(false);
+}
+
+export function useSocialSearch(type: SocialSearchType, q: string) {
+  const trimmed = q.trim();
+  return useInfiniteQuery({
+    queryKey: queryKeys.socialSearch(type, trimmed),
+    queryFn: async ({ pageParam }): Promise<SocialSearchResponse> => {
+      const qs = pageParam
+        ? `q=${encodeURIComponent(trimmed)}&type=${type}&limit=20&cursor=${encodeURIComponent(pageParam)}`
+        : `q=${encodeURIComponent(trimmed)}&type=${type}&limit=20`;
+      const json = await apiFetch<unknown>(`/social/search?${qs}`, { noCache: true });
+      return SocialSearchResponseSchema.parse(json);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.type === 'USER') return lastPage.users?.nextCursor ?? undefined;
+      return lastPage.posts?.nextCursor ?? undefined;
+    },
+    enabled: trimmed.length > 0,
+  });
+}
+
+export function useSocialUser(userId: string) {
+  return useQuery({
+    queryKey: queryKeys.socialUser(userId),
+    queryFn: async (): Promise<SocialUserProfile> => {
+      const json = await apiFetch<unknown>(`/social/users/${userId}`, { noCache: true });
+      return SocialUserProfileSchema.parse(json);
+    },
+    enabled: userId.length > 0,
+  });
+}
+
+export function useSocialUserPosts(userId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.socialUserPosts(userId),
+    queryFn: async ({ pageParam }): Promise<PostListResponse> => {
+      const qs = pageParam ? `limit=20&cursor=${encodeURIComponent(pageParam)}` : 'limit=20';
+      const json = await apiFetch<unknown>(`/social/users/${userId}/posts?${qs}`, {
+        noCache: true,
+      });
+      return PostListResponseSchema.parse(json);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: userId.length > 0,
+  });
 }
