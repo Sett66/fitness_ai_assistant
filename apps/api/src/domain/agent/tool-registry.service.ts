@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { formatCurrentDatetimeLine } from '@fitness/ai-core';
 import type { CoachToolName, LocationContext } from '@fitness/shared';
 import {
   EnqueueMealVisionInputSchema,
@@ -26,7 +27,6 @@ export type ToolContext = {
   sessionToolCounts?: Partial<Record<CoachToolName, number>>;
 };
 
-const WEEKDAY_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const TOOL_LIMIT_MESSAGE = '今日该工具次数已用完';
 const WEATHER_NEED_LOCATION_MESSAGE = '需要城市名或定位权限';
 const MEAL_VISION_NEED_IMAGE_MESSAGE = '请用户上传餐照（使用 App 附件菜单）';
@@ -141,25 +141,7 @@ export class ToolRegistryService {
   }
 
   private getCurrentDatetime(ctx: ToolContext): string {
-    const offsetMinutes = Number.isFinite(ctx.timezoneOffsetMinutes)
-      ? ctx.timezoneOffsetMinutes
-      : 480;
-    const local = new Date(Date.now() + offsetMinutes * 60_000);
-
-    const y = local.getUTCFullYear();
-    const m = String(local.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(local.getUTCDate()).padStart(2, '0');
-    const hh = String(local.getUTCHours()).padStart(2, '0');
-    const mm = String(local.getUTCMinutes()).padStart(2, '0');
-    const weekday = WEEKDAY_ZH[local.getUTCDay()] ?? '';
-
-    const sign = offsetMinutes >= 0 ? '+' : '-';
-    const absMin = Math.abs(offsetMinutes);
-    const tzH = String(Math.trunc(absMin / 60)).padStart(2, '0');
-    const tzM = String(absMin % 60).padStart(2, '0');
-    const tz = tzM === '00' ? `UTC${sign}${Number(tzH)}` : `UTC${sign}${tzH}:${tzM}`;
-
-    return `当前日期时间：${y}-${m}-${d} ${weekday} ${hh}:${mm}（${tz}）`;
+    return formatCurrentDatetimeLine(new Date(), ctx.timezoneOffsetMinutes);
   }
 
   private async getWeather(input: unknown, ctx: ToolContext): Promise<string> {

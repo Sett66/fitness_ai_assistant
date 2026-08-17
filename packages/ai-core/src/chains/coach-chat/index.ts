@@ -2,6 +2,7 @@ import { LLM_MODELS } from '@fitness/shared';
 import { createDeepSeekClient } from '../../llm/deepseek';
 import type { ChatMessage, JsonChatClient, LlmUsage } from '../../llm/types';
 import { buildCoachSystemPrompt } from './build-system-prompt';
+import { stampCoachMessageContent } from './format-chat-time';
 import { parseCoachChatOutput } from './parse-coach-output';
 import { RunCoachChatInputSchema, type CoachChatOutput, type RunCoachChatInput } from './schema';
 
@@ -17,6 +18,7 @@ export const runCoachChat = async (
 ): Promise<CoachChatResult> => {
   const parsed = RunCoachChatInputSchema.parse(input);
 
+  const now = new Date();
   const messages: ChatMessage[] = [
     {
       role: 'system',
@@ -24,13 +26,28 @@ export const runCoachChat = async (
         userContext: parsed.userContext,
         memoryFacts: parsed.memoryFacts,
         mode: 'json',
+        timezoneOffsetMinutes: parsed.timezoneOffsetMinutes,
+        now,
       }),
     },
     ...parsed.history.map((item) => ({
       role: (item.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: item.content,
+      content: stampCoachMessageContent(
+        item.content,
+        item.createdAt,
+        now,
+        parsed.timezoneOffsetMinutes,
+      ),
     })),
-    { role: 'user', content: parsed.latestUserText },
+    {
+      role: 'user',
+      content: stampCoachMessageContent(
+        parsed.latestUserText,
+        now,
+        now,
+        parsed.timezoneOffsetMinutes,
+      ),
+    },
   ];
 
   const response = await (options?.client ?? createDeepSeekClient()).generateJson({

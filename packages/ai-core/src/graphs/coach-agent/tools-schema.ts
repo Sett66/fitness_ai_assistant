@@ -49,7 +49,7 @@ export const COACH_AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
     function: {
       name: 'get_current_datetime',
       description:
-        '获取当前日期、星期与时间（基于用户所在时区）。当用户问题涉及「今天/明天/几号/星期几/现在几点」等日期时间，或需要把「明天/周末」换算成具体日期（例如配合天气预报）时调用。',
+        '获取当前日期、星期与时间（基于用户所在时区）。系统提示已包含【当前时间】，一般不必调用；仅在需要再次核对或把「明天/周末」换算成具体日期时使用。',
       parameters: {
         type: 'object',
         properties: {},

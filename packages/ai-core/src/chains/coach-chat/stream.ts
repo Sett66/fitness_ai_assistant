@@ -4,6 +4,7 @@ import { createDeepSeekClient } from '../../llm/deepseek';
 import type { CoachChatLlmClient } from '../../llm/tracing-client';
 import type { ChatMessage, LlmUsage } from '../../llm/types';
 import { buildCoachSystemPrompt } from './build-system-prompt';
+import { stampCoachMessageContent } from './format-chat-time';
 import { inferSuggestedActions } from './infer-suggested-actions';
 import { RunCoachChatInputSchema, type CoachChatOutput, type RunCoachChatInput } from './schema';
 
@@ -26,6 +27,7 @@ export async function* runCoachChatStream(
   const client = options?.client ?? createDeepSeekClient();
   const model = options?.model ?? LLM_MODELS.DEEPSEEK_V4_PRO;
 
+  const now = new Date();
   const messages: ChatMessage[] = [
     {
       role: 'system',
@@ -33,13 +35,28 @@ export async function* runCoachChatStream(
         userContext: parsed.userContext,
         memoryFacts: parsed.memoryFacts,
         mode: 'stream',
+        timezoneOffsetMinutes: parsed.timezoneOffsetMinutes,
+        now,
       }),
     },
     ...parsed.history.map((item) => ({
       role: (item.role === 'USER' ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: item.content,
+      content: stampCoachMessageContent(
+        item.content,
+        item.createdAt,
+        now,
+        parsed.timezoneOffsetMinutes,
+      ),
     })),
-    { role: 'user', content: parsed.latestUserText },
+    {
+      role: 'user',
+      content: stampCoachMessageContent(
+        parsed.latestUserText,
+        now,
+        now,
+        parsed.timezoneOffsetMinutes,
+      ),
+    },
   ];
 
   let streamUsage: LlmUsage = { tokenIn: 0, tokenOut: 0, costCny: 0 };

@@ -247,12 +247,13 @@ export class AiTaskProcessor extends WorkerHost {
       .map((row) => ({
         role: row.role as 'USER' | 'ASSISTANT',
         content: row.content.slice(0, 2000),
+        createdAt: row.createdAt,
       }));
 
     const userContext = await this.userContext.build(userId, { timezoneOffsetMinutes });
     const memoryFacts = await this.agentMemory.listForPrompt(userId);
     const output = await runCoachChat(
-      { latestUserText, history, userContext, memoryFacts },
+      { latestUserText, history, userContext, memoryFacts, timezoneOffsetMinutes },
       { model },
     );
 

@@ -7,6 +7,7 @@ import type {
 } from '@fitness/shared';
 
 import { buildCoachSystemPrompt } from '../../chains/coach-chat/build-system-prompt';
+import { stampCoachMessageContent } from '../../chains/coach-chat/format-chat-time';
 import { inferSuggestedActions } from '../../chains/coach-chat/infer-suggested-actions';
 import type { CoachChatHistoryItem } from '../../chains/coach-chat/schema';
 import { mergeLlmUsage } from '../../chains/meal-vision/advice';
@@ -33,6 +34,7 @@ export type RunCoachAgentStreamInput = {
   memoryFacts?: AgentMemoryFact[];
   locationContext?: LocationContext;
   timezoneOffsetMinutes: number;
+  now?: Date;
 };
 
 export type CoachAgentStreamDoneEvent = {
@@ -50,22 +52,38 @@ export type RunCoachAgentStreamOptions = CreateCoachAgentGraphOptions & {
 };
 
 const buildInitialMessages = (input: RunCoachAgentStreamInput): AgentChatMessage[] => {
+  const now = input.now ?? new Date();
   const systemPrompt = buildCoachSystemPrompt({
     userContext: input.userContext,
     memoryFacts: input.memoryFacts,
     locationContext: input.locationContext,
     mode: 'agent',
+    timezoneOffsetMinutes: input.timezoneOffsetMinutes,
+    now,
   });
 
   const historyMessages: AgentChatMessage[] = input.history.map((item) => ({
     role: item.role === 'USER' ? 'user' : 'assistant',
-    content: item.content,
+    content: stampCoachMessageContent(
+      item.content,
+      item.createdAt,
+      now,
+      input.timezoneOffsetMinutes,
+    ),
   }));
 
   return [
     { role: 'system', content: systemPrompt },
     ...historyMessages,
-    { role: 'user', content: input.latestUserText },
+    {
+      role: 'user',
+      content: stampCoachMessageContent(
+        input.latestUserText,
+        now,
+        now,
+        input.timezoneOffsetMinutes,
+      ),
+    },
   ];
 };
 

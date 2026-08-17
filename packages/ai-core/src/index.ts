@@ -29,6 +29,12 @@ export { runCoachChatStream } from './chains/coach-chat/stream';
 export { inferSuggestedActions } from './chains/coach-chat/infer-suggested-actions';
 export { buildCoachSystemPrompt } from './chains/coach-chat/build-system-prompt';
 export {
+  formatCurrentDatetimeBlock,
+  formatCurrentDatetimeLine,
+  formatHistoryTimestamp,
+  stampCoachMessageContent,
+} from './chains/coach-chat/format-chat-time';
+export {
   createCoachAgentGraph,
   runCoachAgentStream,
   MAX_TOOL_ITERATIONS,

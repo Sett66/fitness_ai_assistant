@@ -419,7 +419,7 @@ export class ConversationsService {
         }
 
         const stream = runCoachChatStream(
-          { latestUserText, history, userContext: userCtx, memoryFacts },
+          { latestUserText, history, userContext: userCtx, memoryFacts, timezoneOffsetMinutes },
           {
             model,
             client: traceSession?.createTracedDeepSeekClient(),
@@ -692,6 +692,7 @@ export class ConversationsService {
       .map((row) => ({
         role: row.role as 'USER' | 'ASSISTANT',
         content: formatCoachHistoryContent(row.contentType, row.content, row.metadata),
+        createdAt: row.createdAt,
       }));
   }
 
