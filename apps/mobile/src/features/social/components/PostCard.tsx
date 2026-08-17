@@ -76,7 +76,9 @@ export function PostCard({
           {post.isMine && post.moderation === 'REJECTED' ? (
             <View className="mt-2 rounded-lg border border-destructive bg-card px-2 py-1.5">
               <Subtitle className="text-destructive">
-                {post.moderationReason ? `未通过审核：${post.moderationReason}` : '未通过审核'}
+                {post.moderationReason
+                  ? `该动态未通过审核，仅自己可见 · ${post.moderationReason}`
+                  : '该动态未通过审核，仅自己可见'}
               </Subtitle>
             </View>
           ) : null}

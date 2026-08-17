@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import {
   AiCoreError,
@@ -10,6 +10,7 @@ import {
   runMealVisionWithAdvice,
   runReportAssess,
   runReportExtract,
+  runSocialModerate,
   runWorkoutPlanGenerator,
   type LlmUsage,
 } from '@fitness/ai-core';
@@ -23,7 +24,7 @@ import {
   MealVisionTaskInputSchema,
   REPORT_PDF_MAX_PAGES,
 } from '@fitness/shared';
-import type { Job } from 'bullmq';
+import type { Job, Queue } from 'bullmq';
 
 import { ConversationSideEffectService } from '../domain/conversation-side-effect.service';
 import { AgentMemoryService } from '../domain/agent-memory.service';
@@ -36,7 +37,11 @@ import { S3StorageService } from '../infra/storage/s3-storage.service';
 import {
   AI_TASK_QUEUE_NAME,
   MEMORY_EXTRACT_JOB_NAME,
+  SOCIAL_INDEX_JOB_NAME,
+  SOCIAL_INDEX_JOB_OPTIONS,
+  SOCIAL_INDEX_QUEUE_NAME,
   type AiTaskJobPayload,
+  type SocialIndexJobPayload,
 } from '../infra/queue/queue.constants';
 import { MealLogsService } from '../modules/meal-logs/meal-logs.service';
 
@@ -59,6 +64,7 @@ export class AiTaskProcessor extends WorkerHost {
     private readonly storage: S3StorageService,
     private readonly pdfRender: PdfRenderService,
     private readonly conversationSideEffects: ConversationSideEffectService,
+    @InjectQueue(SOCIAL_INDEX_QUEUE_NAME) private readonly indexQueue: Queue<SocialIndexJobPayload>,
   ) {
     super();
   }
@@ -202,6 +208,10 @@ export class AiTaskProcessor extends WorkerHost {
       };
     }
 
+    if (taskType === 'SOCIAL_MODERATE') {
+      return this.dispatchSocialModerate(model, clientInput);
+    }
+
     throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', `M3 暂未支持任务类型：${taskType}`);
   }
 
@@ -247,6 +257,43 @@ export class AiTaskProcessor extends WorkerHost {
     );
 
     return { outputJson: output.result, usage: output.usage };
+  }
+
+  private async dispatchSocialModerate(
+    model: string,
+    clientInput: Record<string, unknown>,
+  ): Promise<AiTaskOutput> {
+    const postId = typeof clientInput.postId === 'string' ? clientInput.postId : '';
+    if (!postId) {
+      return { outputJson: { skipped: true }, usage: ZERO_USAGE };
+    }
+
+    const post = await this.prisma.client.post.findUnique({ where: { id: postId } });
+    if (!post || post.deletedAt != null) {
+      return { outputJson: { skipped: true }, usage: ZERO_USAGE };
+    }
+
+    const output = await runSocialModerate({ body: post.body }, { model });
+    const decision = output.result.decision;
+    const reason = decision === 'APPROVED' ? null : output.result.reason || '违反社区规范';
+
+    await this.prisma.client.post.update({
+      where: { id: post.id },
+      data: { moderation: decision, moderationReason: reason },
+    });
+
+    if (decision === 'REJECTED') {
+      await this.indexQueue.add(
+        SOCIAL_INDEX_JOB_NAME,
+        { op: 'DELETE_POST', id: post.id },
+        SOCIAL_INDEX_JOB_OPTIONS,
+      );
+    }
+
+    return {
+      outputJson: { decision, reason: output.result.reason },
+      usage: output.usage,
+    };
   }
 
   private async processMemoryExtract(job: Job<AiTaskJobPayload>): Promise<void> {
@@ -630,6 +677,8 @@ export class AiTaskProcessor extends WorkerHost {
     return String(err).slice(0, 2048);
   }
 }
+
+const ZERO_USAGE: LlmUsage = { tokenIn: 0, tokenOut: 0, costCny: 0 };
 
 const isImageMime = (mime: string): boolean => mime.toLowerCase().startsWith('image/');
 

@@ -144,6 +144,17 @@ export function PostDetailScreen({ navigation, route }: Props) {
           }
         />
         <View style={{ marginBottom: keyboardHeight }}>
+          {createComment.error ? (
+            <View className="px-4 pt-2">
+              <ErrorText
+                message={
+                  createComment.error instanceof Error
+                    ? createComment.error.message
+                    : '评论失败，请重试'
+                }
+              />
+            </View>
+          ) : null}
           <CommentComposer
             value={draft}
             onChangeText={setDraft}

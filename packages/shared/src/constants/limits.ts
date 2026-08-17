@@ -10,6 +10,7 @@ export const AI_TASK_DAILY_LIMITS: Readonly<Partial<Record<string, number>>> = {
   MESOCYCLE_REVIEW: 2,
   REPORT_ANALYZE: 3,
   REPORT_REASSESS: 10,
+  // SOCIAL_MODERATE 有意不登记：审核是系统行为，不计入用户每日配额（ADR 0011 §13）
 };
 
 /** 长期记忆异步抽取日限（与 COACH_CHAT 同量级，防刷） */

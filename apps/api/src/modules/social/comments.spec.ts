@@ -118,6 +118,18 @@ describe('CommentsService create / remove', () => {
     expect(result.likedByMe).toBe(false);
   });
 
+  it('命中拦截词返回 SOCIAL_CONTENT_REJECTED 且不写库', async () => {
+    const { service, prisma } = createService();
+
+    await expect(
+      service.create({ userId: USER_A }, POST_ID, { body: 'this is abuseword' }),
+    ).rejects.toMatchObject({
+      code: 'SOCIAL_CONTENT_REJECTED',
+      httpStatus: 400,
+    });
+    expect(prisma.client.$transaction).not.toHaveBeenCalled();
+  });
+
   it('传入他帖的 parentId 返回 SOCIAL_COMMENT_NOT_FOUND 且不写库', async () => {
     const { service, prisma } = createService();
     prisma.client.comment.findFirst.mockResolvedValue(null);

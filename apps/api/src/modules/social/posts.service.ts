@@ -1,12 +1,15 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Media, Post } from '@fitness/db';
 import type { LikeResponse, PostListResponse, PostSummary, SocialAuthor } from '@fitness/shared';
 import {
   CreatePostRequestSchema,
+  LLM_MODELS,
   PostSummarySchema,
   SocialFeedQuerySchema,
   errorMessagesZhCN,
+  findBannedKeyword,
 } from '@fitness/shared';
 import type { Queue } from 'bullmq';
 
@@ -15,9 +18,12 @@ import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import {
+  AI_TASK_JOB_NAME,
+  AI_TASK_QUEUE_NAME,
   SOCIAL_INDEX_JOB_NAME,
   SOCIAL_INDEX_JOB_OPTIONS,
   SOCIAL_INDEX_QUEUE_NAME,
+  type AiTaskJobPayload,
   type SocialIndexJobPayload,
 } from '../../infra/queue/queue.constants';
 import { S3StorageService } from '../../infra/storage/s3-storage.service';
@@ -32,6 +38,8 @@ export class PostsService {
     private readonly prisma: PrismaService,
     private readonly storage: S3StorageService,
     @InjectQueue(SOCIAL_INDEX_QUEUE_NAME) private readonly indexQueue: Queue<SocialIndexJobPayload>,
+    @InjectQueue(AI_TASK_QUEUE_NAME) private readonly aiQueue: Queue<AiTaskJobPayload>,
+    private readonly config: ConfigService,
   ) {}
 
   async create(user: JwtUserPayload, body: unknown): Promise<PostSummary> {
@@ -44,17 +52,25 @@ export class PostsService {
     }
 
     const input = parseWith(CreatePostRequestSchema, body);
-    const mediaIds = input.mediaIds ?? [];
+    if (findBannedKeyword(input.body)) {
+      throw new BizException(
+        'SOCIAL_CONTENT_REJECTED',
+        errorMessagesZhCN.SOCIAL_CONTENT_REJECTED,
+        400,
+      );
+    }
 
-    // SOCIAL-06: 关键词校验 + 审核入队
+    const mediaIds = input.mediaIds ?? [];
     await this.assertOwnedReadyImages(user.userId, mediaIds);
 
+    const moderationEnabled = this.isSocialModerationEnabled();
     const post = await this.prisma.client.post.create({
       data: {
         userId: user.userId,
         body: input.body,
         mediaIds,
         visibility: input.visibility,
+        ...(moderationEnabled ? {} : { moderation: 'APPROVED' as const }),
       },
     });
 
@@ -63,6 +79,29 @@ export class PostsService {
       { op: 'INDEX_POST', id: post.id },
       SOCIAL_INDEX_JOB_OPTIONS,
     );
+
+    if (moderationEnabled) {
+      const run = await this.prisma.client.aiRun.create({
+        data: {
+          userId: user.userId,
+          taskType: 'SOCIAL_MODERATE',
+          model: LLM_MODELS.DEEPSEEK_V4_FLASH,
+          status: 'QUEUED',
+          inputJson: { postId: post.id },
+        },
+      });
+      await this.aiQueue.add(
+        AI_TASK_JOB_NAME,
+        { aiRunId: run.id },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
+      );
+    }
+
     const [mapped] = await this.mapPosts([post], user.userId);
     if (!mapped) {
       throw new BizException('SOCIAL_POST_NOT_FOUND', errorMessagesZhCN.SOCIAL_POST_NOT_FOUND, 404);
@@ -264,6 +303,10 @@ export class PostsService {
         createdAt: row.createdAt,
       });
     });
+  }
+
+  private isSocialModerationEnabled(): boolean {
+    return this.config.get<string>('SOCIAL_MODERATION_ENABLED', 'true') !== 'false';
   }
 
   private canView(post: Post, viewerId: string): boolean {

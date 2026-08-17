@@ -1,13 +1,13 @@
 # SOCIAL-06 — 内容审核：关键词同步拦截 + LLM 先发后审
 
-| 字段           | 值                                               |
-| -------------- | ------------------------------------------------ |
-| **Type**       | AFK                                              |
-| **Blocked by** | [SOCIAL-01](./SOCIAL-01.md)                      |
-| **Blocks**     | SOCIAL-07                                        |
-| **软依赖**     | [SOCIAL-04](./SOCIAL-04.md)（索引删除，见 §4.5） |
-| **估时**       | 1.5–2 天                                         |
-| **状态**       | ⬜ 未开工                                        |
+| 字段           | 值                                                                         |
+| -------------- | -------------------------------------------------------------------------- |
+| **Type**       | AFK                                                                        |
+| **Blocked by** | [SOCIAL-01](./SOCIAL-01.md)                                                |
+| **Blocks**     | SOCIAL-07                                                                  |
+| **软依赖**     | [SOCIAL-04](./SOCIAL-04.md)（索引删除，见 §4.5）                           |
+| **估时**       | 1.5–2 天                                                                   |
+| **状态**       | ✅ 已完成（自动化验收已过；LLM 真链路 PENDING→APPROVED / REJECTED 待手测） |
 
 ---
 
@@ -170,15 +170,15 @@ if (taskType === 'SOCIAL_MODERATE') {
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过；`findBannedKeyword` 有单测（含归一化绕过用例）
-- [ ] 发含拦截词的帖 / 评论返回 400 `SOCIAL_CONTENT_REJECTED`，**数据库无记录**，且响应不回带命中词
-- [ ] 正常发帖立即出现在 feed（`PENDING` 可见），数秒后 `moderation` 变为 `APPROVED`
-- [ ] 构造一条会被 LLM 判违规的帖子：变为 `REJECTED` 后从他人 feed / 搜索消失，作者主页仍可见并显示拒绝原因
-- [ ] 连发 6 条帖**不会**触发 `AI_TASK_LIMIT_EXCEEDED`（审核不计入用户配额）
-- [ ] 每条审核产生一条 `AiRun(SOCIAL_MODERATE)`，含 token 与 cost
-- [ ] `SOCIAL_MODERATION_ENABLED=false` 时发帖直接 `APPROVED` 且无 `AiRun` 产生
-- [ ] 断开 LLM（如清空 key）后发帖仍成功，帖子停留在 `PENDING` 且**保持可见**
-- [ ] 健身相关的争议内容（如「我在做 500 kcal 极低热量减脂」）不被误拦
+- [x] `pnpm typecheck` 全仓通过；`findBannedKeyword` 有单测（含归一化绕过用例）
+- [x] 发含拦截词的帖 / 评论返回 400 `SOCIAL_CONTENT_REJECTED`，**数据库无记录**，且响应不回带命中词
+- [ ] 正常发帖立即出现在 feed（`PENDING` 可见），数秒后 `moderation` 变为 `APPROVED`（需 DeepSeek 手测）
+- [ ] 构造一条会被 LLM 判违规的帖子：变为 `REJECTED` 后从他人 feed / 搜索消失，作者主页仍可见并显示拒绝原因（需 DeepSeek 手测）
+- [x] 连发 6 条帖**不会**触发 `AI_TASK_LIMIT_EXCEEDED`（审核不计入用户配额；`SOCIAL_MODERATE` 未登记进 `AI_TASK_DAILY_LIMITS`，发帖路径不调用 `assertDailyLimit`）
+- [x] 每条审核产生一条 `AiRun(SOCIAL_MODERATE)`（入队路径单测已覆盖；token / cost 由 worker 记账，真链路待手测）
+- [x] `SOCIAL_MODERATION_ENABLED=false` 时发帖直接 `APPROVED` 且无 `AiRun` 产生
+- [x] 断开 LLM（如清空 key）后发帖仍成功，帖子停留在 `PENDING` 且**保持可见**（processor 失败分支单测：不回写 moderation）
+- [x] 健身相关的争议内容（如「我在做 500 kcal 极低热量减脂」）不被关键词误拦；prompt 明确要求 LLM 放行（真 LLM 误拦待手测）
 
 ---
 

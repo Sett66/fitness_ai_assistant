@@ -6,6 +6,7 @@ import {
   CommentSummarySchema,
   CreateCommentRequestSchema,
   errorMessagesZhCN,
+  findBannedKeyword,
 } from '@fitness/shared';
 
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
@@ -46,9 +47,13 @@ export class CommentsService {
   async create(user: JwtUserPayload, postId: string, body: unknown): Promise<CommentSummary> {
     await this.posts.assertVisiblePost(user.userId, postId);
     const input = parseWith(CreateCommentRequestSchema, body);
-
-    // SOCIAL-06: 关键词校验（命中直接 400，不落库）
-    // 评论不进检索索引（ADR 0011 §9）
+    if (findBannedKeyword(input.body)) {
+      throw new BizException(
+        'SOCIAL_CONTENT_REJECTED',
+        errorMessagesZhCN.SOCIAL_CONTENT_REJECTED,
+        400,
+      );
+    }
 
     if (input.parentId) {
       const parent = await this.prisma.client.comment.findFirst({

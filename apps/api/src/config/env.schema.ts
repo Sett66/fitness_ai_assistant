@@ -15,6 +15,7 @@ export const envValidationSchema = Joi.object({
   S3_FORCE_PATH_STYLE: Joi.boolean().truthy('true').falsy('false').default(true),
   S3_PUBLIC_ENDPOINT: Joi.string().optional().allow('', null),
   COACH_AGENT_ENABLED: Joi.string().valid('true', 'false').default('false'),
+  SOCIAL_MODERATION_ENABLED: Joi.string().valid('true', 'false').default('true'),
   LANGFUSE_ENABLED: Joi.string().valid('true', 'false').default('false'),
   LANGFUSE_PUBLIC_KEY: Joi.when('LANGFUSE_ENABLED', {
     is: 'true',
@@ -84,6 +85,7 @@ export type EnvShape = {
   S3_FORCE_PATH_STYLE: boolean;
   S3_PUBLIC_ENDPOINT?: string;
   COACH_AGENT_ENABLED: 'true' | 'false';
+  SOCIAL_MODERATION_ENABLED: 'true' | 'false';
   LANGFUSE_ENABLED: 'true' | 'false';
   LANGFUSE_PUBLIC_KEY?: string;
   LANGFUSE_SECRET_KEY?: string;
@@ -122,6 +124,7 @@ export function mapEnv(env: NodeJS.ProcessEnv): EnvShape {
     S3_FORCE_PATH_STYLE: forceRaw === 'true',
     S3_PUBLIC_ENDPOINT: parseOptionalUrl(env.S3_PUBLIC_ENDPOINT),
     COACH_AGENT_ENABLED: env.COACH_AGENT_ENABLED === 'true' ? 'true' : 'false',
+    SOCIAL_MODERATION_ENABLED: env.SOCIAL_MODERATION_ENABLED === 'false' ? 'false' : 'true',
     LANGFUSE_ENABLED: env.LANGFUSE_ENABLED === 'true' ? 'true' : 'false',
     LANGFUSE_PUBLIC_KEY: parseOptionalUrl(env.LANGFUSE_PUBLIC_KEY),
     LANGFUSE_SECRET_KEY: parseOptionalUrl(env.LANGFUSE_SECRET_KEY),

@@ -59,6 +59,7 @@ export const ERROR_CODE_VALUES = [
   'SOCIAL_MEDIA_INVALID',
   'SOCIAL_VISIBILITY_UNSUPPORTED',
   'SOCIAL_SEARCH_UNAVAILABLE',
+  'SOCIAL_CONTENT_REJECTED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODE_VALUES)[number];

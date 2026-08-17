@@ -5,6 +5,8 @@ export { runReportExtract } from './chains/report-extract';
 export type { ReportExtractOutput } from './chains/report-extract';
 export { runReportAssess } from './chains/report-assess';
 export type { ReportAssessOutput, ReportAssessResult } from './chains/report-assess';
+export { runSocialModerate } from './chains/social-moderate';
+export type { SocialModerateOutput, SocialModerateResult } from './chains/social-moderate';
 export { runMealVisionAdvice, mergeLlmUsage } from './chains/meal-vision/advice';
 export { describeCoachImages, buildAugmentedUserText } from './chains/coach-image-describe';
 export type { DescribeCoachImagesResult } from './chains/coach-image-describe';

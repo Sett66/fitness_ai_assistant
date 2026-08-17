@@ -62,19 +62,24 @@ function createService() {
       },
       user: { findMany: jest.fn() },
       reaction: { findMany: jest.fn() },
+      aiRun: { create: jest.fn() },
       $transaction: jest.fn(),
     },
   };
 
   const indexQueue = { add: jest.fn().mockResolvedValue(undefined) };
+  const aiQueue = { add: jest.fn().mockResolvedValue(undefined) };
+  const config = { get: jest.fn().mockReturnValue('true') };
 
   const service = new PostsService(
     prisma as unknown as PrismaService,
     {} as S3StorageService,
     indexQueue as never,
+    aiQueue as never,
+    config as never,
   );
 
-  return { service, prisma, tx, indexQueue };
+  return { service, prisma, tx, indexQueue, aiQueue, config };
 }
 
 describe('isUniqueViolation', () => {
@@ -176,13 +181,14 @@ describe('PostsService like / unlike', () => {
 
 describe('PostsService 索引入队', () => {
   it('发帖成功后入队 INDEX_POST', async () => {
-    const { service, prisma, indexQueue } = createService();
+    const { service, prisma, indexQueue, aiQueue } = createService();
     const post = visiblePost({ userId: USER_A, body: '今天深蹲' });
     prisma.client.post.create.mockResolvedValue(post);
     prisma.client.user.findMany.mockResolvedValue([
       { id: USER_A, displayName: 'Alice', avatarMedia: null },
     ]);
     prisma.client.reaction.findMany.mockResolvedValue([]);
+    prisma.client.aiRun.create.mockResolvedValue({ id: 'run-1' });
 
     await service.create({ userId: USER_A }, { body: '今天深蹲' });
 
@@ -190,6 +196,19 @@ describe('PostsService 索引入队', () => {
       'default',
       { op: 'INDEX_POST', id: POST_ID },
       expect.objectContaining({ attempts: 8 }),
+    );
+    expect(prisma.client.aiRun.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: USER_A,
+        taskType: 'SOCIAL_MODERATE',
+        status: 'QUEUED',
+        inputJson: { postId: POST_ID },
+      }),
+    });
+    expect(aiQueue.add).toHaveBeenCalledWith(
+      'default',
+      { aiRunId: 'run-1' },
+      expect.objectContaining({ attempts: 3 }),
     );
   });
 
@@ -218,5 +237,42 @@ describe('PostsService 索引入队', () => {
     await service.like({ userId: USER_A }, POST_ID);
 
     expect(indexQueue.add).not.toHaveBeenCalled();
+  });
+});
+
+describe('PostsService create 审核', () => {
+  it('命中拦截词返回 400 且不写库、不回带命中词', async () => {
+    const { service, prisma, indexQueue, aiQueue } = createService();
+
+    await expect(
+      service.create({ userId: USER_A }, { body: 'buy bannedword now' }),
+    ).rejects.toMatchObject({
+      code: 'SOCIAL_CONTENT_REJECTED',
+      httpStatus: 400,
+      message: '内容包含不允许发布的词语，请修改后重试',
+    });
+    expect(prisma.client.post.create).not.toHaveBeenCalled();
+    expect(indexQueue.add).not.toHaveBeenCalled();
+    expect(aiQueue.add).not.toHaveBeenCalled();
+  });
+
+  it('SOCIAL_MODERATION_ENABLED=false 时直接 APPROVED 且不入审核队列', async () => {
+    const { service, prisma, indexQueue, aiQueue, config } = createService();
+    config.get.mockReturnValue('false');
+    const post = visiblePost({ userId: USER_A, body: '今天深蹲', moderation: 'APPROVED' });
+    prisma.client.post.create.mockResolvedValue(post);
+    prisma.client.user.findMany.mockResolvedValue([
+      { id: USER_A, displayName: 'Alice', avatarMedia: null },
+    ]);
+    prisma.client.reaction.findMany.mockResolvedValue([]);
+
+    await service.create({ userId: USER_A }, { body: '今天深蹲' });
+
+    expect(prisma.client.post.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ moderation: 'APPROVED' }),
+    });
+    expect(indexQueue.add).toHaveBeenCalled();
+    expect(prisma.client.aiRun.create).not.toHaveBeenCalled();
+    expect(aiQueue.add).not.toHaveBeenCalled();
   });
 });

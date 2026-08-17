@@ -56,6 +56,7 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   SOCIAL_MEDIA_INVALID: '图片无效，请重新选择',
   SOCIAL_VISIBILITY_UNSUPPORTED: '暂不支持该可见性设置',
   SOCIAL_SEARCH_UNAVAILABLE: '搜索服务暂时不可用，请稍后再试',
+  SOCIAL_CONTENT_REJECTED: '内容包含不允许发布的词语，请修改后重试',
 };
 
 /**
