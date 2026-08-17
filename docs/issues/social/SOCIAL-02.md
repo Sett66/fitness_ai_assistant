@@ -6,7 +6,7 @@
 | **Blocked by** | [SOCIAL-01](./SOCIAL-01.md) |
 | **Blocks**     | SOCIAL-07                   |
 | **估时**       | 1 天                        |
-| **状态**       | ⬜ 未开工                   |
+| **状态**       | ✅ 已完成                   |
 
 ---
 
@@ -52,34 +52,37 @@ LikeResponseSchema = {
 
 ### 4.2 `PUT /v1/social/posts/:id/like`
 
-**必须**按下面的顺序实现，任何「先查再加」的写法都会在并发下漏计或重复计：
+**必须**按下面的顺序实现。Postgres 在唯一冲突时会 **abort 当前事务**，因此 `P2002` **不能**在交互式 `$transaction` 回调里 catch 后继续用同一个 `tx`（否则后续 `findUnique` 会 500）。正确写法：让冲突把整段事务失败掉（此时 `increment` 根本没执行），再在事务外读当前计数。
 
 ```ts
 async like(userId: string, postId: string): Promise<LikeResponse> {
-  const post = await this.assertVisiblePost(userId, postId);   // 404 SOCIAL_POST_NOT_FOUND
+  await this.assertVisiblePost(userId, postId);   // 404 SOCIAL_POST_NOT_FOUND
 
-  const updated = await this.prisma.client.$transaction(async (tx) => {
-    try {
+  try {
+    const updated = await this.prisma.client.$transaction(async (tx) => {
       await tx.reaction.create({ data: { postId, userId, kind: 'LIKE' } });
-    } catch (err) {
-      if (isUniqueViolation(err)) {
-        // 已点过赞：幂等返回，绝不 increment
-        return tx.post.findUniqueOrThrow({ where: { id: postId }, select: { likeCount: true } });
-      }
-      throw err;
-    }
-    return tx.post.update({
-      where: { id: postId },
-      data: { likeCount: { increment: 1 } },
-      select: { likeCount: true },
+      return tx.post.update({
+        where: { id: postId },
+        data: { likeCount: { increment: 1 } },
+        select: { likeCount: true },
+      });
     });
-  });
-
-  return { postId, likeCount: updated.likeCount, likedByMe: true };
+    return { postId, likeCount: updated.likeCount, likedByMe: true };
+  } catch (err) {
+    if (isUniqueViolation(err)) {
+      // 已点过赞：幂等返回，绝不 increment（事务已回滚，计数未动）
+      const post = await this.prisma.client.post.findUniqueOrThrow({
+        where: { id: postId },
+        select: { likeCount: true },
+      });
+      return { postId, likeCount: post.likeCount, likedByMe: true };
+    }
+    throw err;
+  }
 }
 ```
 
-`isUniqueViolation` 判定 `err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'`，放在模块内的小工具函数里。
+`isUniqueViolation` 判定 `err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002'`（并做 duck-type，兼容 `@fitness/db` 与根 `node_modules/@prisma/client` 不是同一类引用），放在 `apps/api/src/modules/social/is-unique-violation.ts`。
 
 ### 4.3 `DELETE /v1/social/posts/:id/like`
 
@@ -117,7 +120,7 @@ const likedIds = new Set(
 
 ### 4.5 移动端
 
-- **`LikeButton` 组件**（`features/social/components/`）：心形图标 + 计数，已赞态填充色
+- **`LikeButton` 组件**（`features/social/components/`）：心形图标 + 计数，已赞态填充色；挂在 `PostCard` 底部，feed 与详情共用
 - **乐观更新**：`useMutation` 的 `onMutate` 里直接改 TanStack Query 缓存（feed 的 infinite data 与 `socialPost(id)` 两处），`onError` 回滚，`onSettled` 不做全量 invalidate（会导致整个 feed 抖动），仅在详情页 refetch 单帖
 - **连点保护**：按钮在 mutation pending 时禁用；即使漏点两次，服务端幂等也不会算错
 - hooks：`useLikePost()` / `useUnlikePost()`
@@ -131,31 +134,36 @@ const likedIds = new Set(
 | `packages/shared/src/schemas/phase2/social.ts`              | `LikeResponseSchema`                              |
 | `apps/api/src/modules/social/posts.controller.ts`           | `PUT` / `DELETE` `:id/like`                       |
 | `apps/api/src/modules/social/posts.service.ts`              | `like()` / `unlike()` + `mapPosts` 补 `likedByMe` |
+| `apps/api/src/modules/social/is-unique-violation.ts`        | `P2002` 判定                                      |
 | `apps/api/src/modules/social/reactions.spec.ts`             | 幂等单测（见 §6）                                 |
 | `apps/mobile/src/features/social/components/LikeButton.tsx` | 新建                                              |
+| `apps/mobile/src/features/social/components/PostCard.tsx`   | 接入 `LikeButton`                                 |
 | `apps/mobile/src/api/endpoints/social.ts`                   | `useLikePost` / `useUnlikePost`                   |
 
 ---
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过
-- [ ] `PUT /like` 连续调用 3 次，`likeCount` 恒为 1（幂等）
-- [ ] `DELETE /like` 连续调用 3 次，`likeCount` 恒为 0 且不出现负数
-- [ ] 两个不同用户各点一次，`likeCount` 为 2
-- [ ] feed 与详情的 `likedByMe` 对当前用户正确；整页仍只发常数条 SQL
-- [ ] 至少 1 个单测覆盖「`P2002` 分支不 increment」——可对 service 注入 mock `PrismaService`，或用 `$transaction` 的假实现断言 `post.update` 未被调用
-- [ ] 移动端：点赞即时变色与计数 +1，断网时回滚，重连后与服务端一致
+- [x] `pnpm typecheck` 全仓通过
+- [x] `PUT /like` 连续调用 3 次，`likeCount` 恒为 1（幂等）
+- [x] `DELETE /like` 连续调用 3 次，`likeCount` 恒为 0 且不出现负数
+- [x] 两个不同用户各点一次，`likeCount` 为 2
+- [x] feed 与详情的 `likedByMe` 对当前用户正确；整页仍只发常数条 SQL
+- [x] 至少 1 个单测覆盖「`P2002` 分支不 increment」——可对 service 注入 mock `PrismaService`，或用 `$transaction` 的假实现断言 `post.update` 未被调用
+- [x] 移动端：点赞即时变色与计数 +1，断网时回滚，重连后与服务端一致
 
 ---
 
 ## 7. 验证步骤
 
 ```powershell
+pnpm --filter shared build
 pnpm typecheck
+pnpm --filter api test -- src/modules/social/reactions.spec.ts
 pnpm --filter api start:api
-# 幂等手测（PowerShell，替换 $token / $postId）
-1..3 | ForEach-Object { Invoke-RestMethod -Method Put -Uri "http://localhost:3000/v1/social/posts/$postId/like" -Headers @{ Authorization = "Bearer $token" } }
+# 幂等冒烟（需 API 已启动）
+.\scripts\social-02-smoke.ps1
+pnpm --filter mobile start
 ```
 
 ---

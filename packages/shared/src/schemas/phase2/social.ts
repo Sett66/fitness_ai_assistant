@@ -62,6 +62,13 @@ export type CreatePostResponse = z.infer<typeof CreatePostResponseSchema>;
 export const SocialFeedQuerySchema = PaginationQuerySchema;
 export type SocialFeedQuery = z.infer<typeof SocialFeedQuerySchema>;
 
+export const LikeResponseSchema = z.object({
+  postId: IdSchema,
+  likeCount: z.number().int().nonnegative(),
+  likedByMe: z.boolean(),
+});
+export type LikeResponse = z.infer<typeof LikeResponseSchema>;
+
 export const CommentSchema = z.object({
   id: IdSchema,
   postId: IdSchema,

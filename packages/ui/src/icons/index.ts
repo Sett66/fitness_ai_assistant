@@ -8,6 +8,7 @@ export {
   Dumbbell,
   Flame,
   FileText,
+  Heart,
   Home,
   MapPin,
   MessageCircle,

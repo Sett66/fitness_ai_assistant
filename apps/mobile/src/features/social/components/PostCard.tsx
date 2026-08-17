@@ -4,6 +4,7 @@ import type { PostSummary } from '@fitness/shared';
 import { Subtitle, Title } from '@fitness/ui';
 
 import { formatRelativeTime } from '../relative-time';
+import { LikeButton } from './LikeButton';
 import { PostImageGrid } from './PostImageGrid';
 
 type PostCardProps = {
@@ -73,6 +74,7 @@ export function PostCard({ post, onPress, onDelete }: PostCardProps) {
               <PostImageGrid urls={post.imageUrls} onPress={onPress} />
             </View>
           ) : null}
+          <LikeButton post={post} />
         </View>
       </View>
     </Pressable>

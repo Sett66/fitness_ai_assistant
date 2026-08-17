@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -34,6 +35,16 @@ export class PostsController {
   @Get(':id')
   detail(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
     return this.posts.getById(user, id);
+  }
+
+  @Put(':id/like')
+  like(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
+    return this.posts.like(user, id);
+  }
+
+  @Delete(':id/like')
+  unlike(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
+    return this.posts.unlike(user, id);
   }
 
   @Delete(':id')

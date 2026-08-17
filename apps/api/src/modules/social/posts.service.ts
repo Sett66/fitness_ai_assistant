@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Media, Post } from '@fitness/db';
-import type { PostListResponse, PostSummary } from '@fitness/shared';
+import type { LikeResponse, PostListResponse, PostSummary } from '@fitness/shared';
 import {
   CreatePostRequestSchema,
   PostSummarySchema,
@@ -13,6 +13,7 @@ import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { PrismaService } from '../../infra/prisma/prisma.service';
 import { S3StorageService } from '../../infra/storage/s3-storage.service';
+import { isUniqueViolation } from './is-unique-violation';
 
 const SOCIAL_READ_URL_TTL_SEC = 60 * 60;
 
@@ -76,17 +77,74 @@ export class PostsService {
   }
 
   async getById(user: JwtUserPayload, id: string): Promise<PostSummary> {
-    const post = await this.prisma.client.post.findFirst({
-      where: { id, deletedAt: null },
-    });
-    if (!post || !this.canView(post, user.userId)) {
-      throw new BizException('SOCIAL_POST_NOT_FOUND', errorMessagesZhCN.SOCIAL_POST_NOT_FOUND, 404);
-    }
+    const post = await this.assertVisiblePost(user.userId, id);
     const [mapped] = await this.mapPosts([post], user.userId);
     if (!mapped) {
       throw new BizException('SOCIAL_POST_NOT_FOUND', errorMessagesZhCN.SOCIAL_POST_NOT_FOUND, 404);
     }
     return mapped;
+  }
+
+  /**
+   * 幂等点赞。P2002 必须让交互式事务整体失败后再在事务外读计数：
+   * Postgres 遇唯一冲突会 abort 当前事务，catch 后继续用同一个 `tx` 会 500。
+   */
+  async like(user: JwtUserPayload, postId: string): Promise<LikeResponse> {
+    await this.assertVisiblePost(user.userId, postId);
+
+    try {
+      const updated = await this.prisma.client.$transaction(async (tx) => {
+        await tx.reaction.create({ data: { postId, userId: user.userId, kind: 'LIKE' } });
+        return tx.post.update({
+          where: { id: postId },
+          data: { likeCount: { increment: 1 } },
+          select: { likeCount: true },
+        });
+      });
+      return { postId, likeCount: updated.likeCount, likedByMe: true };
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        const post = await this.prisma.client.post.findUniqueOrThrow({
+          where: { id: postId },
+          select: { likeCount: true },
+        });
+        return { postId, likeCount: post.likeCount, likedByMe: true };
+      }
+      throw err;
+    }
+  }
+
+  async unlike(user: JwtUserPayload, postId: string): Promise<LikeResponse> {
+    await this.assertVisiblePost(user.userId, postId);
+
+    const updated = await this.prisma.client.$transaction(async (tx) => {
+      const removed = await tx.reaction.deleteMany({
+        where: { postId, userId: user.userId },
+      });
+      if (removed.count === 0) {
+        return tx.post.findUniqueOrThrow({
+          where: { id: postId },
+          select: { likeCount: true },
+        });
+      }
+      return tx.post.update({
+        where: { id: postId },
+        data: { likeCount: { decrement: 1 } },
+        select: { likeCount: true },
+      });
+    });
+
+    return { postId, likeCount: updated.likeCount, likedByMe: false };
+  }
+
+  async assertVisiblePost(userId: string, postId: string): Promise<Post> {
+    const post = await this.prisma.client.post.findFirst({
+      where: { id: postId, deletedAt: null },
+    });
+    if (!post || !this.canView(post, userId)) {
+      throw new BizException('SOCIAL_POST_NOT_FOUND', errorMessagesZhCN.SOCIAL_POST_NOT_FOUND, 404);
+    }
+    return post;
   }
 
   async softDelete(user: JwtUserPayload, id: string): Promise<void> {
@@ -106,7 +164,7 @@ export class PostsService {
     const userIds = [...new Set(rows.map((row) => row.userId))];
     const mediaIds = [...new Set(rows.flatMap((row) => row.mediaIds))];
 
-    const [authors, media] = await Promise.all([
+    const [authors, media, likedRows] = await Promise.all([
       this.prisma.client.user.findMany({
         where: { id: { in: userIds } },
         select: { id: true, displayName: true, avatarMedia: { select: { objectKey: true } } },
@@ -116,7 +174,12 @@ export class PostsService {
             where: { id: { in: mediaIds }, status: 'READY' },
           })
         : Promise.resolve([] as Media[]),
+      this.prisma.client.reaction.findMany({
+        where: { postId: { in: rows.map((row) => row.id) }, userId: viewerId, kind: 'LIKE' },
+        select: { postId: true },
+      }),
     ]);
+    const likedIds = new Set(likedRows.map((row) => row.postId));
 
     const authorById = new Map(authors.map((author) => [author.id, author]));
 
@@ -162,7 +225,7 @@ export class PostsService {
         moderationReason: isMine ? (row.moderationReason ?? null) : null,
         likeCount: row.likeCount,
         commentCount: row.commentCount,
-        likedByMe: false,
+        likedByMe: likedIds.has(row.id),
         isMine,
         createdAt: row.createdAt,
       });
