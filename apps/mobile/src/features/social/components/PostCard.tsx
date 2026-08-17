@@ -1,25 +1,26 @@
 import { useState } from 'react';
-import { Alert, Image, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import type { PostSummary } from '@fitness/shared';
 import { Subtitle, Title } from '@fitness/ui';
 
 import { formatRelativeTime } from '../relative-time';
 import { LikeButton } from './LikeButton';
 import { PostImageGrid } from './PostImageGrid';
+import { SocialAvatar } from './SocialAvatar';
 
 type PostCardProps = {
   post: PostSummary;
   onPress: () => void;
   onDelete?: () => void;
+  divider?: boolean;
 };
 
 const BODY_COLLAPSE_LEN = 140;
 
-export function PostCard({ post, onPress, onDelete }: PostCardProps) {
+export function PostCard({ post, onPress, onDelete, divider = true }: PostCardProps) {
   const [expanded, setExpanded] = useState(false);
   const collapsed = !expanded && post.body.length > BODY_COLLAPSE_LEN;
   const body = collapsed ? `${post.body.slice(0, BODY_COLLAPSE_LEN)}…` : post.body;
-  const initial = post.author.displayName.slice(0, 1).toUpperCase();
 
   const confirmDelete = () => {
     Alert.alert('删除动态', '删除后无法恢复', [
@@ -29,15 +30,9 @@ export function PostCard({ post, onPress, onDelete }: PostCardProps) {
   };
 
   return (
-    <Pressable onPress={onPress} className="border-b border-border px-4 py-3">
+    <Pressable onPress={onPress} className={`px-4 py-3 ${divider ? 'border-b border-border' : ''}`}>
       <View className="flex-row items-start gap-3">
-        <View className="h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-card border border-border">
-          {post.author.avatarUrl ? (
-            <Image source={{ uri: post.author.avatarUrl }} className="h-full w-full" />
-          ) : (
-            <Subtitle className="text-base">{initial}</Subtitle>
-          )}
-        </View>
+        <SocialAvatar url={post.author.avatarUrl} name={post.author.displayName} size={40} />
         <View className="flex-1">
           <View className="flex-row items-center justify-between gap-2">
             <View className="flex-1">

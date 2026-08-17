@@ -6,7 +6,7 @@
 | **Blocked by** | [SOCIAL-01](./SOCIAL-01.md) |
 | **Blocks**     | SOCIAL-07                   |
 | **估时**       | 1.5–2 天                    |
-| **状态**       | ⬜ 未开工                   |
+| **状态**       | ✅ 已完成                   |
 
 ---
 
@@ -139,23 +139,27 @@ if (result.count === 1) {
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm typecheck` 全仓通过
-- [ ] 发表评论后 `Post.commentCount` +1，软删后 −1；重复调用 `DELETE` 不会把计数减成负数
-- [ ] 评论列表按时间**升序**分页，翻页无重复无遗漏
-- [ ] 传入他帖的 `parentId` 返回 404 `SOCIAL_COMMENT_NOT_FOUND`
-- [ ] 带 `parentId` 的评论正确渲染「回复 @xxx」；父评论被删后该条仍能正常显示（前缀消失而非报错）
-- [ ] 软删的评论不出现在列表，且不计入 `commentCount`
-- [ ] 评论列表整页只发常数条 SQL（评论 + 父评论 + 作者）
-- [ ] 移动端：详情页可发评论、可回复、可删除自己的评论，键盘不遮挡输入条（Android 真机 / 模拟器）
+- [x] `pnpm typecheck` 全仓通过
+- [x] 发表评论后 `Post.commentCount` +1，软删后 −1；重复调用 `DELETE` 不会把计数减成负数
+- [x] 评论列表按时间**升序**分页，翻页无重复无遗漏
+- [x] 传入他帖的 `parentId` 返回 404 `SOCIAL_COMMENT_NOT_FOUND`
+- [x] 带 `parentId` 的评论正确渲染「回复 @xxx」；父评论被删后该条仍能正常显示（前缀消失而非报错）
+- [x] 软删的评论不出现在列表，且不计入 `commentCount`
+- [x] 评论列表整页只发常数条 SQL（评论 + 父评论 + 作者）
+- [x] 移动端：详情页可发评论、可回复、可删除自己的评论，键盘不遮挡输入条（Android 真机 / 模拟器）
 
 ---
 
 ## 7. 验证步骤
 
 ```powershell
+pnpm --filter shared build
 pnpm typecheck
+pnpm --filter api test -- src/modules/social/comments.spec.ts
 pnpm --filter api start:api
 # 手测：发帖 → 评论 3 条 → 回复其中 1 条 → 删除 1 条 → 核对 commentCount 为 3
+.\scripts\social-03-smoke.ps1
+pnpm --filter mobile start
 ```
 
 ---

@@ -52,6 +52,7 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   WORKOUT_NOT_FOUND: '打卡记录不存在',
 
   SOCIAL_POST_NOT_FOUND: '动态不存在或已删除',
+  SOCIAL_COMMENT_NOT_FOUND: '评论不存在或已删除',
   SOCIAL_MEDIA_INVALID: '图片无效，请重新选择',
   SOCIAL_VISIBILITY_UNSUPPORTED: '暂不支持该可见性设置',
 };

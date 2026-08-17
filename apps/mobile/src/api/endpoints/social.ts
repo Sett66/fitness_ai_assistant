@@ -1,10 +1,17 @@
 import type {
+  CommentLikeResponse,
+  CommentListResponse,
+  CommentSummary,
+  CreateCommentRequest,
   CreatePostRequest,
   LikeResponse,
   PostListResponse,
   PostSummary,
 } from '@fitness/shared';
 import {
+  CommentLikeResponseSchema,
+  CommentListResponseSchema,
+  CreateCommentResponseSchema,
   CreatePostResponseSchema,
   LikeResponseSchema,
   MEDIA_MAX_SIZE_BYTES,
@@ -214,9 +221,6 @@ function useLikeMutation(likedByMe: boolean) {
     onSuccess: (res) => {
       applyLikeResponse(qc, res);
     },
-    onSettled: (_data, _err, postId) => {
-      void qc.invalidateQueries({ queryKey: queryKeys.socialPost(postId) });
-    },
   });
 }
 
@@ -226,4 +230,217 @@ export function useLikePost() {
 
 export function useUnlikePost() {
   return useLikeMutation(false);
+}
+
+type SocialCommentsInfinite = InfiniteData<CommentListResponse, string | undefined>;
+
+function patchPostCommentCount(post: PostSummary, delta: number): PostSummary {
+  return { ...post, commentCount: Math.max(0, post.commentCount + delta) };
+}
+
+function patchFeedCommentCount(
+  data: SocialFeedInfinite | undefined,
+  postId: string,
+  delta: number,
+): SocialFeedInfinite | undefined {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.map((item) =>
+        item.id === postId ? patchPostCommentCount(item, delta) : item,
+      ),
+    })),
+  };
+}
+
+function bumpCommentCount(qc: QueryClient, postId: string, delta: number): void {
+  const feed = qc.getQueryData<SocialFeedInfinite>(queryKeys.socialFeed);
+  qc.setQueryData(queryKeys.socialFeed, patchFeedCommentCount(feed, postId, delta));
+  const detail = qc.getQueryData<PostSummary>(queryKeys.socialPost(postId));
+  if (detail) {
+    qc.setQueryData(queryKeys.socialPost(postId), patchPostCommentCount(detail, delta));
+  }
+}
+
+function appendCommentToCache(qc: QueryClient, postId: string, comment: CommentSummary): void {
+  const key = queryKeys.socialComments(postId);
+  const current = qc.getQueryData<SocialCommentsInfinite>(key);
+  if (!current || current.pages.length === 0) {
+    qc.setQueryData<SocialCommentsInfinite>(key, {
+      pageParams: [undefined],
+      pages: [{ items: [comment], nextCursor: null }],
+    });
+    return;
+  }
+  const already = current.pages.some((page) => page.items.some((item) => item.id === comment.id));
+  if (already) return;
+  const last = current.pages.length - 1;
+  qc.setQueryData<SocialCommentsInfinite>(key, {
+    ...current,
+    pages: current.pages.map((page, index) =>
+      index === last ? { ...page, items: [...page.items, comment] } : page,
+    ),
+  });
+}
+
+function removeCommentFromCache(qc: QueryClient, postId: string, commentId: string): void {
+  const key = queryKeys.socialComments(postId);
+  const current = qc.getQueryData<SocialCommentsInfinite>(key);
+  if (!current) return;
+  qc.setQueryData<SocialCommentsInfinite>(key, {
+    ...current,
+    pages: current.pages.map((page) => ({
+      ...page,
+      items: page.items.filter((item) => item.id !== commentId),
+    })),
+  });
+}
+
+export function usePostComments(postId: string) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.socialComments(postId),
+    queryFn: async ({ pageParam }): Promise<CommentListResponse> => {
+      const qs = pageParam ? `limit=20&cursor=${encodeURIComponent(pageParam)}` : 'limit=20';
+      const json = await apiFetch<unknown>(`/social/posts/${postId}/comments?${qs}`, {
+        noCache: true,
+      });
+      return CommentListResponseSchema.parse(json);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: postId.length > 0,
+  });
+}
+
+export function useCreateComment(postId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: CreateCommentRequest): Promise<CommentSummary> => {
+      const json = await apiFetch<unknown>(`/social/posts/${postId}/comments`, {
+        method: 'POST',
+        body,
+      });
+      return CreateCommentResponseSchema.parse(json);
+    },
+    onSuccess: (comment) => {
+      appendCommentToCache(qc, postId, comment);
+      bumpCommentCount(qc, postId, 1);
+      void qc.invalidateQueries({ queryKey: queryKeys.socialComments(postId) });
+    },
+  });
+}
+
+export function useDeleteComment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (comment: Pick<CommentSummary, 'id' | 'postId'>) => {
+      await apiFetch(`/social/comments/${comment.id}`, { method: 'DELETE' });
+      return comment;
+    },
+    onSuccess: (comment) => {
+      removeCommentFromCache(qc, comment.postId, comment.id);
+      bumpCommentCount(qc, comment.postId, -1);
+      void qc.invalidateQueries({ queryKey: queryKeys.socialComments(comment.postId) });
+    },
+  });
+}
+
+type CommentLikeTarget = Pick<CommentSummary, 'id' | 'postId'>;
+
+type CommentLikeCacheSnapshot = {
+  comments: SocialCommentsInfinite | undefined;
+};
+
+function patchCommentLike(comment: CommentSummary, likedByMe: boolean): CommentSummary {
+  if (comment.likedByMe === likedByMe) return comment;
+  return {
+    ...comment,
+    likedByMe,
+    likeCount: likedByMe ? comment.likeCount + 1 : Math.max(0, comment.likeCount - 1),
+  };
+}
+
+function patchCommentsLike(
+  data: SocialCommentsInfinite | undefined,
+  commentId: string,
+  likedByMe: boolean,
+): SocialCommentsInfinite | undefined {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.map((item) =>
+        item.id === commentId ? patchCommentLike(item, likedByMe) : item,
+      ),
+    })),
+  };
+}
+
+function snapshotAndPatchCommentLike(
+  qc: QueryClient,
+  postId: string,
+  commentId: string,
+  likedByMe: boolean,
+): CommentLikeCacheSnapshot {
+  const key = queryKeys.socialComments(postId);
+  const comments = qc.getQueryData<SocialCommentsInfinite>(key);
+  qc.setQueryData(key, patchCommentsLike(comments, commentId, likedByMe));
+  return { comments };
+}
+
+function restoreCommentLikeSnapshot(
+  qc: QueryClient,
+  postId: string,
+  snap: CommentLikeCacheSnapshot,
+): void {
+  qc.setQueryData(queryKeys.socialComments(postId), snap.comments);
+}
+
+function applyCommentLikeResponse(qc: QueryClient, postId: string, res: CommentLikeResponse): void {
+  const key = queryKeys.socialComments(postId);
+  const current = qc.getQueryData<SocialCommentsInfinite>(key);
+  if (!current) return;
+  qc.setQueryData<SocialCommentsInfinite>(key, {
+    ...current,
+    pages: current.pages.map((page) => ({
+      ...page,
+      items: page.items.map((item) =>
+        item.id === res.commentId
+          ? { ...item, likeCount: res.likeCount, likedByMe: res.likedByMe }
+          : item,
+      ),
+    })),
+  });
+}
+
+function useCommentLikeMutation(likedByMe: boolean) {
+  const qc = useQueryClient();
+  const method = likedByMe ? 'PUT' : 'DELETE';
+  return useMutation({
+    mutationFn: async (target: CommentLikeTarget): Promise<CommentLikeResponse> => {
+      const json = await apiFetch<unknown>(`/social/comments/${target.id}/like`, { method });
+      return CommentLikeResponseSchema.parse(json);
+    },
+    onMutate: async (target) => {
+      await qc.cancelQueries({ queryKey: queryKeys.socialComments(target.postId) });
+      return snapshotAndPatchCommentLike(qc, target.postId, target.id, likedByMe);
+    },
+    onError: (_err, target, snap) => {
+      if (snap) restoreCommentLikeSnapshot(qc, target.postId, snap);
+    },
+    onSuccess: (res, target) => {
+      applyCommentLikeResponse(qc, target.postId, res);
+    },
+  });
+}
+
+export function useLikeComment() {
+  return useCommentLikeMutation(true);
+}
+
+export function useUnlikeComment() {
+  return useCommentLikeMutation(false);
 }

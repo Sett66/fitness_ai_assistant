@@ -194,6 +194,7 @@ model User {
   posts             Post[]
   comments          Comment[]
   reactions         Reaction[]
+  commentReactions  CommentReaction[]
   partnerProfile    PartnerProfile?
   locationSnapshots UserLocationSnapshot[]
   healthReports     HealthReport[]
@@ -648,13 +649,15 @@ model Comment {
   userId    String
   body      String
   parentId  String?
+  likeCount Int       @default(0)
   createdAt DateTime  @default(now())
   deletedAt DateTime?
 
-  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies Comment[] @relation("CommentReplies")
+  post      Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    Comment?          @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[]         @relation("CommentReplies")
+  reactions CommentReaction[]
 
   @@index([postId, deletedAt, createdAt])
   @@index([userId])
@@ -671,6 +674,18 @@ model Reaction {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([postId, userId])
+  @@index([userId])
+}
+
+model CommentReaction {
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
   @@index([userId])
 }
 

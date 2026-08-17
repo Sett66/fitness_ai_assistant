@@ -69,6 +69,13 @@ export const LikeResponseSchema = z.object({
 });
 export type LikeResponse = z.infer<typeof LikeResponseSchema>;
 
+export const CommentLikeResponseSchema = z.object({
+  commentId: IdSchema,
+  likeCount: z.number().int().nonnegative(),
+  likedByMe: z.boolean(),
+});
+export type CommentLikeResponse = z.infer<typeof CommentLikeResponseSchema>;
+
 export const CommentSchema = z.object({
   id: IdSchema,
   postId: IdSchema,
@@ -78,6 +85,35 @@ export const CommentSchema = z.object({
   createdAt: DateTimeSchema,
 });
 export type Comment = z.infer<typeof CommentSchema>;
+
+export const CommentSummarySchema = z.object({
+  id: IdSchema,
+  postId: IdSchema,
+  author: SocialAuthorSchema,
+  body: z.string(),
+  parentId: IdSchema.nullable(),
+  replyToName: z.string().nullable(),
+  likeCount: z.number().int().nonnegative(),
+  likedByMe: z.boolean().default(false),
+  isMine: z.boolean(),
+  createdAt: DateTimeSchema,
+});
+export type CommentSummary = z.infer<typeof CommentSummarySchema>;
+
+export const CommentListResponseSchema = paginatedSchema(CommentSummarySchema);
+export type CommentListResponse = z.infer<typeof CommentListResponseSchema>;
+
+export const CreateCommentRequestSchema = z.object({
+  body: z.string().trim().min(1).max(1000),
+  parentId: IdSchema.optional(),
+});
+export type CreateCommentRequest = z.infer<typeof CreateCommentRequestSchema>;
+
+export const CreateCommentResponseSchema = CommentSummarySchema;
+export type CreateCommentResponse = z.infer<typeof CreateCommentResponseSchema>;
+
+export const CommentListQuerySchema = PaginationQuerySchema;
+export type CommentListQuery = z.infer<typeof CommentListQuerySchema>;
 
 export const ReactionSchema = z.object({
   postId: IdSchema,

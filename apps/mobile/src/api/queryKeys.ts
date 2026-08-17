@@ -11,6 +11,7 @@ export const queryKeys = {
   report: (id: string) => ['report', id] as const,
   socialFeed: ['social-feed'] as const,
   socialPost: (id: string) => ['social-post', id] as const,
+  socialComments: (postId: string) => ['social-comments', postId] as const,
   aiTask: (id: string) => ['ai-task', id] as const,
   workoutSessions: ['workout-sessions'] as const,
   exercises: ['exercises'] as const,

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Image, Pressable, View } from 'react-native';
 
 type PostImageGridProps = {
@@ -5,7 +6,7 @@ type PostImageGridProps = {
   onPress?: () => void;
 };
 
-export function PostImageGrid({ urls, onPress }: PostImageGridProps) {
+export const PostImageGrid = memo(function PostImageGrid({ urls, onPress }: PostImageGridProps) {
   if (urls.length === 0) return null;
 
   const columns = urls.length === 1 ? 1 : urls.length <= 4 ? 2 : 3;
@@ -33,4 +34,4 @@ export function PostImageGrid({ urls, onPress }: PostImageGridProps) {
       })}
     </View>
   );
-}
+});

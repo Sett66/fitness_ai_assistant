@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Media, Post } from '@fitness/db';
-import type { LikeResponse, PostListResponse, PostSummary } from '@fitness/shared';
+import type { LikeResponse, PostListResponse, PostSummary, SocialAuthor } from '@fitness/shared';
 import {
   CreatePostRequestSchema,
   PostSummarySchema,
@@ -158,6 +158,39 @@ export class PostsService {
     // SOCIAL-04: enqueue DELETE_POST
   }
 
+  async resolveAuthors(userIds: string[]): Promise<Map<string, SocialAuthor>> {
+    const unique = [...new Set(userIds)];
+    const byId = new Map<string, SocialAuthor>();
+    if (unique.length === 0) return byId;
+
+    const users = await this.prisma.client.user.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, displayName: true, avatarMedia: { select: { objectKey: true } } },
+    });
+    const userById = new Map(users.map((user) => [user.id, user]));
+
+    const avatarUrls = new Map<string, string>();
+    await Promise.all(
+      users.map(async (user) => {
+        if (!user.avatarMedia) return;
+        avatarUrls.set(
+          user.id,
+          await this.storage.presignGet(user.avatarMedia.objectKey, SOCIAL_READ_URL_TTL_SEC),
+        );
+      }),
+    );
+
+    for (const id of unique) {
+      const user = userById.get(id);
+      byId.set(id, {
+        id,
+        displayName: fallbackDisplayName(id, user?.displayName),
+        avatarUrl: avatarUrls.get(id) ?? null,
+      });
+    }
+    return byId;
+  }
+
   async mapPosts(rows: Post[], viewerId: string): Promise<PostSummary[]> {
     if (rows.length === 0) return [];
 
@@ -165,10 +198,7 @@ export class PostsService {
     const mediaIds = [...new Set(rows.flatMap((row) => row.mediaIds))];
 
     const [authors, media, likedRows] = await Promise.all([
-      this.prisma.client.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, displayName: true, avatarMedia: { select: { objectKey: true } } },
-      }),
+      this.resolveAuthors(userIds),
       mediaIds.length > 0
         ? this.prisma.client.media.findMany({
             where: { id: { in: mediaIds }, status: 'READY' },
@@ -180,19 +210,6 @@ export class PostsService {
       }),
     ]);
     const likedIds = new Set(likedRows.map((row) => row.postId));
-
-    const authorById = new Map(authors.map((author) => [author.id, author]));
-
-    const avatarUrls = new Map<string, string>();
-    await Promise.all(
-      authors.map(async (author) => {
-        if (!author.avatarMedia) return;
-        avatarUrls.set(
-          author.id,
-          await this.storage.presignGet(author.avatarMedia.objectKey, SOCIAL_READ_URL_TTL_SEC),
-        );
-      }),
-    );
 
     const imageUrlByMediaId = new Map<string, string>();
     await Promise.all(
@@ -206,17 +223,16 @@ export class PostsService {
 
     return rows.map((row) => {
       const isMine = row.userId === viewerId;
-      const author = authorById.get(row.userId);
       const imageUrls = row.mediaIds
         .map((mediaId) => imageUrlByMediaId.get(mediaId))
         .filter((url): url is string => url != null);
 
       return PostSummarySchema.parse({
         id: row.id,
-        author: {
+        author: authors.get(row.userId) ?? {
           id: row.userId,
-          displayName: fallbackDisplayName(row.userId, author?.displayName),
-          avatarUrl: avatarUrls.get(row.userId) ?? null,
+          displayName: fallbackDisplayName(row.userId, null),
+          avatarUrl: null,
         },
         body: row.body,
         imageUrls,
