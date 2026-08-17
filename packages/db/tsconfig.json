@@ -7,6 +7,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "prisma/seed.ts"],
+  "include": ["src/**/*.ts", "prisma/seed.ts", "prisma/seed-social.ts"],
   "exclude": ["dist", "node_modules", ".turbo", "src/generated"]
 }

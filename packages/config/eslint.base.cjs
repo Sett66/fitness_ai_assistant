@@ -73,7 +73,7 @@ module.exports = [
   },
   {
     // Node ESM 脚本（Node 18+ 内置 fetch / AbortSignal / timers）
-    files: ['**/*.mjs', '**/prisma/seed.ts'],
+    files: ['**/*.mjs', '**/prisma/seed*.ts'],
     languageOptions: {
       globals: {
         console: 'readonly',

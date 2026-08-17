@@ -3,7 +3,7 @@
 > **Epic**：Phase 2 社区 — 发帖 / 点赞 / 评论 / 搜索，公开广场模型
 > **架构依据**：[ADR 0011](../../adr/0011-social-feed-and-search.md)（社区动态流：公开广场、外部检索与先发后审）
 > **前提**：M0–M5 已关闭；体检报告 Epic（ADR 0009）已交付
-> **状态（2026-08-14）**：切片评审通过，待实施
+> **状态（2026-08-17）**：已交付（SOCIAL-01～07）
 
 ## 给接手 Agent 的通用说明
 
@@ -38,15 +38,15 @@ docs/ARCHITECTURE.md
 
 ## 切片列表
 
-| ID        | 文档                           | 类型 | 阻塞          | 交付                                             |
-| --------- | ------------------------------ | ---- | ------------- | ------------------------------------------------ |
-| SOCIAL-01 | [SOCIAL-01.md](./SOCIAL-01.md) | AFK  | ADR 0011      | 发帖 + 广场 feed 闭环（含全部 migration）        |
-| SOCIAL-02 | [SOCIAL-02.md](./SOCIAL-02.md) | AFK  | 01            | 点赞：幂等接口 + 事务计数 + 乐观更新             |
-| SOCIAL-03 | [SOCIAL-03.md](./SOCIAL-03.md) | AFK  | 01            | 评论：单层平铺 + 帖子详情页                      |
-| SOCIAL-04 | [SOCIAL-04.md](./SOCIAL-04.md) | AFK  | 01            | 检索基建：Meili 容器 + SearchProvider + 索引队列 |
-| SOCIAL-05 | [SOCIAL-05.md](./SOCIAL-05.md) | AFK  | 04            | 搜索体验：搜索 API + 搜索页 + 用户主页           |
-| SOCIAL-06 | [SOCIAL-06.md](./SOCIAL-06.md) | AFK  | 01（04 更佳） | 内容审核：关键词 + LLM 先发后审                  |
-| SOCIAL-07 | [SOCIAL-07.md](./SOCIAL-07.md) | AFK  | 02·03·05·06   | seed 演示数据 + 端到端验收脚本                   |
+| ID        | 文档                           | 类型 | 阻塞          | 状态 | 交付                                             |
+| --------- | ------------------------------ | ---- | ------------- | ---- | ------------------------------------------------ |
+| SOCIAL-01 | [SOCIAL-01.md](./SOCIAL-01.md) | AFK  | ADR 0011      | ✅   | 发帖 + 广场 feed 闭环（含全部 migration）        |
+| SOCIAL-02 | [SOCIAL-02.md](./SOCIAL-02.md) | AFK  | 01            | ✅   | 点赞：幂等接口 + 事务计数 + 乐观更新             |
+| SOCIAL-03 | [SOCIAL-03.md](./SOCIAL-03.md) | AFK  | 01            | ✅   | 评论：单层平铺 + 帖子详情页                      |
+| SOCIAL-04 | [SOCIAL-04.md](./SOCIAL-04.md) | AFK  | 01            | ✅   | 检索基建：Meili 容器 + SearchProvider + 索引队列 |
+| SOCIAL-05 | [SOCIAL-05.md](./SOCIAL-05.md) | AFK  | 04            | ✅   | 搜索体验：搜索 API + 搜索页 + 用户主页           |
+| SOCIAL-06 | [SOCIAL-06.md](./SOCIAL-06.md) | AFK  | 01（04 更佳） | ✅   | 内容审核：关键词 + LLM 先发后审                  |
+| SOCIAL-07 | [SOCIAL-07.md](./SOCIAL-07.md) | AFK  | 02·03·05·06   | ✅   | seed 演示数据 + 端到端验收脚本                   |
 
 ### 依赖图
 

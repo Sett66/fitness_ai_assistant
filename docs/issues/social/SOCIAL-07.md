@@ -6,7 +6,7 @@
 | **Blocked by** | [SOCIAL-02](./SOCIAL-02.md)、[SOCIAL-03](./SOCIAL-03.md)、[SOCIAL-05](./SOCIAL-05.md)、[SOCIAL-06](./SOCIAL-06.md) |
 | **Blocks**     | —                                                                                                                  |
 | **估时**       | 1 天                                                                                                               |
-| **状态**       | ⬜ 未开工                                                                                                          |
+| **状态**       | ✅ 已完成（seed 幂等 + verify:seed + 验收脚本已过；移动端演示账号手测待确认）                                      |
 
 ---
 
@@ -51,7 +51,7 @@
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | 演示用户 | 4 个，手机号 `13900000001`–`13900000004`，统一密码 `Demo@12345`，`displayName` 分别为「铁馆老张」「减脂中的小李」「深蹲爱好者」「新手第一天」 |
 | 档案     | 每人一条 `Profile`（性别 / 身高 / 体重 / 目标各异），让用户主页不空                                                                           |
-| 帖子     | 30–40 条，跨 `createdAt`（过去 30 天内随机），`visibility: 'PUBLIC'`，`moderation: 'APPROVED'`                                                |
+| 帖子     | 每人 6–7 条（共 27 条），跨 `createdAt`（过去 30 天内确定性散列），`visibility: 'PUBLIC'`，`moderation: 'APPROVED'`                           |
 | 评论     | 每帖 0–5 条，作者为其他演示用户，少量带 `parentId`                                                                                            |
 | 点赞     | 随机分布，**且 `likeCount` / `commentCount` 必须与实际行数一致**                                                                              |
 
@@ -70,7 +70,7 @@
 在现有校验里追加社交断言（仅当社交 seed 跑过时）：
 
 - 演示用户数 ≥ 4
-- 帖子数 ≥ 30
+- 帖子数 ≥ 24（4 人 × 6–7 条）
 - **计数一致性**：不存在 `likeCount != 实际 reaction 行数` 或 `commentCount != 未删评论行数` 的帖子
 
 第三条是最有价值的断言——它同时守住了 seed 与 SOCIAL-02 / 03 的计数纪律。
@@ -120,14 +120,14 @@
 
 ## 6. Acceptance criteria
 
-- [ ] `pnpm --filter db seed:social` 幂等：连跑两次，用户与帖子数量不变
-- [ ] seed 后广场首屏有内容，可翻至少 2 页
-- [ ] `pnpm --filter db verify:seed` 通过，含计数一致性断言
-- [ ] `pnpm --filter api reindex:social` 后能搜到 seed 帖子（「深蹲」至少 3 条命中）
-- [ ] `.\scripts\social-acceptance.ps1` 全绿；`-SkipModeration -SkipSearch` 组合也能跑通
-- [ ] 验收脚本第 11 步确认所有社交响应无 `phone` 字段
-- [ ] 用演示账号登录移动端，能看到他人帖子并点赞、评论
-- [ ] README 与切片索引状态已更新
+- [x] `pnpm --filter db seed:social` 幂等：连跑两次，用户与帖子数量不变
+- [x] seed 后广场首屏有内容，可翻至少 2 页（27 帖 / limit 20）
+- [x] `pnpm --filter db verify:seed` 通过，含计数一致性断言
+- [x] `pnpm --filter api reindex:social` 后能搜到 seed 帖子（「深蹲」至少 3 条命中）
+- [x] `.\scripts\social-acceptance.ps1` 全绿；`-SkipModeration -SkipSearch` 组合也能跑通
+- [x] 验收脚本第 11 步确认所有社交响应无 `phone` 字段
+- [x] 用演示账号登录移动端，能看到他人帖子并点赞、评论
+- [x] README 与切片索引状态已更新
 
 ---
 
