@@ -14,6 +14,26 @@ export const SocialAuthorSchema = z.object({
 });
 export type SocialAuthor = z.infer<typeof SocialAuthorSchema>;
 
+/** 发帖可选城市名：只展示，不存坐标。空串 / null 视为未附带。 */
+const OptionalPostCitySchema = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value, ctx) => {
+    if (value == null) return undefined;
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    if (trimmed.length > 64) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.too_big,
+        maximum: 64,
+        type: 'string',
+        inclusive: true,
+      });
+      return z.NEVER;
+    }
+    return trimmed;
+  });
+
 export const PostSchema = z.object({
   id: IdSchema,
   userId: IdSchema,
@@ -24,6 +44,7 @@ export const PostSchema = z.object({
   commentCount: z.number().int().nonnegative().default(0),
   moderation: ModerationStatusSchema.default('PENDING'),
   moderationReason: z.string().nullable().optional(),
+  city: z.string().max(64).nullable().optional(),
   createdAt: DateTimeSchema,
   updatedAt: DateTimeSchema.optional(),
   deletedAt: DateTimeSchema.nullable().optional(),
@@ -38,6 +59,11 @@ export const PostSummarySchema = z.object({
   visibility: PostVisibilitySchema,
   moderation: ModerationStatusSchema,
   moderationReason: z.string().nullable(),
+  city: z
+    .string()
+    .max(64)
+    .nullish()
+    .transform((value) => value ?? null),
   likeCount: z.number().int().nonnegative(),
   commentCount: z.number().int().nonnegative(),
   likedByMe: z.boolean().default(false),
@@ -53,6 +79,7 @@ export const CreatePostRequestSchema = z.object({
   body: z.string().trim().min(1).max(2000),
   mediaIds: z.array(IdSchema).max(9).default([]),
   visibility: CreatablePostVisibilitySchema.default('PUBLIC'),
+  city: OptionalPostCitySchema,
 });
 export type CreatePostRequest = z.infer<typeof CreatePostRequestSchema>;
 

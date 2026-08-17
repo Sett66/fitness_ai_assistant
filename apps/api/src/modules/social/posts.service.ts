@@ -52,7 +52,7 @@ export class PostsService {
     }
 
     const input = parseWith(CreatePostRequestSchema, body);
-    if (findBannedKeyword(input.body)) {
+    if (findBannedKeyword(input.body) || (input.city && findBannedKeyword(input.city))) {
       throw new BizException(
         'SOCIAL_CONTENT_REJECTED',
         errorMessagesZhCN.SOCIAL_CONTENT_REJECTED,
@@ -70,6 +70,7 @@ export class PostsService {
         body: input.body,
         mediaIds,
         visibility: input.visibility,
+        city: input.city ?? null,
         ...(moderationEnabled ? {} : { moderation: 'APPROVED' as const }),
       },
     });
@@ -296,6 +297,8 @@ export class PostsService {
         visibility: row.visibility,
         moderation: row.moderation,
         moderationReason: isMine ? (row.moderationReason ?? null) : null,
+        // city 为发帖可选字段；Prisma 未选出时按未附带处理
+        city: row.city ?? null,
         likeCount: row.likeCount,
         commentCount: row.commentCount,
         likedByMe: likedIds.has(row.id),

@@ -9,4 +9,5 @@ export {
 } from './location-permission';
 export { useLocationConsent } from './useLocationConsent';
 export { shouldAttachLocation } from './shouldAttachLocation';
+export { resolveCityForPost } from './resolveCityForPost';
 export { locationLabels } from './location-labels';

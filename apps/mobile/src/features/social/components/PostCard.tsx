@@ -55,7 +55,10 @@ export function PostCard({
               className="flex-1"
             >
               <Title className="text-base">{post.author.displayName}</Title>
-              <Subtitle>{formatRelativeTime(post.createdAt)}</Subtitle>
+              <Subtitle>
+                {formatRelativeTime(post.createdAt)}
+                {post.city ? ` · ${post.city}` : ''}
+              </Subtitle>
             </Pressable>
             {post.isMine && onDelete ? (
               <Pressable

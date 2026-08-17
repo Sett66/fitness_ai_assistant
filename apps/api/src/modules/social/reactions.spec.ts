@@ -21,6 +21,7 @@ function visiblePost(overrides: Partial<Post> = {}): Post {
     commentCount: 0,
     moderation: 'APPROVED',
     moderationReason: null,
+    city: null,
     deletedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),

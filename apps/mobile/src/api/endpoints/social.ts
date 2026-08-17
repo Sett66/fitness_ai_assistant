@@ -90,6 +90,7 @@ export function useCreatePostFromComposer() {
       body: string;
       images: PostImageFile[];
       visibility?: CreatePostRequest['visibility'];
+      city?: CreatePostRequest['city'];
     }): Promise<PostSummary> => {
       const mediaIds: string[] = [];
       for (const file of input.images) {
@@ -115,6 +116,7 @@ export function useCreatePostFromComposer() {
         body: input.body,
         mediaIds,
         visibility: input.visibility ?? 'PUBLIC',
+        ...(input.city ? { city: input.city } : {}),
       });
     },
   });

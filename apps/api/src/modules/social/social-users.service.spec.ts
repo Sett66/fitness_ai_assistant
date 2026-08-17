@@ -22,6 +22,7 @@ function postRow(id: string, overrides: Partial<Post> = {}): Post {
     commentCount: 0,
     moderation: 'APPROVED',
     moderationReason: null,
+    city: null,
     deletedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -42,6 +43,7 @@ function summary(id: string): PostSummary {
     commentCount: 0,
     likedByMe: false,
     isMine: true,
+    city: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
   };
 }

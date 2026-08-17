@@ -15,6 +15,7 @@ const DEMO_PASSWORD = 'Demo@12345';
 type DemoUserDef = {
   phone: string;
   displayName: string;
+  city: string;
   gender: Gender;
   birthDate: Date;
   heightCm: number;
@@ -28,6 +29,7 @@ const DEMO_USERS: readonly DemoUserDef[] = [
   {
     phone: '13900000001',
     displayName: '铁馆老张',
+    city: '上海',
     gender: Gender.MALE,
     birthDate: new Date('1984-03-12T00:00:00.000Z'),
     heightCm: 178,
@@ -47,6 +49,7 @@ const DEMO_USERS: readonly DemoUserDef[] = [
   {
     phone: '13900000002',
     displayName: '减脂中的小李',
+    city: '杭州',
     gender: Gender.FEMALE,
     birthDate: new Date('1996-08-21T00:00:00.000Z'),
     heightCm: 162,
@@ -66,6 +69,7 @@ const DEMO_USERS: readonly DemoUserDef[] = [
   {
     phone: '13900000003',
     displayName: '深蹲爱好者',
+    city: '上海',
     gender: Gender.MALE,
     birthDate: new Date('1992-11-04T00:00:00.000Z'),
     heightCm: 175,
@@ -85,6 +89,7 @@ const DEMO_USERS: readonly DemoUserDef[] = [
   {
     phone: '13900000004',
     displayName: '新手第一天',
+    city: '北京',
     gender: Gender.OTHER,
     birthDate: new Date('2002-05-18T00:00:00.000Z'),
     heightCm: 168,
@@ -232,18 +237,23 @@ async function main(): Promise<void> {
     const authorId = userIds[u];
     if (!def || !authorId) continue;
 
-    for (const body of def.posts) {
+    for (let p = 0; p < def.posts.length; p += 1) {
+      const body = def.posts[p];
+      if (!body) continue;
       postSeq += 1;
       const id = `seed-post-${pad3(postSeq)}`;
       postIds.push(id);
       postAuthorIds.push(authorId);
       const createdAt = seededCreatedAt(id, 30);
+      // 每人最后一条不带城市，演示「可选」
+      const city = p === def.posts.length - 1 ? null : def.city;
       await prisma.post.upsert({
         where: { id },
         create: {
           id,
           userId: authorId,
           body,
+          city,
           mediaIds: [],
           visibility: 'PUBLIC',
           moderation: 'APPROVED',
@@ -252,6 +262,7 @@ async function main(): Promise<void> {
         update: {
           userId: authorId,
           body,
+          city,
           mediaIds: [],
           visibility: 'PUBLIC',
           moderation: 'APPROVED',

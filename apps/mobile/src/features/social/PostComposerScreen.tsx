@@ -10,21 +10,48 @@ import { Button, ErrorText, Input, Screen, Subtitle, Title } from '@fitness/ui';
 import type { PostImageFile } from '../../api/endpoints/social';
 import { useCreatePostFromComposer } from '../../api/endpoints/social';
 import type { RootStackParamList } from '../../app/navigation/RootNavigator';
+import { resolveCityForPost } from '../location';
 import { ensureCameraPermission, openAppSettings } from '../media/camera-permission';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'PostComposer'>;
 
 const MAX_IMAGES = 9;
 const MAX_BODY = 2000;
+const MAX_CITY = 64;
 
 export function PostComposerScreen() {
   const navigation = useNavigation<Nav>();
   const createPost = useCreatePostFromComposer();
   const [body, setBody] = useState('');
   const [images, setImages] = useState<PostImageFile[]>([]);
+  const [cityEnabled, setCityEnabled] = useState(false);
+  const [city, setCity] = useState('');
+  const [cityLoading, setCityLoading] = useState(false);
 
   const remaining = MAX_BODY - body.length;
-  const canSubmit = body.trim().length > 0 && !createPost.isPending;
+  const canSubmit = body.trim().length > 0 && !createPost.isPending && !cityLoading;
+
+  const fillCityFromLocation = async () => {
+    setCityLoading(true);
+    try {
+      const resolved = await resolveCityForPost();
+      if (resolved) setCity(resolved);
+    } finally {
+      setCityLoading(false);
+    }
+  };
+
+  const toggleCity = () => {
+    if (cityEnabled) {
+      setCityEnabled(false);
+      setCity('');
+      return;
+    }
+    setCityEnabled(true);
+    if (!city.trim()) {
+      void fillCityFromLocation();
+    }
+  };
 
   const appendAssets = (assets: Asset[] | undefined) => {
     const next = (assets ?? [])
@@ -68,8 +95,9 @@ export function PostComposerScreen() {
   const submit = () => {
     const trimmed = body.trim();
     if (!trimmed) return;
+    const trimmedCity = cityEnabled ? city.trim() : '';
     createPost.mutate(
-      { body: trimmed, images },
+      { body: trimmed, images, ...(trimmedCity ? { city: trimmedCity } : {}) },
       {
         onSuccess: () => navigation.goBack(),
       },
@@ -109,6 +137,36 @@ export function PostComposerScreen() {
                 </Pressable>
               </View>
             ))}
+          </View>
+        ) : null}
+
+        <Pressable
+          onPress={toggleCity}
+          disabled={createPost.isPending || cityLoading}
+          className="flex-row items-center justify-between rounded-xl border border-border bg-card px-3 py-3"
+        >
+          <View className="flex-1 pr-3">
+            <Text className="text-base font-medium text-foreground">显示所在城市</Text>
+            <Subtitle className="mt-1">可选。仅展示城市名，不公开精确坐标。</Subtitle>
+          </View>
+          <Text className="text-base font-semibold text-accent">{cityEnabled ? '开' : '关'}</Text>
+        </Pressable>
+
+        {cityEnabled ? (
+          <View className="gap-2">
+            <Input
+              value={city}
+              onChangeText={(text) => setCity(text.slice(0, MAX_CITY))}
+              placeholder="城市，如 上海"
+              editable={!createPost.isPending}
+            />
+            <Button
+              title="使用当前位置"
+              variant="secondary"
+              loading={cityLoading}
+              disabled={createPost.isPending}
+              onPress={() => void fillCityFromLocation()}
+            />
           </View>
         ) : null}
 

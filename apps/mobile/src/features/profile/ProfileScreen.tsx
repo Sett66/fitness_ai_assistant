@@ -9,7 +9,7 @@ import type { Gender, Goal } from '@fitness/shared';
 import type { RootStackParamList } from '../../app/navigation/RootNavigator';
 import { useLogout } from '../../api/endpoints/auth';
 import { useMe, usePatchProfile, useUpdateMe } from '../../api/endpoints/users';
-import { useLocationConsent } from '../location';
+import { locationLabels, useLocationConsent } from '../location';
 import { AvatarPicker } from './components/AvatarPicker';
 import { BirthDateField, birthDateToIso, isoToBirthParts } from './components/BirthDateField';
 import { GenderSelect } from './components/GenderSelect';
@@ -186,10 +186,7 @@ export function ProfileScreen() {
                 value={locationConsent.hasPermission ? '已授权' : '未授权'}
               />
               <View className="py-2">
-                <Subtitle>
-                  开启后，Coach
-                  可根据实时位置提供天气训练建议与周边健身房推荐。坐标仅用于对话内训练建议，不会分享给其他用户。
-                </Subtitle>
+                <Subtitle>{locationLabels.settingsDescription}</Subtitle>
               </View>
               <View className="pt-2">
                 {locationConsent.hasPermission ? (

@@ -630,6 +630,8 @@ model Post {
   commentCount     Int              @default(0)
   moderation       ModerationStatus @default(PENDING)
   moderationReason String?
+  /// 发帖时可选附带的城市名；不存坐标。null 表示用户未选择展示位置。
+  city             String?          @db.VarChar(64)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   deletedAt        DateTime?
