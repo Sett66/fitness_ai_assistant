@@ -11,6 +11,7 @@ import { GeoModule } from './infra/geo/geo.module';
 import { FitnessQueueModule } from './infra/queue/fitness-queue.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
+import { SearchModule } from './infra/search/search.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ExercisesModule } from './modules/exercises/exercises.module';
@@ -46,6 +47,7 @@ import { AppController } from './app.controller';
     DomainModule,
     GeoModule,
     FitnessQueueModule,
+    SearchModule,
     AuthModule,
     UsersModule,
     ExercisesModule,

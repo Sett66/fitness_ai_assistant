@@ -12,7 +12,7 @@ import { WorkerRootModule } from './worker.root.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.createApplicationContext(WorkerRootModule);
   const logger = new Logger('WorkerBootstrap');
-  logger.log('BullMQ worker 已启动（AI 任务队列）');
+  logger.log('BullMQ worker 已启动（AI 任务队列 + 社区索引队列）');
   app.enableShutdownHooks();
   await app.init();
 }

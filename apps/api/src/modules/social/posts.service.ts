@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import type { Media, Post } from '@fitness/db';
 import type { LikeResponse, PostListResponse, PostSummary, SocialAuthor } from '@fitness/shared';
@@ -7,13 +8,21 @@ import {
   SocialFeedQuerySchema,
   errorMessagesZhCN,
 } from '@fitness/shared';
+import type { Queue } from 'bullmq';
 
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import {
+  SOCIAL_INDEX_JOB_NAME,
+  SOCIAL_INDEX_JOB_OPTIONS,
+  SOCIAL_INDEX_QUEUE_NAME,
+  type SocialIndexJobPayload,
+} from '../../infra/queue/queue.constants';
 import { S3StorageService } from '../../infra/storage/s3-storage.service';
 import { isUniqueViolation } from './is-unique-violation';
+import { fallbackDisplayName } from './social-display-name';
 
 const SOCIAL_READ_URL_TTL_SEC = 60 * 60;
 
@@ -22,6 +31,7 @@ export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: S3StorageService,
+    @InjectQueue(SOCIAL_INDEX_QUEUE_NAME) private readonly indexQueue: Queue<SocialIndexJobPayload>,
   ) {}
 
   async create(user: JwtUserPayload, body: unknown): Promise<PostSummary> {
@@ -48,7 +58,11 @@ export class PostsService {
       },
     });
 
-    // SOCIAL-04: enqueue INDEX_POST
+    await this.indexQueue.add(
+      SOCIAL_INDEX_JOB_NAME,
+      { op: 'INDEX_POST', id: post.id },
+      SOCIAL_INDEX_JOB_OPTIONS,
+    );
     const [mapped] = await this.mapPosts([post], user.userId);
     if (!mapped) {
       throw new BizException('SOCIAL_POST_NOT_FOUND', errorMessagesZhCN.SOCIAL_POST_NOT_FOUND, 404);
@@ -155,7 +169,11 @@ export class PostsService {
     if (result.count === 0) {
       throw new BizException('SOCIAL_POST_NOT_FOUND', errorMessagesZhCN.SOCIAL_POST_NOT_FOUND, 404);
     }
-    // SOCIAL-04: enqueue DELETE_POST
+    await this.indexQueue.add(
+      SOCIAL_INDEX_JOB_NAME,
+      { op: 'DELETE_POST', id },
+      SOCIAL_INDEX_JOB_OPTIONS,
+    );
   }
 
   async resolveAuthors(userIds: string[]): Promise<Map<string, SocialAuthor>> {
@@ -262,12 +280,6 @@ export class PostsService {
       throw new BizException('SOCIAL_MEDIA_INVALID', errorMessagesZhCN.SOCIAL_MEDIA_INVALID, 400);
     }
   }
-}
-
-function fallbackDisplayName(userId: string, displayName: string | null | undefined): string {
-  const trimmed = displayName?.trim();
-  if (trimmed) return trimmed;
-  return `健身用户${userId.slice(-4)}`;
 }
 
 function isFollowersVisibility(body: unknown): boolean {

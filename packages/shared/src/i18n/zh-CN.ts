@@ -55,6 +55,7 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   SOCIAL_COMMENT_NOT_FOUND: '评论不存在或已删除',
   SOCIAL_MEDIA_INVALID: '图片无效，请重新选择',
   SOCIAL_VISIBILITY_UNSUPPORTED: '暂不支持该可见性设置',
+  SOCIAL_SEARCH_UNAVAILABLE: '搜索服务暂时不可用，请稍后再试',
 };
 
 /**

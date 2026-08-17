@@ -57,14 +57,24 @@ function createService() {
       post: {
         findFirst: jest.fn(),
         findUniqueOrThrow: jest.fn(),
+        create: jest.fn(),
+        updateMany: jest.fn(),
       },
+      user: { findMany: jest.fn() },
+      reaction: { findMany: jest.fn() },
       $transaction: jest.fn(),
     },
   };
 
-  const service = new PostsService(prisma as unknown as PrismaService, {} as S3StorageService);
+  const indexQueue = { add: jest.fn().mockResolvedValue(undefined) };
 
-  return { service, prisma, tx };
+  const service = new PostsService(
+    prisma as unknown as PrismaService,
+    {} as S3StorageService,
+    indexQueue as never,
+  );
+
+  return { service, prisma, tx, indexQueue };
 }
 
 describe('isUniqueViolation', () => {
@@ -161,5 +171,52 @@ describe('PostsService like / unlike', () => {
       httpStatus: 404,
     });
     expect(prisma.client.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('PostsService 索引入队', () => {
+  it('发帖成功后入队 INDEX_POST', async () => {
+    const { service, prisma, indexQueue } = createService();
+    const post = visiblePost({ userId: USER_A, body: '今天深蹲' });
+    prisma.client.post.create.mockResolvedValue(post);
+    prisma.client.user.findMany.mockResolvedValue([
+      { id: USER_A, displayName: 'Alice', avatarMedia: null },
+    ]);
+    prisma.client.reaction.findMany.mockResolvedValue([]);
+
+    await service.create({ userId: USER_A }, { body: '今天深蹲' });
+
+    expect(indexQueue.add).toHaveBeenCalledWith(
+      'default',
+      { op: 'INDEX_POST', id: POST_ID },
+      expect.objectContaining({ attempts: 8 }),
+    );
+  });
+
+  it('软删成功后入队 DELETE_POST', async () => {
+    const { service, prisma, indexQueue } = createService();
+    prisma.client.post.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.softDelete({ userId: USER_A }, POST_ID);
+
+    expect(indexQueue.add).toHaveBeenCalledWith(
+      'default',
+      { op: 'DELETE_POST', id: POST_ID },
+      expect.objectContaining({ attempts: 8 }),
+    );
+  });
+
+  it('点赞不入队索引任务', async () => {
+    const { service, prisma, tx, indexQueue } = createService();
+    prisma.client.post.findFirst.mockResolvedValue(visiblePost({ likeCount: 0 }));
+    tx.reaction.create.mockResolvedValue({});
+    tx.post.update.mockResolvedValue({ likeCount: 1 });
+    prisma.client.$transaction.mockImplementation(async (fn: (client: TxMocks) => unknown) =>
+      fn(tx),
+    );
+
+    await service.like({ userId: USER_A }, POST_ID);
+
+    expect(indexQueue.add).not.toHaveBeenCalled();
   });
 });

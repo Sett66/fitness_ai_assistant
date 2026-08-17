@@ -22,15 +22,15 @@ bare RN + NativeWind + rn-reusables 的 Android 优先客户端，配 NestJS 模
 
 ## 环境前置要求
 
-| 工具                 | 版本                                               |
-| -------------------- | -------------------------------------------------- |
-| Node.js              | 22 LTS（用 `nvm` / `fnm` 锁定，根目录有 `.nvmrc`） |
-| pnpm                 | ≥ 9                                                |
-| Docker Desktop       | latest（用于跑 postgres / redis / minio）          |
-| JDK                  | 17（Android 构建）                                 |
-| Android Studio       | 含 Android SDK 34+，Build Tools 34，NDK 26+        |
-| Android 模拟器或真机 | Android 8.0+                                       |
-| Git                  | latest                                             |
+| 工具                 | 版本                                                    |
+| -------------------- | ------------------------------------------------------- |
+| Node.js              | 22 LTS（用 `nvm` / `fnm` 锁定，根目录有 `.nvmrc`）      |
+| pnpm                 | ≥ 9                                                     |
+| Docker Desktop       | latest（用于跑 postgres / redis / minio / meilisearch） |
+| JDK                  | 17（Android 构建）                                      |
+| Android Studio       | 含 Android SDK 34+，Build Tools 34，NDK 26+             |
+| Android 模拟器或真机 | Android 8.0+                                            |
+| Git                  | latest                                                  |
 
 可选：
 
@@ -48,7 +48,7 @@ copy .env.example .env
 copy .env.example packages\db\.env
 copy .env.example apps\api\.env
 
-# 3. 起本地依赖（仓库根目录执行）
+# 3. 起本地依赖（仓库根目录执行；含 Meilisearch，健康检查 http://127.0.0.1:7700/health）
 docker compose -f docker/docker-compose.yml up -d
 
 # 4. 数据库 migration + seed（首次加 --name）
@@ -67,8 +67,11 @@ pnpm --filter db verify:seed
 # 启 HTTP API（监听 3000；Swagger：http://localhost:3000/swagger）
 pnpm --filter api start:api
 
-# 启 BullMQ Worker（消费 AI 任务：计划/识图/部分 COACH 副作用）
+# 启 BullMQ Worker（消费 AI 任务 + 社区检索索引）
 pnpm --filter api start:worker
+
+# 全量重建社区检索索引（Meili 数据卷丢失或索引漂移后）
+pnpm --filter api reindex:social
 
 # 启定时任务（mesocycle 复盘等）
 pnpm --filter api start:cron

@@ -3,7 +3,7 @@
 #   docker compose -f docker/docker-compose.yml up -d
 #
 # 说明：
-# - 三个服务在同一自定义 bridge 网络内，主机名即 service 名（postgres / redis / minio）。
+# - 四个服务在同一自定义 bridge 网络内，主机名即 service 名（postgres / redis / minio / meilisearch）。
 # - 变量可从仓库根目录的 .env 注入（执行 compose 时的工作目录通常是仓库根）。
 
 name: fitness
@@ -94,10 +94,32 @@ services:
         mc mb --ignore-existing "local/${MINIO_BUCKET:-media}"
         echo "MinIO bucket \"${MINIO_BUCKET:-media}\" 已就绪"
 
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: fitness-meilisearch
+    restart: unless-stopped
+    ports:
+      - "${MEILI_PORT:-7700}:7700"
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-meili_dev_master_key_change_me}
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - fitness_meilidata:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - fitness
+
 volumes:
   fitness_pgdata:
   fitness_redisdata:
   fitness_miniodata:
+  fitness_meilidata:
 
 networks:
   fitness:

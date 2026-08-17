@@ -1,3 +1,4 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { LocationSource, Profile, StrengthLevel, User } from '@fitness/db';
 import type { ExerciseEquipment } from '@fitness/shared';
@@ -14,6 +15,7 @@ import {
 } from '@fitness/shared';
 import type { MeResponse, OnboardingStep, UserLocationResponse } from '@fitness/shared';
 import { errorMessagesZhCN } from '@fitness/shared';
+import type { Queue } from 'bullmq';
 
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { BizException } from '../../common/exceptions/biz-exception';
@@ -21,6 +23,12 @@ import { parseWith } from '../../common/zod/parse-with';
 import { AmapClient } from '../../infra/geo/amap.client';
 import { S3StorageService } from '../../infra/storage/s3-storage.service';
 import { PrismaService } from '../../infra/prisma/prisma.service';
+import {
+  SOCIAL_INDEX_JOB_NAME,
+  SOCIAL_INDEX_JOB_OPTIONS,
+  SOCIAL_INDEX_QUEUE_NAME,
+  type SocialIndexJobPayload,
+} from '../../infra/queue/queue.constants';
 
 type StrengthWithExercise = StrengthLevel & {
   exercise: { nameZh: string; equipment: ExerciseEquipment };
@@ -34,6 +42,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly storage: S3StorageService,
     private readonly amap: AmapClient,
+    @InjectQueue(SOCIAL_INDEX_QUEUE_NAME) private readonly indexQueue: Queue<SocialIndexJobPayload>,
   ) {}
 
   async getMe(user: JwtUserPayload): Promise<MeResponse> {
@@ -66,6 +75,13 @@ export class UsersService {
       data,
       include: { avatarMedia: true, profile: true },
     });
+    if (data.displayName !== undefined) {
+      await this.indexQueue.add(
+        SOCIAL_INDEX_JOB_NAME,
+        { op: 'INDEX_USER', id: user.userId },
+        SOCIAL_INDEX_JOB_OPTIONS,
+      );
+    }
     const onboarding = computeOnboarding(updated.profile, updated.displayName);
     return {
       user: await mapMeUser(updated, this.storage),

@@ -3,7 +3,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import IORedis from 'ioredis';
 
-import { AI_TASK_QUEUE_NAME } from './queue.constants';
+import { AI_TASK_QUEUE_NAME, SOCIAL_INDEX_QUEUE_NAME } from './queue.constants';
 
 @Global()
 @Module({
@@ -21,9 +21,7 @@ import { AI_TASK_QUEUE_NAME } from './queue.constants';
         };
       },
     }),
-    BullModule.registerQueue({
-      name: AI_TASK_QUEUE_NAME,
-    }),
+    BullModule.registerQueue({ name: AI_TASK_QUEUE_NAME }, { name: SOCIAL_INDEX_QUEUE_NAME }),
   ],
   exports: [BullModule],
 })

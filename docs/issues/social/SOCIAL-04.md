@@ -6,7 +6,7 @@
 | **Blocked by** | [SOCIAL-01](./SOCIAL-01.md) |
 | **Blocks**     | SOCIAL-05                   |
 | **估时**       | 2 天                        |
-| **状态**       | ⬜ 未开工                   |
+| **状态**       | ✅ 已完成                   |
 
 ---
 
@@ -245,15 +245,15 @@ export class SocialIndexProcessor extends WorkerHost {
 
 ## 6. Acceptance criteria
 
-- [ ] `docker compose -f docker/docker-compose.yml up -d` 后 `http://127.0.0.1:7700/health` 返回 available
-- [ ] `pnpm typecheck` 全仓通过；CI（无 Meili 容器）仍绿
-- [ ] API 与 worker 启动日志各打印一行当前检索实现
-- [ ] 发一条帖 → 数秒后在 Meili 中能查到该文档（`curl` 或 Meili 控制台核验），字段**只有** `id` / `userId` / `body` / `createdAtTs`
-- [ ] 删除该帖 → 文档从索引消失
-- [ ] 点赞 / 评论该帖**不产生**任何索引任务（观察 worker 日志）
-- [ ] 停掉 Meili 容器后发帖仍成功（HTTP 200），worker 日志显示索引任务重试
-- [ ] `SEARCH_PROVIDER=pg` 时全链路不报错，索引任务变为 no-op
-- [ ] `pnpm --filter api reindex:social` 能在清空索引后完整重建，打印重建条数
+- [x] `docker compose -f docker/docker-compose.yml up -d` 后 `http://127.0.0.1:7700/health` 返回 available
+- [x] `pnpm typecheck` 全仓通过；CI（无 Meili 容器）仍绿
+- [x] API 与 worker 启动日志各打印一行当前检索实现
+- [x] 发一条帖 → 数秒后在 Meili 中能查到该文档（`curl` 或 Meili 控制台核验），字段**只有** `id` / `userId` / `body` / `createdAtTs`
+- [x] 删除该帖 → 文档从索引消失
+- [x] 点赞 / 评论该帖**不产生**任何索引任务（观察 worker 日志）
+- [x] 停掉 Meili 容器后发帖仍成功（HTTP 200），worker 日志显示索引任务重试
+- [x] `SEARCH_PROVIDER=pg` 时全链路不报错，索引任务变为 no-op
+- [x] `pnpm --filter api reindex:social` 能在清空索引后完整重建，打印重建条数
 
 ---
 

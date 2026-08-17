@@ -17,7 +17,8 @@
     "prestart:worker": "node ../../scripts/ensure-workspace-deps.mjs",
     "start:worker": "nest start --watch --entryFile worker",
     "prestart:cron": "node ../../scripts/ensure-workspace-deps.mjs",
-    "start:cron": "nest start --watch --entryFile schedule"
+    "start:cron": "nest start --watch --entryFile schedule",
+    "reindex:social": "tsx src/scripts/reindex-social.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.731.1",
@@ -44,6 +45,7 @@
     "dotenv": "^17.4.2",
     "ioredis": "^5.4.2",
     "joi": "^17.13.3",
+    "meilisearch": "^0.60.0",
     "nestjs-pino": "^4.1.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -69,6 +71,7 @@
     "rimraf": "^6.0.1",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
+    "tsx": "^4.22.1",
     "typescript": "~5.5.4"
   }
 }

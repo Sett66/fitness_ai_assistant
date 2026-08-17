@@ -7,8 +7,10 @@ import { FitnessQueueModule } from './infra/queue/fitness-queue.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { PdfModule } from './infra/pdf/pdf.module';
 import { StorageModule } from './infra/storage/storage.module';
+import { SearchModule } from './infra/search/search.module';
 import { MealLogsModule } from './modules/meal-logs/meal-logs.module';
 import { AiTaskProcessor } from './workers/ai-task.processor';
+import { SocialIndexProcessor } from './workers/social-index.processor';
 
 @Module({
   imports: [
@@ -19,7 +21,8 @@ import { AiTaskProcessor } from './workers/ai-task.processor';
     PdfModule,
     FitnessQueueModule,
     MealLogsModule,
+    SearchModule,
   ],
-  providers: [AiTaskProcessor],
+  providers: [AiTaskProcessor, SocialIndexProcessor],
 })
 export class WorkerRootModule {}

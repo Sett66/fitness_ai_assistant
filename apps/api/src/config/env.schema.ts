@@ -47,6 +47,26 @@ export const envValidationSchema = Joi.object({
   SMS_DEV_FIXED_CODE: Joi.string()
     .pattern(/^\d{6}$/)
     .default('123456'),
+  SEARCH_PROVIDER: Joi.string().valid('meili', 'pg').default('meili'),
+  MEILI_HOST: Joi.when('SEARCH_PROVIDER', {
+    is: 'meili',
+    then: Joi.when('NODE_ENV', {
+      is: 'test',
+      then: Joi.string().optional().allow('', null),
+      otherwise: Joi.string().uri().required(),
+    }),
+    otherwise: Joi.string().optional().allow('', null),
+  }),
+  MEILI_MASTER_KEY: Joi.when('SEARCH_PROVIDER', {
+    is: 'meili',
+    then: Joi.when('NODE_ENV', {
+      is: 'test',
+      then: Joi.string().optional().allow('', null),
+      otherwise: Joi.string().required(),
+    }),
+    otherwise: Joi.string().optional().allow('', null),
+  }),
+  MEILI_INDEX_PREFIX: Joi.string().default('fitness'),
 });
 
 export type EnvShape = {
@@ -74,6 +94,10 @@ export type EnvShape = {
   OPEN_METEO_BASE_URL?: string;
   SMS_PROVIDER: 'dev' | 'aliyun' | 'tencent';
   SMS_DEV_FIXED_CODE: string;
+  SEARCH_PROVIDER: 'meili' | 'pg';
+  MEILI_HOST?: string;
+  MEILI_MASTER_KEY?: string;
+  MEILI_INDEX_PREFIX: string;
 };
 
 function parseOptionalUrl(value: string | undefined): string | undefined {
@@ -108,5 +132,9 @@ export function mapEnv(env: NodeJS.ProcessEnv): EnvShape {
     OPEN_METEO_BASE_URL: parseOptionalUrl(env.OPEN_METEO_BASE_URL),
     SMS_PROVIDER: (env.SMS_PROVIDER as EnvShape['SMS_PROVIDER']) ?? 'dev',
     SMS_DEV_FIXED_CODE: env.SMS_DEV_FIXED_CODE ?? '123456',
+    SEARCH_PROVIDER: env.SEARCH_PROVIDER === 'pg' ? 'pg' : 'meili',
+    MEILI_HOST: parseOptionalUrl(env.MEILI_HOST),
+    MEILI_MASTER_KEY: parseOptionalUrl(env.MEILI_MASTER_KEY),
+    MEILI_INDEX_PREFIX: env.MEILI_INDEX_PREFIX?.trim() || 'fitness',
   };
 }
