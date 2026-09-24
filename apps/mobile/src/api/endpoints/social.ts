@@ -31,8 +31,15 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query';
+import { useCallback, useSyncExternalStore } from 'react';
 
 import { apiFetch, uploadToPresignedUrl } from '../client';
+import {
+  commentLikeCoordinator,
+  commentLikeKey,
+  postLikeCoordinator,
+  postLikeKey,
+} from '../social-like-coordinator';
 import { presignRequestBody } from './media';
 import { queryKeys } from '../queryKeys';
 
@@ -139,14 +146,20 @@ export function useDeletePost() {
 type SocialFeedInfinite = InfiniteData<PostListResponse, string | undefined>;
 type SocialSearchInfinite = InfiniteData<SocialSearchResponse, string | undefined>;
 
-type LikeCacheSnapshot = {
-  feed: SocialFeedInfinite | undefined;
-  detail: PostSummary | undefined;
-  searches: [readonly unknown[], SocialSearchInfinite | undefined][];
-  userPosts: [readonly unknown[], SocialFeedInfinite | undefined][];
+type PostLikeVars = {
+  postId: string;
+  generation: number;
+  likedByMe: boolean;
 };
 
-function patchPostLike(post: PostSummary, likedByMe: boolean): PostSummary {
+type CommentLikeTarget = Pick<CommentSummary, 'id' | 'postId'>;
+
+type CommentLikeVars = CommentLikeTarget & {
+  generation: number;
+  likedByMe: boolean;
+};
+
+function patchPostLikeToTarget(post: PostSummary, likedByMe: boolean): PostSummary {
   if (post.likedByMe === likedByMe) return post;
   return {
     ...post,
@@ -209,34 +222,6 @@ function patchPostInAllLists(
   );
 }
 
-function snapshotAndPatchLike(
-  qc: QueryClient,
-  postId: string,
-  likedByMe: boolean,
-): LikeCacheSnapshot {
-  const feed = qc.getQueryData<SocialFeedInfinite>(queryKeys.socialFeed);
-  const detail = qc.getQueryData<PostSummary>(queryKeys.socialPost(postId));
-  const searches = qc.getQueriesData<SocialSearchInfinite>({ queryKey: ['social-search', 'POST'] });
-  const userPosts = qc.getQueriesData<SocialFeedInfinite>({ queryKey: ['social-user-posts'] });
-  patchPostInAllLists(qc, postId, (post) => patchPostLike(post, likedByMe));
-  return { feed, detail, searches, userPosts };
-}
-
-function restoreLikeSnapshot(qc: QueryClient, postId: string, snap: LikeCacheSnapshot): void {
-  qc.setQueryData(queryKeys.socialFeed, snap.feed);
-  if (snap.detail === undefined) {
-    qc.removeQueries({ queryKey: queryKeys.socialPost(postId) });
-  } else {
-    qc.setQueryData(queryKeys.socialPost(postId), snap.detail);
-  }
-  for (const [key, data] of snap.searches) {
-    qc.setQueryData(key, data);
-  }
-  for (const [key, data] of snap.userPosts) {
-    qc.setQueryData(key, data);
-  }
-}
-
 function applyLikeResponse(qc: QueryClient, res: LikeResponse): void {
   patchPostInAllLists(qc, res.postId, (post) => ({
     ...post,
@@ -245,34 +230,64 @@ function applyLikeResponse(qc: QueryClient, res: LikeResponse): void {
   }));
 }
 
-function useLikeMutation(likedByMe: boolean) {
+async function reconcilePostLike(qc: QueryClient, postId: string): Promise<void> {
+  try {
+    const json = await apiFetch<unknown>(`/social/posts/${postId}`, { noCache: true });
+    const post = PostSummarySchema.parse(json);
+    patchPostInAllLists(qc, postId, () => post);
+    qc.setQueryData(queryKeys.socialPost(postId), post);
+  } catch {
+    // 弱网校准失败时保留当前缓存，下次 settled / 下拉刷新再对齐
+  }
+}
+
+function usePostLikeMutation() {
   const qc = useQueryClient();
-  const method = likedByMe ? 'PUT' : 'DELETE';
   return useMutation({
-    mutationFn: async (postId: string): Promise<LikeResponse> => {
+    mutationFn: async ({ postId, likedByMe }: PostLikeVars): Promise<LikeResponse> => {
+      const method = likedByMe ? 'PUT' : 'DELETE';
       const json = await apiFetch<unknown>(`/social/posts/${postId}/like`, { method });
       return LikeResponseSchema.parse(json);
     },
-    onMutate: async (postId) => {
+    onMutate: async ({ postId, likedByMe }) => {
+      const key = postLikeKey(postId);
+      postLikeCoordinator.incrementInFlight(key);
       await qc.cancelQueries({ queryKey: queryKeys.socialFeed });
       await qc.cancelQueries({ queryKey: queryKeys.socialPost(postId) });
-      return snapshotAndPatchLike(qc, postId, likedByMe);
+      patchPostInAllLists(qc, postId, (post) => patchPostLikeToTarget(post, likedByMe));
     },
-    onError: (_err, postId, snap) => {
-      if (snap) restoreLikeSnapshot(qc, postId, snap);
-    },
-    onSuccess: (res) => {
+    onSuccess: (res, { postId, generation }) => {
+      if (!postLikeCoordinator.isLatestIntent(postLikeKey(postId), generation)) return;
       applyLikeResponse(qc, res);
+    },
+    onSettled: async (_data, _err, { postId, generation }) => {
+      const key = postLikeKey(postId);
+      postLikeCoordinator.decrementInFlight(key);
+      if (!postLikeCoordinator.isLatestIntent(key, generation)) return;
+      await reconcilePostLike(qc, postId);
     },
   });
 }
 
-export function useLikePost() {
-  return useLikeMutation(true);
+export function usePostLikePending(postId: string): boolean {
+  const key = postLikeKey(postId);
+  return useSyncExternalStore(
+    postLikeCoordinator.subscribe,
+    () => postLikeCoordinator.isPending(key),
+    () => false,
+  );
 }
 
-export function useUnlikePost() {
-  return useLikeMutation(false);
+export function useTogglePostLike() {
+  const mutation = usePostLikeMutation();
+  return useCallback(
+    (postId: string, currentLikedByMe: boolean) => {
+      const likedByMe = !currentLikedByMe;
+      const generation = postLikeCoordinator.registerIntent(postLikeKey(postId), likedByMe);
+      mutation.mutate({ postId, generation, likedByMe });
+    },
+    [mutation],
+  );
 }
 
 type SocialCommentsInfinite = InfiniteData<CommentListResponse, string | undefined>;
@@ -368,13 +383,7 @@ export function useDeleteComment() {
   });
 }
 
-type CommentLikeTarget = Pick<CommentSummary, 'id' | 'postId'>;
-
-type CommentLikeCacheSnapshot = {
-  comments: SocialCommentsInfinite | undefined;
-};
-
-function patchCommentLike(comment: CommentSummary, likedByMe: boolean): CommentSummary {
+function patchCommentLikeToTarget(comment: CommentSummary, likedByMe: boolean): CommentSummary {
   if (comment.likedByMe === likedByMe) return comment;
   return {
     ...comment,
@@ -386,84 +395,89 @@ function patchCommentLike(comment: CommentSummary, likedByMe: boolean): CommentS
 function patchCommentsLike(
   data: SocialCommentsInfinite | undefined,
   commentId: string,
-  likedByMe: boolean,
+  patch: (comment: CommentSummary) => CommentSummary,
 ): SocialCommentsInfinite | undefined {
   if (!data) return data;
   return {
     ...data,
     pages: data.pages.map((page) => ({
       ...page,
-      items: page.items.map((item) =>
-        item.id === commentId ? patchCommentLike(item, likedByMe) : item,
-      ),
+      items: page.items.map((item) => (item.id === commentId ? patch(item) : item)),
     })),
   };
 }
 
-function snapshotAndPatchCommentLike(
-  qc: QueryClient,
-  postId: string,
-  commentId: string,
-  likedByMe: boolean,
-): CommentLikeCacheSnapshot {
-  const key = queryKeys.socialComments(postId);
-  const comments = qc.getQueryData<SocialCommentsInfinite>(key);
-  qc.setQueryData(key, patchCommentsLike(comments, commentId, likedByMe));
-  return { comments };
-}
-
-function restoreCommentLikeSnapshot(
-  qc: QueryClient,
-  postId: string,
-  snap: CommentLikeCacheSnapshot,
-): void {
-  qc.setQueryData(queryKeys.socialComments(postId), snap.comments);
-}
-
 function applyCommentLikeResponse(qc: QueryClient, postId: string, res: CommentLikeResponse): void {
   const key = queryKeys.socialComments(postId);
-  const current = qc.getQueryData<SocialCommentsInfinite>(key);
-  if (!current) return;
-  qc.setQueryData<SocialCommentsInfinite>(key, {
-    ...current,
-    pages: current.pages.map((page) => ({
-      ...page,
-      items: page.items.map((item) =>
-        item.id === res.commentId
-          ? { ...item, likeCount: res.likeCount, likedByMe: res.likedByMe }
-          : item,
-      ),
-    })),
+  qc.setQueryData<SocialCommentsInfinite>(key, (current) => {
+    if (!current) return current;
+    return patchCommentsLike(current, res.commentId, (item) => ({
+      ...item,
+      likeCount: res.likeCount,
+      likedByMe: res.likedByMe,
+    }));
   });
 }
 
-function useCommentLikeMutation(likedByMe: boolean) {
+async function reconcileCommentLikes(qc: QueryClient, postId: string): Promise<void> {
+  try {
+    await qc.invalidateQueries({ queryKey: queryKeys.socialComments(postId) });
+  } catch {
+    // ignore
+  }
+}
+
+function useCommentLikeMutation() {
   const qc = useQueryClient();
-  const method = likedByMe ? 'PUT' : 'DELETE';
   return useMutation({
-    mutationFn: async (target: CommentLikeTarget): Promise<CommentLikeResponse> => {
-      const json = await apiFetch<unknown>(`/social/comments/${target.id}/like`, { method });
+    mutationFn: async ({ id, likedByMe }: CommentLikeVars): Promise<CommentLikeResponse> => {
+      const method = likedByMe ? 'PUT' : 'DELETE';
+      const json = await apiFetch<unknown>(`/social/comments/${id}/like`, { method });
       return CommentLikeResponseSchema.parse(json);
     },
-    onMutate: async (target) => {
-      await qc.cancelQueries({ queryKey: queryKeys.socialComments(target.postId) });
-      return snapshotAndPatchCommentLike(qc, target.postId, target.id, likedByMe);
+    onMutate: async ({ id, postId, likedByMe }) => {
+      const key = commentLikeKey(postId, id);
+      commentLikeCoordinator.incrementInFlight(key);
+      await qc.cancelQueries({ queryKey: queryKeys.socialComments(postId) });
+      qc.setQueryData<SocialCommentsInfinite>(queryKeys.socialComments(postId), (current) =>
+        patchCommentsLike(current, id, (item) => patchCommentLikeToTarget(item, likedByMe)),
+      );
     },
-    onError: (_err, target, snap) => {
-      if (snap) restoreCommentLikeSnapshot(qc, target.postId, snap);
+    onSuccess: (res, { id, postId, generation }) => {
+      if (!commentLikeCoordinator.isLatestIntent(commentLikeKey(postId, id), generation)) return;
+      applyCommentLikeResponse(qc, postId, res);
     },
-    onSuccess: (res, target) => {
-      applyCommentLikeResponse(qc, target.postId, res);
+    onSettled: async (_data, _err, { id, postId, generation }) => {
+      const key = commentLikeKey(postId, id);
+      commentLikeCoordinator.decrementInFlight(key);
+      if (!commentLikeCoordinator.isLatestIntent(key, generation)) return;
+      await reconcileCommentLikes(qc, postId);
     },
   });
 }
 
-export function useLikeComment() {
-  return useCommentLikeMutation(true);
+export function useCommentLikePending(postId: string, commentId: string): boolean {
+  const key = commentLikeKey(postId, commentId);
+  return useSyncExternalStore(
+    commentLikeCoordinator.subscribe,
+    () => commentLikeCoordinator.isPending(key),
+    () => false,
+  );
 }
 
-export function useUnlikeComment() {
-  return useCommentLikeMutation(false);
+export function useToggleCommentLike() {
+  const mutation = useCommentLikeMutation();
+  return useCallback(
+    (target: CommentLikeTarget, currentLikedByMe: boolean) => {
+      const likedByMe = !currentLikedByMe;
+      const generation = commentLikeCoordinator.registerIntent(
+        commentLikeKey(target.postId, target.id),
+        likedByMe,
+      );
+      mutation.mutate({ ...target, generation, likedByMe });
+    },
+    [mutation],
+  );
 }
 
 export function useSocialSearch(type: SocialSearchType, q: string) {

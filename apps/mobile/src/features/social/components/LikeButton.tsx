@@ -3,10 +3,10 @@ import type { CommentSummary, PostSummary } from '@fitness/shared';
 import { Heart } from '@fitness/ui';
 
 import {
-  useLikeComment,
-  useLikePost,
-  useUnlikeComment,
-  useUnlikePost,
+  useCommentLikePending,
+  usePostLikePending,
+  useToggleCommentLike,
+  useTogglePostLike,
 } from '../../../api/endpoints/social';
 
 type HeartLikeButtonProps = {
@@ -32,14 +32,13 @@ function HeartLikeButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={likedByMe ? '取消点赞' : '点赞'}
-      disabled={pending}
       hitSlop={8}
       onPress={(e) => {
         e.stopPropagation?.();
         onPress();
       }}
       className={className ?? 'mt-3 flex-row items-center gap-1.5 self-start'}
-      style={{ opacity: pending ? 0.5 : 1 }}
+      style={{ opacity: pending ? 0.6 : 1 }}
     >
       <View>
         <Heart size={size} color={color} fill={likedByMe ? color : 'transparent'} strokeWidth={2} />
@@ -56,24 +55,15 @@ type LikeButtonProps = {
 };
 
 export function LikeButton({ post }: LikeButtonProps) {
-  const like = useLikePost();
-  const unlike = useUnlikePost();
-  const pending =
-    (like.isPending && like.variables === post.id) ||
-    (unlike.isPending && unlike.variables === post.id);
-
-  const onPress = () => {
-    if (pending) return;
-    if (post.likedByMe) unlike.mutate(post.id);
-    else like.mutate(post.id);
-  };
+  const toggle = useTogglePostLike();
+  const pending = usePostLikePending(post.id);
 
   return (
     <HeartLikeButton
       likedByMe={post.likedByMe}
       likeCount={post.likeCount}
       pending={pending}
-      onPress={onPress}
+      onPress={() => toggle(post.id, post.likedByMe)}
     />
   );
 }
@@ -83,25 +73,15 @@ type CommentLikeButtonProps = {
 };
 
 export function CommentLikeButton({ comment }: CommentLikeButtonProps) {
-  const like = useLikeComment();
-  const unlike = useUnlikeComment();
-  const pending =
-    (like.isPending && like.variables?.id === comment.id) ||
-    (unlike.isPending && unlike.variables?.id === comment.id);
-
-  const onPress = () => {
-    if (pending) return;
-    const target = { id: comment.id, postId: comment.postId };
-    if (comment.likedByMe) unlike.mutate(target);
-    else like.mutate(target);
-  };
+  const toggle = useToggleCommentLike();
+  const pending = useCommentLikePending(comment.postId, comment.id);
 
   return (
     <HeartLikeButton
       likedByMe={comment.likedByMe}
       likeCount={comment.likeCount}
       pending={pending}
-      onPress={onPress}
+      onPress={() => toggle({ id: comment.id, postId: comment.postId }, comment.likedByMe)}
       size={16}
       className="flex-row items-center gap-1 self-start py-1"
     />
