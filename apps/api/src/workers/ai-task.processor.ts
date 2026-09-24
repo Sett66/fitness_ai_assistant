@@ -28,6 +28,7 @@ import type { Job, Queue } from 'bullmq';
 
 import { ConversationSideEffectService } from '../domain/conversation-side-effect.service';
 import { AgentMemoryService } from '../domain/agent-memory.service';
+import { CoachChatHistoryService } from '../domain/coach-chat-history.service';
 import { NutritionDailyService } from '../domain/nutrition-daily.service';
 import { PlanPersistenceService } from '../domain/plan-persistence.service';
 import { UserContextService } from '../domain/user-context.service';
@@ -58,6 +59,7 @@ export class AiTaskProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly userContext: UserContextService,
     private readonly agentMemory: AgentMemoryService,
+    private readonly coachChatHistory: CoachChatHistoryService,
     private readonly nutritionDaily: NutritionDailyService,
     private readonly planPersistence: PlanPersistenceService,
     private readonly mealLogs: MealLogsService,
@@ -94,6 +96,7 @@ export class AiTaskProcessor extends WorkerHost {
         run.userId,
         run.id,
         run.inputJson,
+        run.triggerMessageId,
       );
       await this.prisma.client.aiRun.update({
         where: { id: aiRunId },
@@ -149,6 +152,7 @@ export class AiTaskProcessor extends WorkerHost {
     userId: string,
     aiRunId: string,
     inputJson: unknown,
+    triggerMessageId: string | null,
   ): Promise<AiTaskOutput> {
     const clientInput =
       typeof inputJson === 'object' && inputJson != null
@@ -157,7 +161,13 @@ export class AiTaskProcessor extends WorkerHost {
     const timezoneOffsetMinutes = Number(clientInput.timezoneOffsetMinutes ?? 480);
 
     if (taskType === 'COACH_CHAT') {
-      return this.dispatchCoachChat(userId, model, clientInput, timezoneOffsetMinutes);
+      return this.dispatchCoachChat(
+        userId,
+        model,
+        clientInput,
+        timezoneOffsetMinutes,
+        triggerMessageId,
+      );
     }
 
     if (taskType === 'MEAL_VISION') {
@@ -220,6 +230,7 @@ export class AiTaskProcessor extends WorkerHost {
     model: string,
     clientInput: Record<string, unknown>,
     timezoneOffsetMinutes: number,
+    triggerMessageId: string | null,
   ): Promise<AiTaskOutput> {
     const latestUserText = String(clientInput.content ?? '').trim();
     if (!latestUserText) {
@@ -229,26 +240,9 @@ export class AiTaskProcessor extends WorkerHost {
     const conversationId =
       typeof clientInput.conversationId === 'string' ? clientInput.conversationId : null;
 
-    const historyRows = conversationId
-      ? await this.prisma.client.message.findMany({
-          where: {
-            conversationId,
-            role: { in: ['USER', 'ASSISTANT'] },
-            contentType: { in: ['TEXT', 'SYSTEM_NOTICE'] },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        })
-      : [];
-
-    const history = historyRows
-      .reverse()
-      .filter((row) => row.content && row.content !== '思考中…')
-      .map((row) => ({
-        role: row.role as 'USER' | 'ASSISTANT',
-        content: row.content.slice(0, 2000),
-        createdAt: row.createdAt,
-      }));
+    const history = await this.coachChatHistory.load(conversationId, {
+      excludeMessageIds: [triggerMessageId],
+    });
 
     const userContext = await this.userContext.build(userId, { timezoneOffsetMinutes });
     const memoryFacts = await this.agentMemory.listForPrompt(userId);

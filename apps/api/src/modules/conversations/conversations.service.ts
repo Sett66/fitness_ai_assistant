@@ -28,6 +28,8 @@ import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { AgentConfigService } from '../../config/agent-config.service';
 import { CoachAgentRunner } from '../../domain/agent/coach-agent.runner';
+import { CoachChatHistoryService } from '../../domain/coach-chat-history.service';
+import type { CoachChatHistoryItem } from '../../domain/coach-chat-history.service';
 import { CoachImageContextService } from '../../domain/coach-image-context.service';
 import { AgentMemoryService } from '../../domain/agent-memory.service';
 import { ConversationSideEffectService } from '../../domain/conversation-side-effect.service';
@@ -73,28 +75,6 @@ function formatConversationPreview(
   return message.content.slice(0, 120);
 }
 
-function formatCoachHistoryContent(
-  contentType: string,
-  content: string,
-  metadata: unknown,
-): string {
-  if (contentType === 'PLAN_CARD') {
-    const meta = (metadata ?? {}) as Record<string, unknown>;
-    const label = meta.planType === 'WORKOUT' ? '训练' : '饮食';
-    return `[${label}计划已生成完成]`;
-  }
-  if (contentType === 'MEAL_VISION_CARD') {
-    return '[餐食识别已完成，待用户确认]';
-  }
-  if (contentType === 'IMAGE') {
-    const meta = (metadata ?? {}) as Record<string, unknown>;
-    const count = Array.isArray(meta.imageObjectKeys) ? meta.imageObjectKeys.length : 0;
-    const suffix = count > 0 ? `（附${count}张图）` : '';
-    return `${content}${suffix}`.slice(0, 2000);
-  }
-  return content.slice(0, 2000);
-}
-
 @Injectable()
 export class ConversationsService {
   private readonly logger = new Logger(ConversationsService.name);
@@ -106,6 +86,7 @@ export class ConversationsService {
     private readonly agentMemory: AgentMemoryService,
     private readonly agentConfig: AgentConfigService,
     private readonly coachAgentRunner: CoachAgentRunner,
+    private readonly coachChatHistory: CoachChatHistoryService,
     private readonly coachImageContext: CoachImageContextService,
     private readonly conversationTask: ConversationTaskService,
     private readonly conversationSideEffects: ConversationSideEffectService,
@@ -389,7 +370,7 @@ export class ConversationsService {
 
     const runStream = async (): Promise<void> => {
       try {
-        const history = await this.loadCoachChatHistory(conversationId, {
+        const history = await this.coachChatHistory.load(conversationId, {
           excludeMessageIds: [userMessage.id, pendingAssistant.id],
         });
         const userCtx = await this.userContext.build(user.userId, { timezoneOffsetMinutes });
@@ -511,7 +492,7 @@ export class ConversationsService {
     latestUserText: string;
     rawUserText?: string;
     imageObjectKeys?: string[];
-    history: Awaited<ReturnType<ConversationsService['loadCoachChatHistory']>>;
+    history: CoachChatHistoryItem[];
     userCtx: Awaited<ReturnType<UserContextService['build']>>;
     memoryFacts: Awaited<ReturnType<AgentMemoryService['listForPrompt']>>;
     timezoneOffsetMinutes: number;
@@ -661,39 +642,6 @@ export class ConversationsService {
     void this.agentMemory.enqueueMemoryExtract(user.userId, input).catch((err: unknown) => {
       this.logger.warn(`记忆抽取入队失败: ${this.toStreamErrorMessage(err)}`);
     });
-  }
-
-  private async loadCoachChatHistory(
-    conversationId: string,
-    options?: { excludeMessageIds?: string[] },
-  ) {
-    await this.conversationSideEffects.reconcileStaleAssistantMessages(conversationId);
-
-    const excludeIds = new Set(options?.excludeMessageIds ?? []);
-
-    const historyRows = await this.prisma.client.message.findMany({
-      where: {
-        conversationId,
-        role: { in: ['USER', 'ASSISTANT'] },
-        contentType: { in: ['TEXT', 'IMAGE', 'PLAN_CARD', 'MEAL_VISION_CARD'] },
-        ...(excludeIds.size ? { id: { notIn: [...excludeIds] } } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 12,
-    });
-
-    return historyRows
-      .reverse()
-      .filter((row) => row.content && row.content !== '思考中…')
-      .filter((row) => {
-        const meta = (row.metadata ?? {}) as Record<string, unknown>;
-        return meta.taskStatus !== 'RUNNING';
-      })
-      .map((row) => ({
-        role: row.role as 'USER' | 'ASSISTANT',
-        content: formatCoachHistoryContent(row.contentType, row.content, row.metadata),
-        createdAt: row.createdAt,
-      }));
   }
 
   private toStreamErrorMessage(err: unknown): string {

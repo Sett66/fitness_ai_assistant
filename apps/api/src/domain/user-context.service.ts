@@ -72,13 +72,13 @@ export class UserContextService {
       activeWorkoutPlan: activeWorkout
         ? {
             id: activeWorkout.id,
-            summary: `???? ${activeWorkout.mesocycleWeeks} ??${activeWorkout.workoutDays.map((d) => d.title).join('?')}`,
+            summary: `训练计划 ${activeWorkout.mesocycleWeeks} 周，${activeWorkout.workoutDays.map((d) => d.title).join('、')}`,
           }
         : null,
       activeMealPlan: activeMeal
         ? {
             id: activeMeal.id,
-            summary: `??????? ${activeMeal.mealDays[0]?.totalKcal ?? '?'} kcal`,
+            summary: `饮食计划日均约 ${activeMeal.mealDays[0]?.totalKcal ?? '?'} kcal`,
           }
         : null,
       todayNutrition: todayNutrition ?? undefined,
@@ -122,7 +122,7 @@ export class UserContextService {
 
     const goal =
       ctx.profile?.goal != null
-        ? { MUSCLE_GAIN: '??', FAT_LOSS: '??', MAINTAIN: '??' }[ctx.profile.goal]
+        ? { MUSCLE_GAIN: '增肌', FAT_LOSS: '减脂', MAINTAIN: '维持' }[ctx.profile.goal]
         : undefined;
 
     const preferences =

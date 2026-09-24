@@ -43,6 +43,7 @@ function createProcessor() {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     conversationSideEffects as unknown as ConversationSideEffectService,
     indexQueue as never,
   );

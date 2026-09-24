@@ -9,6 +9,7 @@ import { CoachImageContextService } from './coach-image-context.service';
 import { ToolRegistryService } from './agent/tool-registry.service';
 import { ToolUsageService } from './agent/tool-usage.service';
 import { AgentMemoryService } from './agent-memory.service';
+import { CoachChatHistoryService } from './coach-chat-history.service';
 import { ConversationSideEffectService } from './conversation-side-effect.service';
 import { ConversationTaskService } from './conversation-task.service';
 import { MealNutritionService } from './meal-nutrition.service';
@@ -23,6 +24,7 @@ import { UserContextService } from './user-context.service';
     AgentConfigService,
     AgentMemoryService,
     CoachAgentRunner,
+    CoachChatHistoryService,
     CoachImageContextService,
     NutritionDailyService,
     PlanPersistenceService,
@@ -37,6 +39,7 @@ import { UserContextService } from './user-context.service';
     AgentConfigService,
     AgentMemoryService,
     CoachAgentRunner,
+    CoachChatHistoryService,
     CoachImageContextService,
     NutritionDailyService,
     UserContextService,
