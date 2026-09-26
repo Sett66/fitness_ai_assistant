@@ -2,7 +2,6 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import {
   AiCoreError,
-  extractMemoryFacts,
   mergeLlmUsage,
   runCoachChat,
   runMealPlanGenerator,
@@ -37,7 +36,6 @@ import { PdfRenderService } from '../infra/pdf/pdf-render.service';
 import { S3StorageService } from '../infra/storage/s3-storage.service';
 import {
   AI_TASK_QUEUE_NAME,
-  MEMORY_EXTRACT_JOB_NAME,
   SOCIAL_INDEX_JOB_NAME,
   SOCIAL_INDEX_JOB_OPTIONS,
   SOCIAL_INDEX_QUEUE_NAME,
@@ -72,11 +70,6 @@ export class AiTaskProcessor extends WorkerHost {
   }
 
   async process(job: Job<AiTaskJobPayload>): Promise<void> {
-    if (job.name === MEMORY_EXTRACT_JOB_NAME) {
-      await this.processMemoryExtract(job);
-      return;
-    }
-
     const { aiRunId } = job.data;
     const startedAt = Date.now();
     this.logger.log(`处理 AI 任务: ${aiRunId}`);
@@ -168,6 +161,36 @@ export class AiTaskProcessor extends WorkerHost {
         timezoneOffsetMinutes,
         triggerMessageId,
       );
+    }
+
+    if (taskType === 'MEMORY_PERSIST') {
+      const op = clientInput.op;
+      if (op === 'save') {
+        const category = String(
+          clientInput.category ?? '',
+        ) as import('@fitness/shared').MemoryCategory;
+        await this.agentMemory.save(userId, {
+          category,
+          slug: String(clientInput.slug ?? ''),
+          value: String(clientInput.value ?? ''),
+          confidence:
+            typeof clientInput.confidence === 'number' ? clientInput.confidence : undefined,
+          sourceMessageId: triggerMessageId ?? undefined,
+          sourceRunId: aiRunId,
+          strictIndexSync: true,
+        });
+      } else if (op === 'forget') {
+        await this.agentMemory.forget(
+          userId,
+          String(clientInput.key ?? ''),
+          'AGENT',
+          aiRunId,
+          true,
+        );
+      } else {
+        throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'MEMORY_PERSIST 缺少合法操作');
+      }
+      return { outputJson: { persisted: true }, usage: ZERO_USAGE };
     }
 
     if (taskType === 'MEAL_VISION') {
@@ -289,65 +312,6 @@ export class AiTaskProcessor extends WorkerHost {
       outputJson: { decision, reason: output.result.reason },
       usage: output.usage,
     };
-  }
-
-  private async processMemoryExtract(job: Job<AiTaskJobPayload>): Promise<void> {
-    const { aiRunId } = job.data;
-    const startedAt = Date.now();
-    this.logger.log(`处理记忆抽取: ${aiRunId}`);
-
-    const run = await this.prisma.client.aiRun.update({
-      where: { id: aiRunId },
-      data: { status: 'RUNNING', errorMsg: null },
-    });
-
-    try {
-      const input = parseMemoryExtractInput(run.inputJson);
-      const existingFacts = await this.agentMemory.listForPrompt(run.userId);
-      const extracted = await extractMemoryFacts(
-        {
-          latestUserText: input.latestUserText,
-          assistantReply: input.assistantReply,
-          existingFacts,
-        },
-        { model: run.model },
-      );
-
-      const applied = await this.agentMemory.applyPatches(
-        run.userId,
-        extracted.patches,
-        input.userMessageId,
-      );
-
-      await this.prisma.client.aiRun.update({
-        where: { id: aiRunId },
-        data: {
-          status: 'DONE',
-          outputJson: {
-            patches: extracted.patches,
-            ...applied,
-          } as Prisma.InputJsonValue,
-          tokenIn: extracted.usage.tokenIn,
-          tokenOut: extracted.usage.tokenOut,
-          costCny: extracted.usage.costCny,
-          durationMs: Date.now() - startedAt,
-        },
-      });
-      this.logger.log(
-        `记忆抽取完成: ${aiRunId}，upsert ${applied.upserted} 条，remove ${applied.removed} 条`,
-      );
-    } catch (err: unknown) {
-      const message = this.toErrorMessage(err);
-      await this.prisma.client.aiRun.update({
-        where: { id: aiRunId },
-        data: {
-          status: 'FAILED',
-          errorMsg: message,
-          durationMs: Date.now() - startedAt,
-        },
-      });
-      this.logger.error(`记忆抽取失败: ${aiRunId}: ${message}`);
-    }
   }
 
   private async dispatchMealVision(
@@ -704,27 +668,4 @@ const inferMealType = (at: Date, timezoneOffsetMinutes: number): MealType => {
     return 'DINNER';
   }
   return 'SNACK';
-};
-
-type MemoryExtractInput = {
-  latestUserText: string;
-  assistantReply: string;
-  userMessageId: string;
-};
-
-const parseMemoryExtractInput = (inputJson: unknown): MemoryExtractInput => {
-  const raw =
-    typeof inputJson === 'object' && inputJson != null
-      ? (inputJson as Record<string, unknown>)
-      : {};
-
-  const latestUserText = String(raw.latestUserText ?? '').trim();
-  const assistantReply = String(raw.assistantReply ?? '').trim();
-  const userMessageId = String(raw.userMessageId ?? '').trim();
-
-  if (!latestUserText || !assistantReply || !userMessageId) {
-    throw new AiCoreError('AI_CORE_UNSUPPORTED_TASK', 'MEMORY_EXTRACT 缺少必要字段');
-  }
-
-  return { latestUserText, assistantReply, userMessageId };
 };

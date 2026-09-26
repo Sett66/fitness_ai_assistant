@@ -7,7 +7,7 @@
 | **Blocked by** | [ADR 0012](../../adr/0012-coach-memory-tooling-and-hybrid-recall.md) |
 | **Blocks**     | MEM-02                                                               |
 | **估时**       | 1 天                                                                 |
-| **状态**       | ⬜ 未开工                                                            |
+| **状态**       | ✅ 已实施                                                            |
 
 ---
 
@@ -87,11 +87,11 @@ ADR 0012 §7：≥20 条 `(对话场景 → 应召回的 key 集合)`。重点�
 
 ## 6. Acceptance criteria
 
-- [ ] `golden-set.json` 可被 `JSON.parse`，条数 ≥20
-- [ ] 每条的 `category` 都在 ADR 0012 §1 白名单内，`key` 以该 category 为前缀
-- [ ] 「语义不相似但必须召回」≥8，且 injury、diet_restriction 各至少 3 条
-- [ ] `reject_write` ≥6，覆盖时效词、他人事实、一次性状态
-- [ ] 每条有 `notes`，说明期望理由
+- [x] `golden-set.json` 可被 `JSON.parse`，条数 ≥20
+- [x] 每条的 `category` 都在 ADR 0012 §1 白名单内，`key` 以该 category 为前缀
+- [x] 「语义不相似但必须召回」≥8，且 injury、diet_restriction 各至少 3 条
+- [x] `reject_write` ≥6，覆盖时效词、他人事实、一次性状态
+- [x] 每条有 `notes`，说明期望理由
 
 ---
 

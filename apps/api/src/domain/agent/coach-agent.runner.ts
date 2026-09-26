@@ -70,6 +70,13 @@ export class CoachAgentRunner {
   }
 
   private summarizeToolResult(name: CoachToolName, result: unknown): string {
+    if (name === 'save_memory' || name === 'forget_memory') {
+      return typeof result === 'string' && result.startsWith('拒绝')
+        ? '记忆操作被拒绝'
+        : typeof result === 'string'
+          ? result
+          : '记忆操作完成';
+    }
     if (name === 'get_user_fitness_snapshot' && result && typeof result === 'object') {
       const record = result as {
         userContext?: { todayNutrition?: { remainingKcal?: number; consumedKcal?: number } };

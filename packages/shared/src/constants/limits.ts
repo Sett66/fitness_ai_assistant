@@ -3,7 +3,6 @@ export const AI_TASK_DAILY_LIMIT_PER_USER = 5;
 
 export const AI_TASK_DAILY_LIMITS: Readonly<Partial<Record<string, number>>> = {
   COACH_CHAT: 30,
-  MEMORY_EXTRACT: 30,
   PLAN_GENERATE_WORKOUT: 2,
   PLAN_GENERATE_MEAL: 2,
   MEAL_VISION: 10,
@@ -12,9 +11,6 @@ export const AI_TASK_DAILY_LIMITS: Readonly<Partial<Record<string, number>>> = {
   REPORT_REASSESS: 10,
   // SOCIAL_MODERATE 有意不登记：审核是系统行为，不计入用户每日配额（ADR 0011 §13）
 };
-
-/** 长期记忆异步抽取日限（与 COACH_CHAT 同量级，防刷） */
-export const MEMORY_EXTRACT_DAILY_LIMIT = AI_TASK_DAILY_LIMITS.MEMORY_EXTRACT ?? 30;
 
 export function getAiTaskDailyLimit(taskType: string): number {
   return AI_TASK_DAILY_LIMITS[taskType] ?? AI_TASK_DAILY_LIMIT_PER_USER;

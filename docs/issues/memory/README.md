@@ -3,7 +3,7 @@
 > **Epic**：长期记忆从「每轮 Pro 抽取 + 按时间全量注入」升级为「工具化写入 + 记忆索引常驻 + Meili 混合召回」
 > **架构依据**：[ADR 0012](../../adr/0012-coach-memory-tooling-and-hybrid-recall.md)
 > **前提**：ADR 0008 的工具执行架构（`ToolRegistry`、`CoachAgentRunner`、SSE、卡片确认）继续有效；本 Epic 取代 0008 §1 的 flag 默认值、§3 的长期记忆读写、§9 的「不做向量记忆」
-> **状态（2026-09-24）**：切片已拆分，待实施
+> **状态（2026-09-24）**：代码、迁移、索引回填与 golden-set 评测已完成；对话和移动端的人工端到端验收按各切片清单执行。
 
 ## 给接手 Agent 的通用说明
 
@@ -42,12 +42,12 @@ docs/ARCHITECTURE.md
 
 | ID     | 文档                     | Wave | 类型 | 阻塞     | 状态 | 交付                                                          |
 | ------ | ------------------------ | ---- | ---- | -------- | ---- | ------------------------------------------------------------- |
-| MEM-01 | [MEM-01.md](./MEM-01.md) | W0   | AFK  | ADR 0012 | ⬜   | golden set（≥20），召回与准入 prompt 的调参前提               |
-| MEM-02 | [MEM-02.md](./MEM-02.md) | W1   | AFK  | 01       | ⬜   | 类别 schema、软删除、审计表、抑制名单、迁移回填、校验单测     |
-| MEM-03 | [MEM-03.md](./MEM-03.md) | W2   | AFK  | 02       | ⬜   | save/forget 工具、MEMORY_PERSIST（仅落库）、拆除抽取、flag    |
-| MEM-04 | [MEM-04.md](./MEM-04.md) | W3a  | AFK  | 02       | ⬜   | embedding client、Meili 记忆索引、隔离检索、reindex           |
-| MEM-05 | [MEM-05.md](./MEM-05.md) | W3b  | AFK  | 03、04   | ⬜   | 记忆索引与安全记忆 prompt、recall_memory、降级、semanticRatio |
-| MEM-06 | [MEM-06.md](./MEM-06.md) | W4   | AFK  | 03、05   | ⬜   | 用户记忆管理 API、移动端页面、Langfuse 指标                   |
+| MEM-01 | [MEM-01.md](./MEM-01.md) | W0   | AFK  | ADR 0012 | ✅   | golden set（≥20），召回与准入 prompt 的调参前提               |
+| MEM-02 | [MEM-02.md](./MEM-02.md) | W1   | AFK  | 01       | ✅   | 类别 schema、软删除、审计表、抑制名单、迁移回填、校验单测     |
+| MEM-03 | [MEM-03.md](./MEM-03.md) | W2   | AFK  | 02       | ✅   | save/forget 工具、MEMORY_PERSIST（仅落库）、拆除抽取、flag    |
+| MEM-04 | [MEM-04.md](./MEM-04.md) | W3a  | AFK  | 02       | ✅   | embedding client、Meili 记忆索引、隔离检索、reindex           |
+| MEM-05 | [MEM-05.md](./MEM-05.md) | W3b  | AFK  | 03、04   | ✅   | 记忆索引与安全记忆 prompt、recall_memory、降级、semanticRatio |
+| MEM-06 | [MEM-06.md](./MEM-06.md) | W4   | AFK  | 03、05   | ✅   | 用户记忆管理 API、移动端页面、Langfuse 指标                   |
 
 MEM-03 与 MEM-04 都只阻塞于 MEM-02，可以并行。MEM-05 把召回接到对话上，两边都要等。
 

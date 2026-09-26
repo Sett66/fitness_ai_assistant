@@ -6,6 +6,6 @@ export class AgentConfigService {
   constructor(private readonly config: ConfigService) {}
 
   isCoachAgentEnabled(): boolean {
-    return this.config.get<string>('COACH_AGENT_ENABLED', 'false') === 'true';
+    return this.config.get<string>('COACH_AGENT_ENABLED', 'true') === 'true';
   }
 }

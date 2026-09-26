@@ -1,0 +1,244 @@
+[
+  {
+    "id": "recall-01",
+    "kind": "recall",
+    "userText": "今天练胸怎么安排？",
+    "memories": [
+      { "key": "injury:left_shoulder", "category": "injury", "value": "左肩夹挤，避免推举" },
+      { "key": "location:shanghai", "category": "location", "value": "常驻上海" },
+      { "key": "equipment:home_gym", "category": "equipment", "value": "家里有哑铃" }
+    ],
+    "expectedKeys": ["injury:left_shoulder"],
+    "notes": "练胸会受肩伤限制。"
+  },
+  {
+    "id": "recall-02",
+    "kind": "recall",
+    "userText": "周末想去跑步",
+    "memories": [
+      { "key": "injury:right_knee", "category": "injury", "value": "右膝跑步疼" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" },
+      { "key": "location:beijing", "category": "location", "value": "常去北京" }
+    ],
+    "expectedKeys": ["injury:right_knee"],
+    "notes": "跑步须考虑膝伤。"
+  },
+  {
+    "id": "recall-03",
+    "kind": "recall",
+    "userText": "加餐喝牛奶行吗？",
+    "memories": [
+      { "key": "diet_restriction:lactose", "category": "diet_restriction", "value": "乳糖不耐" },
+      { "key": "goal_note:bulk", "category": "goal_note", "value": "正在增肌" },
+      { "key": "equipment:barbell", "category": "equipment", "value": "有杠铃" }
+    ],
+    "expectedKeys": ["diet_restriction:lactose"],
+    "notes": "饮奶受乳糖限制。"
+  },
+  {
+    "id": "recall-04",
+    "kind": "recall",
+    "userText": "给我做个增肌餐",
+    "memories": [
+      { "key": "diet_restriction:peanut", "category": "diet_restriction", "value": "花生过敏" },
+      { "key": "diet_pref:vegetarian", "category": "diet_pref", "value": "偏好素食" },
+      { "key": "schedule:morning", "category": "schedule", "value": "早训" }
+    ],
+    "expectedKeys": ["diet_restriction:peanut", "diet_pref:vegetarian"],
+    "notes": "菜单必须排除过敏食物并尊重偏好。"
+  },
+  {
+    "id": "recall-05",
+    "kind": "recall",
+    "userText": "今天做深蹲可以吗",
+    "memories": [
+      { "key": "injury:lower_back", "category": "injury", "value": "腰椎间盘突出史" },
+      { "key": "location:guangzhou", "category": "location", "value": "常去广州" },
+      { "key": "diet_pref:coffee", "category": "diet_pref", "value": "爱喝咖啡" }
+    ],
+    "expectedKeys": ["injury:lower_back"],
+    "notes": "深蹲需要腰部限制。"
+  },
+  {
+    "id": "recall-06",
+    "kind": "recall",
+    "userText": "推荐一份蛋白粉",
+    "memories": [
+      { "key": "diet_restriction:soy", "category": "diet_restriction", "value": "大豆过敏" },
+      { "key": "injury:wrist", "category": "injury", "value": "手腕旧伤" },
+      { "key": "schedule:evening", "category": "schedule", "value": "晚训" }
+    ],
+    "expectedKeys": ["diet_restriction:soy"],
+    "notes": "蛋白粉成分须避开大豆。"
+  },
+  {
+    "id": "recall-07",
+    "kind": "recall",
+    "userText": "安排个肩部训练",
+    "memories": [
+      { "key": "injury:left_shoulder", "category": "injury", "value": "左肩夹挤" },
+      { "key": "equipment:cable", "category": "equipment", "value": "有拉力器" },
+      { "key": "goal_note:strength", "category": "goal_note", "value": "提升力量" }
+    ],
+    "expectedKeys": ["injury:left_shoulder"],
+    "notes": "直接命中伤病。"
+  },
+  {
+    "id": "recall-08",
+    "kind": "recall",
+    "userText": "我肩膀那个伤现在还能推吗",
+    "memories": [
+      { "key": "injury:left_shoulder", "category": "injury", "value": "左肩避免推举" },
+      { "key": "diet_pref:low_sugar", "category": "diet_pref", "value": "少糖" },
+      { "key": "location:shenzhen", "category": "location", "value": "常驻深圳" }
+    ],
+    "expectedKeys": ["injury:left_shoulder"],
+    "notes": "字面相近。"
+  },
+  {
+    "id": "recall-09",
+    "kind": "recall",
+    "userText": "常出差的城市是哪？",
+    "memories": [
+      { "key": "location:travel_hangzhou", "category": "location", "value": "常出差杭州" },
+      { "key": "injury:knee", "category": "injury", "value": "膝盖旧伤" },
+      { "key": "equipment:bands", "category": "equipment", "value": "有弹力带" }
+    ],
+    "expectedKeys": ["location:travel_hangzhou"],
+    "notes": "位置事实直接相关。"
+  },
+  {
+    "id": "recall-10",
+    "kind": "recall",
+    "userText": "家里训练用什么替代器械？",
+    "memories": [
+      { "key": "equipment:dumbbells", "category": "equipment", "value": "有可调哑铃" },
+      { "key": "location:nanjing", "category": "location", "value": "常驻南京" },
+      { "key": "diet_pref:fish", "category": "diet_pref", "value": "爱吃鱼" }
+    ],
+    "expectedKeys": ["equipment:dumbbells"],
+    "notes": "器械条件直接相关。"
+  },
+  {
+    "id": "recall-11",
+    "kind": "recall",
+    "userText": "怎么把卧推动作做标准？",
+    "memories": [
+      { "key": "location:travel_city", "category": "location", "value": "常出差成都" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" },
+      { "key": "schedule:weekend", "category": "schedule", "value": "周末训练" }
+    ],
+    "expectedKeys": [],
+    "mustNotKeys": ["location:travel_city", "diet_pref:spicy"],
+    "notes": "动作技术不应召回无关事实。"
+  },
+  {
+    "id": "recall-12",
+    "kind": "recall",
+    "userText": "热身做多久？",
+    "memories": [
+      { "key": "location:travel_city", "category": "location", "value": "常出差成都" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" },
+      { "key": "equipment:home_gym", "category": "equipment", "value": "家有健身房" }
+    ],
+    "expectedKeys": [],
+    "mustNotKeys": ["location:travel_city"],
+    "notes": "通用问题不应带出隐私。"
+  },
+  {
+    "id": "recall-13",
+    "kind": "recall",
+    "userText": "增肌期碳水怎么分配？",
+    "memories": [
+      { "key": "diet_restriction:gluten", "category": "diet_restriction", "value": "麸质敏感" },
+      { "key": "location:wuhan", "category": "location", "value": "常驻武汉" },
+      { "key": "injury:elbow", "category": "injury", "value": "肘部旧伤" }
+    ],
+    "expectedKeys": ["diet_restriction:gluten"],
+    "notes": "主食建议须考虑限制。"
+  },
+  {
+    "id": "recall-14",
+    "kind": "recall",
+    "userText": "明早适合练吗",
+    "memories": [
+      { "key": "schedule:morning", "category": "schedule", "value": "通常只能早训" },
+      { "key": "diet_pref:coffee", "category": "diet_pref", "value": "爱咖啡" },
+      { "key": "location:xian", "category": "location", "value": "常驻西安" }
+    ],
+    "expectedKeys": ["schedule:morning"],
+    "notes": "训练时间关联。"
+  },
+  {
+    "id": "reject-01",
+    "kind": "reject_write",
+    "userText": "今天有点累。",
+    "memories": [
+      { "key": "injury:knee", "category": "injury", "value": "膝伤" },
+      { "key": "location:beijing", "category": "location", "value": "北京" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" }
+    ],
+    "expectedKeys": [],
+    "notes": "时效状态不得写入。"
+  },
+  {
+    "id": "reject-02",
+    "kind": "reject_write",
+    "userText": "我朋友膝盖不好。",
+    "memories": [
+      { "key": "injury:knee", "category": "injury", "value": "膝伤" },
+      { "key": "location:beijing", "category": "location", "value": "北京" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" }
+    ],
+    "expectedKeys": [],
+    "notes": "他人事实不得写入。"
+  },
+  {
+    "id": "reject-03",
+    "kind": "reject_write",
+    "userText": "明天出差去杭州。",
+    "memories": [
+      { "key": "injury:knee", "category": "injury", "value": "膝伤" },
+      { "key": "location:beijing", "category": "location", "value": "北京" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" }
+    ],
+    "expectedKeys": [],
+    "notes": "一次性未来行程不得写入。"
+  },
+  {
+    "id": "reject-04",
+    "kind": "reject_write",
+    "userText": "刚才练得腿酸。",
+    "memories": [
+      { "key": "injury:knee", "category": "injury", "value": "膝伤" },
+      { "key": "location:beijing", "category": "location", "value": "北京" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" }
+    ],
+    "expectedKeys": [],
+    "notes": "短暂身体状态不得写入。"
+  },
+  {
+    "id": "reject-05",
+    "kind": "reject_write",
+    "userText": "现在想吃炸鸡。",
+    "memories": [
+      { "key": "injury:knee", "category": "injury", "value": "膝伤" },
+      { "key": "location:beijing", "category": "location", "value": "北京" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" }
+    ],
+    "expectedKeys": [],
+    "notes": "即时想法不是稳定偏好。"
+  },
+  {
+    "id": "reject-06",
+    "kind": "reject_write",
+    "userText": "这周我可能没空训练。",
+    "memories": [
+      { "key": "injury:knee", "category": "injury", "value": "膝伤" },
+      { "key": "location:beijing", "category": "location", "value": "北京" },
+      { "key": "diet_pref:spicy", "category": "diet_pref", "value": "喜欢辣" }
+    ],
+    "expectedKeys": [],
+    "notes": "短期安排不得写入。"
+  }
+]

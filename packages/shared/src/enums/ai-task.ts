@@ -6,7 +6,9 @@ export const AI_TASK_TYPE_VALUES = [
   'PLAN_GENERATE_MEAL',
   'MEAL_VISION',
   'COACH_CHAT',
+  // Deprecated: retained only so historical AiRun rows remain readable.
   'MEMORY_EXTRACT',
+  'MEMORY_PERSIST',
   'MESOCYCLE_REVIEW',
   'REPORT_ANALYZE',
   'REPORT_REASSESS',

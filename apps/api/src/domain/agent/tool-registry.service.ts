@@ -5,6 +5,9 @@ import {
   EnqueueMealVisionInputSchema,
   EnqueuePlanGenerateInputSchema,
   LLM_MODELS,
+  MemoryCategorySchema,
+  MemoryKeySchema,
+  normalizeMemorySlug,
 } from '@fitness/shared';
 
 import { BizException } from '../../common/exceptions/biz-exception';
@@ -16,6 +19,7 @@ import { AgentMemoryService } from '../agent-memory.service';
 import { ConversationTaskService } from '../conversation-task.service';
 import { UserContextService } from '../user-context.service';
 import { ToolUsageService } from './tool-usage.service';
+import { MemorySearchProvider } from '../../infra/search/memory-search.provider';
 
 export type ToolContext = {
   userId: string;
@@ -42,6 +46,7 @@ export class ToolRegistryService {
     private readonly toolUsage: ToolUsageService,
     private readonly conversationTask: ConversationTaskService,
     private readonly coachToolSpan: CoachToolSpanService,
+    private readonly memorySearch: MemorySearchProvider,
   ) {}
 
   async execute(name: CoachToolName, input: unknown, ctx: ToolContext): Promise<unknown> {
@@ -64,10 +69,16 @@ export class ToolRegistryService {
       output = err instanceof Error ? err.message : String(err);
       throw err;
     } finally {
+      const traceInput = isMemoryTool(name) ? summarizeMemoryInput(name, input) : input;
+      const traceOutput = isMemoryTool(name)
+        ? typeof output === 'string'
+          ? output.replace(/：.*$/, '')
+          : '记忆操作完成'
+        : output;
       this.coachToolSpan.recordToolExecution({
         name,
-        input,
-        output,
+        input: traceInput,
+        output: traceOutput,
         ok,
         durationMs: Date.now() - startedAt,
       });
@@ -94,9 +105,88 @@ export class ToolRegistryService {
         return this.enqueuePlanGenerate(input, ctx);
       case 'enqueue_meal_vision':
         return this.enqueueMealVision(input, ctx);
+      case 'save_memory':
+        return this.saveMemory(input, ctx);
+      case 'forget_memory':
+        return this.forgetMemory(input, ctx);
+      case 'recall_memory':
+        return this.recallMemory(input, ctx);
       default:
         throw new BizException('VALIDATION_FAILED', `未知工具：${name as string}`, 400);
     }
+  }
+
+  private async saveMemory(input: unknown, ctx: ToolContext): Promise<string> {
+    const raw = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
+    const category = MemoryCategorySchema.parse(raw.category);
+    const slug = normalizeMemorySlug(String(raw.slug ?? ''));
+    const value = String(raw.value ?? '').trim();
+    if (!slug || !value || value.length > 512)
+      throw BizException.validation({ field: 'memory', reason: '记忆内容无效' });
+    if (this.memoryWriteCount(ctx) >= 2)
+      throw BizException.validation({ field: 'memory', reason: '本轮记忆写入已达上限' });
+    if (/(今天|明天|昨天|这周|本周|刚才|现在|今晚|今早)/.test(value))
+      throw BizException.validation({ field: 'value', reason: '时效信息不能写入长期记忆' });
+    const key = `${category}:${slug}`;
+    if (await this.agentMemory.isSuppressed(ctx.userId, key))
+      throw BizException.validation({ field: 'key', reason: '用户已删除该记忆，不能自动恢复' });
+    await this.agentMemory.enqueuePersist(ctx.userId, {
+      op: 'save',
+      category,
+      slug,
+      value,
+      confidence: typeof raw.confidence === 'number' ? raw.confidence : undefined,
+      sourceMessageId: ctx.triggerMessageId,
+    });
+    this.bumpSessionCount(ctx, 'save_memory');
+    return '已记录';
+  }
+
+  private async forgetMemory(input: unknown, ctx: ToolContext): Promise<string> {
+    const raw = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
+    const key = MemoryKeySchema.parse(raw.key);
+    if (this.memoryWriteCount(ctx) >= 2)
+      throw BizException.validation({ field: 'memory', reason: '本轮记忆写入已达上限' });
+    const exists = await this.agentMemory.listForPrompt(ctx.userId, 60);
+    if (!exists.some((fact) => fact.key === key)) return '没有这条记忆';
+    await this.agentMemory.enqueuePersist(ctx.userId, {
+      op: 'forget',
+      key,
+      sourceMessageId: ctx.triggerMessageId,
+    });
+    this.bumpSessionCount(ctx, 'forget_memory');
+    return '已提交删除';
+  }
+
+  private async recallMemory(input: unknown, ctx: ToolContext): Promise<unknown> {
+    const raw = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
+    const query = String(raw.query ?? '').trim();
+    if (!query || query.length > 200)
+      throw BizException.validation({ field: 'query', reason: '查询内容无效' });
+    const category =
+      raw.category === undefined ? undefined : MemoryCategorySchema.parse(raw.category);
+    let memories: Array<{
+      id?: string;
+      key: string;
+      category: import('@fitness/shared').MemoryCategory;
+      value: string;
+    }>;
+    try {
+      memories = await this.memorySearch.search(ctx.userId, query, { category });
+    } catch {
+      memories = (await this.agentMemory.listForPrompt(ctx.userId, 20))
+        .filter((fact) => !category || fact.category === category)
+        .slice(0, 5);
+    }
+    void this.agentMemory
+      .markUsed(memories.flatMap((memory) => (memory.id ? [memory.id] : [])))
+      .catch(() => undefined);
+    this.bumpSessionCount(ctx, 'recall_memory');
+    return { memories };
+  }
+
+  private memoryWriteCount(ctx: ToolContext): number {
+    return (ctx.sessionToolCounts?.save_memory ?? 0) + (ctx.sessionToolCounts?.forget_memory ?? 0);
   }
 
   private async checkDailyLimit(
@@ -128,15 +218,11 @@ export class ToolRegistryService {
       input && typeof input === 'object' ? (input as { timezoneOffsetMinutes?: number }) : {};
     const timezoneOffsetMinutes = record.timezoneOffsetMinutes ?? ctx.timezoneOffsetMinutes;
 
-    const [userContext, memoryFacts] = await Promise.all([
-      this.userContext.build(ctx.userId, { timezoneOffsetMinutes }),
-      this.agentMemory.listForPrompt(ctx.userId),
-    ]);
+    const userContext = await this.userContext.build(ctx.userId, { timezoneOffsetMinutes });
 
     this.bumpSessionCount(ctx, 'get_user_fitness_snapshot');
     return {
       userContext,
-      memoryFacts,
     };
   }
 
@@ -367,4 +453,17 @@ export class ToolRegistryService {
       message: ENQUEUE_SUBMITTED_MESSAGE,
     };
   }
+}
+
+function isMemoryTool(name: CoachToolName): boolean {
+  return name === 'save_memory' || name === 'forget_memory' || name === 'recall_memory';
+}
+
+function summarizeMemoryInput(name: CoachToolName, input: unknown): string {
+  if (!input || typeof input !== 'object') return name;
+  const value = input as Record<string, unknown>;
+  if (name === 'save_memory')
+    return `${String(value.category ?? 'unknown')}:${normalizeMemorySlug(String(value.slug ?? ''))}`;
+  if (name === 'forget_memory') return String(value.key ?? '').slice(0, 80);
+  return 'recall';
 }

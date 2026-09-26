@@ -6,6 +6,9 @@ export const COACH_TOOL_DAILY_LIMITS: Readonly<Partial<Record<CoachToolName, num
   geocode_place: 20,
   search_nearby_gyms: 10,
   get_user_fitness_snapshot: 30,
+  save_memory: 20,
+  forget_memory: 20,
+  recall_memory: 50,
 };
 
 export function getCoachToolDailyLimit(name: CoachToolName): number | undefined {
@@ -21,6 +24,9 @@ export const COACH_TOOL_LABELS_ZH: Readonly<Partial<Record<CoachToolName, string
   search_nearby_gyms: '搜索附近健身房',
   enqueue_plan_generate: '创建计划任务',
   enqueue_meal_vision: '创建识图任务',
+  save_memory: '记录长期记忆',
+  forget_memory: '删除长期记忆',
+  recall_memory: '检索长期记忆',
 };
 
 /** 流式进行中状态文案（含「正在…」） */
@@ -32,4 +38,7 @@ export const COACH_TOOL_PROGRESS_LABELS_ZH: Readonly<Partial<Record<CoachToolNam
   search_nearby_gyms: '正在搜索附近健身房…',
   enqueue_plan_generate: '正在创建计划任务…',
   enqueue_meal_vision: '正在创建识图任务…',
+  save_memory: '正在记下…',
+  forget_memory: '正在忘掉…',
+  recall_memory: '正在检索记忆…',
 };

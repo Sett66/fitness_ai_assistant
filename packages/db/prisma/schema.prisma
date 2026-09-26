@@ -124,6 +124,7 @@ enum AiTaskType {
   MEAL_VISION
   COACH_CHAT
   MEMORY_EXTRACT
+  MEMORY_PERSIST
   MESOCYCLE_REVIEW
   REPORT_ANALYZE
   REPORT_REASSESS
@@ -725,16 +726,62 @@ model UserLocationSnapshot {
 // =================================================================
 
 model UserAgentMemory {
+  id              String         @id @default(cuid())
   userId          String
-  key             String   @db.VarChar(64)
-  value           String   @db.VarChar(512)
-  confidence      Float    @default(0.8)
+  key             String         @db.VarChar(80)
+  category        MemoryCategory
+  value           String         @db.VarChar(512)
+  confidence      Float          @default(0.8)
   sourceMessageId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+  lastUsedAt      DateTime?
+  hitCount        Int            @default(0)
+  embeddedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events UserAgentMemoryEvent[]
 
-  @@id([userId, key])
+  @@unique([userId, key])
   @@index([userId, updatedAt])
+  @@index([userId, category, deletedAt])
+}
+
+enum MemoryCategory {
+  injury
+  diet_restriction
+  diet_pref
+  equipment
+  schedule
+  location
+  goal_note
+  other
+}
+
+enum MemoryEventAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+}
+
+enum MemoryEventActor {
+  AGENT
+  USER
+  SYSTEM
+}
+
+model UserAgentMemoryEvent {
+  id              String            @id @default(cuid())
+  memoryId        String
+  action          MemoryEventAction
+  valueSnapshot   String            @db.VarChar(512)
+  actor           MemoryEventActor
+  sourceRunId     String?
+  sourceMessageId String?
+  createdAt       DateTime          @default(now())
+
+  memory UserAgentMemory @relation(fields: [memoryId], references: [id], onDelete: Cascade)
+  @@index([memoryId, createdAt])
 }

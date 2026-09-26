@@ -4,6 +4,7 @@ import { AgentConfigService } from '../config/agent-config.service';
 import { GeoModule } from '../infra/geo/geo.module';
 import { ObservabilityModule } from '../infra/observability/observability.module';
 import { StorageModule } from '../infra/storage/storage.module';
+import { SearchModule } from '../infra/search/search.module';
 import { CoachAgentRunner } from './agent/coach-agent.runner';
 import { CoachImageContextService } from './coach-image-context.service';
 import { ToolRegistryService } from './agent/tool-registry.service';
@@ -19,7 +20,7 @@ import { UserContextService } from './user-context.service';
 
 @Global()
 @Module({
-  imports: [GeoModule, ObservabilityModule, StorageModule],
+  imports: [GeoModule, ObservabilityModule, StorageModule, SearchModule],
   providers: [
     AgentConfigService,
     AgentMemoryService,

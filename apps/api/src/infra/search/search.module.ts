@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { MeiliSearchProvider } from './meili-search.provider';
+import { MemorySearchProvider } from './memory-search.provider';
 import { PgSearchProvider } from './pg-search.provider';
 import { SEARCH_PROVIDER, type SearchProvider } from './search-provider';
 
@@ -13,11 +14,13 @@ class SearchInitService implements OnModuleInit {
   constructor(
     @Inject(SEARCH_PROVIDER) private readonly provider: SearchProvider,
     @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(MemorySearchProvider) private readonly memories: MemorySearchProvider,
   ) {}
 
   async onModuleInit(): Promise<void> {
     await this.provider.init();
     if (this.provider.name === 'meili') {
+      await this.memories.init();
       const host = this.config.get<string>('MEILI_HOST') ?? '';
       const prefix = this.config.get<string>('MEILI_INDEX_PREFIX') ?? 'fitness';
       this.logger.log(`检索实现：meili（${host}，索引前缀 ${prefix}）`);
@@ -46,7 +49,17 @@ class SearchInitService implements OnModuleInit {
       },
     },
     SearchInitService,
+    {
+      provide: MemorySearchProvider,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) =>
+        new MemorySearchProvider(
+          config.get<string>('MEILI_HOST') ?? '',
+          config.get<string>('MEILI_MASTER_KEY') ?? '',
+          config.get<string>('MEILI_INDEX_PREFIX') ?? 'fitness',
+        ),
+    },
   ],
-  exports: [SEARCH_PROVIDER],
+  exports: [SEARCH_PROVIDER, MemorySearchProvider],
 })
 export class SearchModule {}

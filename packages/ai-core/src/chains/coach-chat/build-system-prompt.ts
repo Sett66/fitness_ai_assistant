@@ -1,7 +1,7 @@
 import type { AgentMemoryFact, LocationContext, UserAiContext } from '@fitness/shared';
 
 import { formatHealthContextBlock } from '../../memory/format-health-context-block';
-import { formatMemoryBlock } from '../../memory/format-memory-block';
+import { formatAgentMemoryBlocks, formatMemoryBlock } from '../../memory/format-memory-block';
 import { formatLocationContextBlock } from '../../memory/format-location-block';
 import {
   COACH_AGENT_STREAM_SYSTEM_PROMPT,
@@ -28,7 +28,10 @@ function appendSharedContextBlocks(
 ): void {
   const now = input.now ?? new Date();
   const timezoneOffsetMinutes = resolveTimezoneOffsetMinutes(input.timezoneOffsetMinutes);
-  const memoryBlock = formatMemoryBlock(input.memoryFacts ?? []);
+  const memoryBlock =
+    input.mode === 'agent'
+      ? formatAgentMemoryBlocks(input.memoryFacts ?? [])
+      : formatMemoryBlock(input.memoryFacts ?? []);
   const healthBlock = formatHealthContextBlock(input.userContext.healthContext);
   const locationBlock = options?.includeLocation
     ? formatLocationContextBlock(input.locationContext)

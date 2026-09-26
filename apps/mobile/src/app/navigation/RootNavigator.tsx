@@ -26,6 +26,7 @@ import { SocialSearchScreen } from '../../features/social/SocialSearchScreen';
 import { SocialUserScreen } from '../../features/social/SocialUserScreen';
 import { DashboardScreen } from '../../features/dashboard/DashboardScreen';
 import { ProfileScreen } from '../../features/profile/ProfileScreen';
+import { CoachMemoriesScreen } from '../../features/profile/CoachMemoriesScreen';
 import { PlanListScreen } from '../../features/plan/PlanListScreen';
 import { PlanDetailScreen } from '../../features/plan/PlanDetailScreen';
 import { WorkoutScreen } from '../../features/workout/WorkoutScreen';
@@ -62,6 +63,7 @@ export type RootStackParamList = {
   PostDetail: { postId: string };
   SocialSearch: undefined;
   SocialUser: { userId: string };
+  CoachMemories: undefined;
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -200,6 +202,11 @@ export function RootNavigator({ mode }: RootNavigatorProps) {
             name="PostDetail"
             component={PostDetailScreen}
             options={{ title: '动态详情' }}
+          />
+          <RootStack.Screen
+            name="CoachMemories"
+            component={CoachMemoriesScreen}
+            options={{ title: '教练记得什么' }}
           />
           <RootStack.Screen
             name="SocialSearch"

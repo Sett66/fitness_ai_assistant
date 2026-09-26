@@ -18,7 +18,9 @@
     "start:worker": "nest start --watch --entryFile worker",
     "prestart:cron": "node ../../scripts/ensure-workspace-deps.mjs",
     "start:cron": "nest start --watch --entryFile schedule",
-    "reindex:social": "tsx src/scripts/reindex-social.ts"
+    "reindex:social": "tsx src/scripts/reindex-social.ts",
+    "reindex:memories": "tsx src/scripts/reindex-memories.ts",
+    "eval:memory-recall": "tsx src/scripts/eval-memory-recall.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.731.1",

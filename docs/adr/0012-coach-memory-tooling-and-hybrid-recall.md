@@ -195,4 +195,4 @@ W2 结束时系统已可用且成本已降低，W3 为纯增量——若 hybrid 
 
 ## Status
 
-Proposed · 2026-09-24
+Implemented · 2026-09-24

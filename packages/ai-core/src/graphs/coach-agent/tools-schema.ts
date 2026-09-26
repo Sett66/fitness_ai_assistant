@@ -7,6 +7,79 @@ export const COACH_AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'save_memory',
+      description:
+        '仅记录用户明确表达的稳定伤病、饮食限制/偏好、器械、固定训练时间、常驻地点或目标补充。不要记录今天/明天/刚才等时效信息、短暂疲劳、他人事实、档案已有身高体重或闲聊。修正已有事实时复用相同 key。',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: {
+            type: 'string',
+            enum: [
+              'injury',
+              'diet_restriction',
+              'diet_pref',
+              'equipment',
+              'schedule',
+              'location',
+              'goal_note',
+              'other',
+            ],
+          },
+          slug: { type: 'string' },
+          value: { type: 'string' },
+          confidence: { type: 'number' },
+        },
+        required: ['category', 'slug', 'value'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'forget_memory',
+      description: '用户明确否定或要求删除一条旧的稳定记忆时调用；只传已有的 category:slug key。',
+      parameters: {
+        type: 'object',
+        properties: { key: { type: 'string' } },
+        required: ['key'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'recall_memory',
+      description:
+        '当记忆索引中的事实可能影响当前回答且需要细节时检索。安全记忆已直接给出时不用重复检索；不要为闲聊检索。',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', maxLength: 200 },
+          category: {
+            type: 'string',
+            enum: [
+              'injury',
+              'diet_restriction',
+              'diet_pref',
+              'equipment',
+              'schedule',
+              'location',
+              'goal_note',
+              'other',
+            ],
+          },
+        },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_user_fitness_snapshot',
       description:
         '获取用户健身档案、今日营养摄入与剩余配额、活跃训练/饮食计划摘要。回答饮食、训练进度、今日还能吃多少等问题前应优先调用。',

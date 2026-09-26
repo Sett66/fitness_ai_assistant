@@ -180,6 +180,17 @@ export function ProfileScreen() {
               </View>
             </ProfileSectionCard>
 
+            <ProfileSectionCard title="Coach 记忆">
+              <ProfileInfoRow label="教练记得什么" value="查看、纠正或删除长期记忆" />
+              <View className="pt-2">
+                <Button
+                  title="管理教练记忆"
+                  variant="secondary"
+                  onPress={() => navigation.navigate('CoachMemories')}
+                />
+              </View>
+            </ProfileSectionCard>
+
             <ProfileSectionCard title="位置权限">
               <ProfileInfoRow
                 label="状态"

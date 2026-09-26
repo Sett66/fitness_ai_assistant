@@ -12,6 +12,15 @@ import { z } from 'zod';
 import { apiFetch } from '../client';
 import { queryKeys } from '../queryKeys';
 
+const MemoryItemSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  category: z.string(),
+  value: z.string(),
+  updatedAt: z.string().or(z.date()),
+});
+export type MemoryItem = z.infer<typeof MemoryItemSchema>;
+
 const ExerciseListSchema = paginatedSchema(ExerciseResponseSchema);
 
 export function useMe(enabled = true) {
@@ -114,5 +123,35 @@ export function useUpsertMyLocation() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.myLocation });
     },
+  });
+}
+
+export function useMemories() {
+  return useQuery({
+    queryKey: ['memories'],
+    queryFn: async () =>
+      z.array(MemoryItemSchema).parse(await apiFetch<unknown>('/users/me/memories')),
+  });
+}
+export function useDeleteMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch(`/users/me/memories/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['memories'] }),
+  });
+}
+export function useCreateMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: unknown) => apiFetch('/users/me/memories', { method: 'POST', body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['memories'] }),
+  });
+}
+export function useUpdateMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, value }: { id: string; value: string }) =>
+      apiFetch(`/users/me/memories/${id}`, { method: 'PATCH', body: { value } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['memories'] }),
   });
 }

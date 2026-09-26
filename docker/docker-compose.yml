@@ -95,7 +95,7 @@ services:
         echo "MinIO bucket \"${MINIO_BUCKET:-media}\" 已就绪"
 
   meilisearch:
-    image: getmeili/meilisearch:latest
+    image: getmeili/meilisearch:v1.53.1
     container_name: fitness-meilisearch
     restart: unless-stopped
     ports:

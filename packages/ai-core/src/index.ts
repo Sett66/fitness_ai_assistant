@@ -47,13 +47,9 @@ export type {
   RunCoachAgentStreamInput,
   RunCoachAgentStreamOptions,
 } from './graphs/coach-agent';
-export { formatMemoryBlock } from './memory/format-memory-block';
+export { formatAgentMemoryBlocks, formatMemoryBlock } from './memory/format-memory-block';
+export { createMemoryEmbedding } from './llm/embedding';
 export { formatHealthContextBlock } from './memory/format-health-context-block';
-export { extractMemoryFacts } from './memory/extract-memory-facts';
-export type {
-  ExtractMemoryFactsInput,
-  ExtractMemoryFactsResult,
-} from './memory/extract-memory-facts';
 export type { AgentMemoryPatch } from '@fitness/shared';
 export type { BuildCoachSystemPromptInput } from './chains/coach-chat/build-system-prompt';
 export type { CoachChatOutput, RunCoachChatInput } from './chains/coach-chat';

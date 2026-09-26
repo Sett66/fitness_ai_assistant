@@ -377,26 +377,31 @@ export class ConversationsService {
         const memoryFacts = await this.agentMemory.listForPrompt(user.userId);
 
         if (coachAgentEnabled) {
-          await this.runCoachAgentStreamPath({
-            user,
-            conversationId,
-            latestUserText,
-            rawUserText,
-            imageObjectKeys,
-            history,
-            userCtx,
-            memoryFacts,
-            timezoneOffsetMinutes,
-            locationContext: input.locationContext,
-            pendingAssistantId: pendingAssistant.id,
-            userMessageId: userMessage.id,
-            runId: run.id,
-            startedAt,
-            model,
-            emit,
-            traceSession,
-          });
-          return;
+          try {
+            await this.runCoachAgentStreamPath({
+              user,
+              conversationId,
+              latestUserText,
+              rawUserText,
+              imageObjectKeys,
+              history,
+              userCtx,
+              memoryFacts,
+              timezoneOffsetMinutes,
+              locationContext: input.locationContext,
+              pendingAssistantId: pendingAssistant.id,
+              userMessageId: userMessage.id,
+              runId: run.id,
+              startedAt,
+              model,
+              emit,
+              traceSession,
+            });
+            return;
+          } catch (agentErr: unknown) {
+            // Tool-loop failures must degrade to plain streaming rather than fail the conversation.
+            this.logger.warn(`Coach Agent 降级为纯聊天: ${this.toStreamErrorMessage(agentErr)}`);
+          }
         }
 
         const stream = runCoachChatStream(
@@ -435,14 +440,6 @@ export class ConversationsService {
           userMessageId: userMessage.id,
           suggestedActions,
           usage: finalResult.usage,
-        });
-
-        void this.enqueueMemoryExtractSafely(user, {
-          conversationId,
-          userMessageId: userMessage.id,
-          assistantMessageId: pendingAssistant.id,
-          latestUserText: rawUserText || displayContent,
-          assistantReply: finalResult.reply,
         });
       } catch (err: unknown) {
         const message = this.toStreamErrorMessage(err);
@@ -569,14 +566,6 @@ export class ConversationsService {
       toolTrace,
       usage,
     });
-
-    void this.enqueueMemoryExtractSafely(params.user, {
-      conversationId: params.conversationId,
-      userMessageId: params.userMessageId,
-      assistantMessageId: params.pendingAssistantId,
-      latestUserText: params.rawUserText?.trim() || params.latestUserText,
-      assistantReply: finalReply,
-    });
   }
 
   private async persistCoachChatSuccess(params: {
@@ -626,21 +615,6 @@ export class ConversationsService {
     await this.prisma.client.conversation.update({
       where: { id: params.conversationId },
       data: { updatedAt: new Date() },
-    });
-  }
-
-  private enqueueMemoryExtractSafely(
-    user: JwtUserPayload,
-    input: {
-      conversationId: string;
-      userMessageId: string;
-      assistantMessageId: string;
-      latestUserText: string;
-      assistantReply: string;
-    },
-  ): void {
-    void this.agentMemory.enqueueMemoryExtract(user.userId, input).catch((err: unknown) => {
-      this.logger.warn(`记忆抽取入队失败: ${this.toStreamErrorMessage(err)}`);
     });
   }
 

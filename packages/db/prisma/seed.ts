@@ -171,8 +171,13 @@ async function seedDemoAgentMemory(): Promise<void> {
   }
 
   const seeds = [
-    { key: 'injury_knee', value: '避免深蹲类动作', confidence: 0.9 },
-    { key: 'travel_city', value: '常出差上海', confidence: 0.85 },
+    { key: 'injury:knee', category: 'injury' as const, value: '避免深蹲类动作', confidence: 0.9 },
+    {
+      key: 'location:travel_shanghai',
+      category: 'location' as const,
+      value: '常出差上海',
+      confidence: 0.85,
+    },
   ];
 
   let written = 0;
@@ -182,6 +187,7 @@ async function seedDemoAgentMemory(): Promise<void> {
       create: {
         userId: demoUser.id,
         key: item.key,
+        category: item.category,
         value: item.value,
         confidence: item.confidence,
       },

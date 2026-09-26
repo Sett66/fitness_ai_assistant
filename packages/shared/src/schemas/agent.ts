@@ -22,6 +22,9 @@ export const CoachToolNameSchema = z.enum([
   'search_nearby_gyms',
   'enqueue_plan_generate',
   'enqueue_meal_vision',
+  'save_memory',
+  'forget_memory',
+  'recall_memory',
 ]);
 export type CoachToolName = z.infer<typeof CoachToolNameSchema>;
 
@@ -36,8 +39,40 @@ export const CoachToolTraceItemSchema = z.object({
 export type CoachToolTraceItem = z.infer<typeof CoachToolTraceItemSchema>;
 
 /** 长期记忆事实（读取 / 注入 prompt） */
+export const MemoryCategorySchema = z.enum([
+  'injury',
+  'diet_restriction',
+  'diet_pref',
+  'equipment',
+  'schedule',
+  'location',
+  'goal_note',
+  'other',
+]);
+export type MemoryCategory = z.infer<typeof MemoryCategorySchema>;
+
+/** Normalizes user/model supplied labels into the canonical memory key slug. */
+export function normalizeMemorySlug(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48)
+    .replace(/_+$/g, '');
+}
+
+export const MemoryKeySchema = z
+  .string()
+  .max(80)
+  .regex(
+    /^(injury|diet_restriction|diet_pref|equipment|schedule|location|goal_note|other):[a-z0-9_]{1,48}$/,
+  );
+
 export const AgentMemoryFactSchema = z.object({
-  key: z.string().max(64),
+  key: MemoryKeySchema,
+  category: MemoryCategorySchema,
   value: z.string().max(512),
   confidence: z.number().min(0).max(1).optional(),
 });
@@ -46,7 +81,7 @@ export type AgentMemoryFact = z.infer<typeof AgentMemoryFactSchema>;
 /** 长期记忆变更（抽取 job 输出：新增、更新或删除） */
 export const AgentMemoryPatchSchema = z
   .object({
-    key: z.string().max(64),
+    key: z.string().max(80),
     action: z.enum(['upsert', 'remove']),
     value: z.string().max(512).optional(),
     confidence: z.number().min(0).max(1).optional(),
@@ -61,6 +96,16 @@ export const AgentMemoryPatchSchema = z
     }
   });
 export type AgentMemoryPatch = z.infer<typeof AgentMemoryPatchSchema>;
+
+/** User-managed memory DTOs. The server always owns final key normalization. */
+export const CreateMemoryInputSchema = z.object({
+  category: MemoryCategorySchema,
+  slug: z.string().min(1).max(128),
+  value: z.string().trim().min(1).max(512),
+});
+export type CreateMemoryInput = z.infer<typeof CreateMemoryInputSchema>;
+export const UpdateMemoryInputSchema = z.object({ value: z.string().trim().min(1).max(512) });
+export type UpdateMemoryInput = z.infer<typeof UpdateMemoryInputSchema>;
 
 export const CoachStreamToolStartEventSchema = z.object({
   name: CoachToolNameSchema,

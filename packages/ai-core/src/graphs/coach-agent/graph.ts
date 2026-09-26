@@ -70,6 +70,9 @@ const summarizeToolInput = (input: unknown): string | undefined => {
     return undefined;
   }
   const record = input as Record<string, unknown>;
+  if (typeof record.category === 'string' && typeof record.slug === 'string')
+    return `${record.category}:${record.slug}`;
+  if (typeof record.key === 'string') return `key=${record.key.slice(0, 80)}`;
   if (typeof record.timezoneOffsetMinutes === 'number') {
     return `tz=${record.timezoneOffsetMinutes}`;
   }
@@ -186,7 +189,10 @@ export function createCoachAgentGraph(options: CreateCoachAgentGraphOptions) {
       }
     }
 
-    const nextIteration = state.iteration + 1;
+    const countsTowardIteration = lastMessage.tool_calls.some(
+      (call) => !['save_memory', 'forget_memory'].includes(call.function.name),
+    );
+    const nextIteration = state.iteration + (countsTowardIteration ? 1 : 0);
     const updates: Partial<CoachAgentGraphState> = {
       messages: toolMessages,
       toolTrace: toolTraceItems,
