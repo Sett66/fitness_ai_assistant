@@ -14,6 +14,8 @@ export type CoachToolActivity = {
 type CoachStreamState = {
   isStreaming: boolean;
   streamRevision: number;
+  streamId: string | null;
+  lastProcessedSequence: number;
   userMessageId: string | null;
   userContent: string | null;
   userImageObjectKeys: string[] | null;
@@ -23,15 +25,22 @@ type CoachStreamState = {
   suggestedActions: SuggestedAction[] | null;
   toolActivities: CoachToolActivity[];
   error: string | null;
+  isCancelled: boolean;
+  reconnectRequired: boolean;
   beginUserMessage: (params: { userContent: string; userImagePreviewUris?: string[] }) => void;
   startStream: (params: {
+    streamId?: string;
     userMessageId: string;
     userContent: string;
     assistantMessageId: string;
     userImageObjectKeys?: string[];
     userImagePreviewUris?: string[];
   }) => void;
-  setAssistantContent: (content: string) => void;
+  appendAssistantDelta: (text: string) => void;
+  correctAssistantContent: (content: string) => void;
+  acceptSequence: (sequence: number) => boolean;
+  setReconnectRequired: () => void;
+  clearReconnectRequired: () => void;
   startTool: (params: { name: CoachToolName; label?: string }) => void;
   endTool: (params: { name: CoachToolName; ok: boolean; summary?: string }) => void;
   finishStream: (params: { suggestedActions?: SuggestedAction[] }) => void;
@@ -43,6 +52,8 @@ type CoachStreamState = {
 const initialState = {
   isStreaming: false,
   streamRevision: 0,
+  streamId: null,
+  lastProcessedSequence: 0,
   userMessageId: null,
   userContent: null,
   userImageObjectKeys: null,
@@ -52,6 +63,8 @@ const initialState = {
   suggestedActions: null,
   toolActivities: [] as CoachToolActivity[],
   error: null,
+  isCancelled: false,
+  reconnectRequired: false,
 };
 
 export const useCoachStreamStore = create<CoachStreamState>((set) => ({
@@ -70,6 +83,7 @@ export const useCoachStreamStore = create<CoachStreamState>((set) => ({
     });
   },
   startStream: ({
+    streamId,
     userMessageId,
     userContent,
     assistantMessageId,
@@ -79,6 +93,7 @@ export const useCoachStreamStore = create<CoachStreamState>((set) => ({
     set({
       ...initialState,
       isStreaming: true,
+      streamId: streamId ?? null,
       userMessageId,
       userContent,
       userImageObjectKeys: userImageObjectKeys?.length ? userImageObjectKeys : null,
@@ -87,11 +102,27 @@ export const useCoachStreamStore = create<CoachStreamState>((set) => ({
       assistantContent: '',
       toolActivities: [],
     }),
-  setAssistantContent: (content) =>
+  appendAssistantDelta: (text) =>
+    set((state) => ({
+      assistantContent: state.assistantContent + text,
+      streamRevision: state.streamRevision + 1,
+    })),
+  correctAssistantContent: (content) =>
     set((state) => ({
       assistantContent: content,
       streamRevision: state.streamRevision + 1,
     })),
+  acceptSequence: (sequence) => {
+    let accepted = false;
+    set((state) => {
+      if (sequence <= state.lastProcessedSequence) return state;
+      accepted = true;
+      return { lastProcessedSequence: sequence };
+    });
+    return accepted;
+  },
+  setReconnectRequired: () => set({ reconnectRequired: true, error: '连接中断，可点击重新连接' }),
+  clearReconnectRequired: () => set({ reconnectRequired: false, error: null }),
   startTool: ({ name, label }) =>
     set((state) => ({
       toolActivities: [
@@ -118,16 +149,22 @@ export const useCoachStreamStore = create<CoachStreamState>((set) => ({
       isStreaming: false,
       suggestedActions: suggestedActions ?? null,
       error: null,
+      isCancelled: false,
+      reconnectRequired: false,
     }),
   failStream: (message) =>
     set({
       isStreaming: false,
       error: message,
+      assistantContent: '',
+      isCancelled: false,
     }),
   stopStream: () =>
     set({
       isStreaming: false,
       error: null,
+      isCancelled: true,
+      reconnectRequired: false,
     }),
   reset: () => set(initialState),
 }));

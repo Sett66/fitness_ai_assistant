@@ -67,6 +67,34 @@ export class ConversationSideEffectService {
 
   /** 将 aiRun 已结束但仍显示「正在生成…」的助手占位消息修正为最终卡片/正文 */
   async reconcileStaleAssistantMessages(conversationId: string): Promise<void> {
+    const staleCoachRuns = await this.prisma.client.aiRun.findMany({
+      where: {
+        conversationId,
+        taskType: 'COACH_CHAT',
+        status: { in: ['QUEUED', 'RUNNING'] },
+        createdAt: { lt: new Date(Date.now() - 90_000) },
+      },
+      select: { id: true, assistantMessage: { select: { id: true } } },
+    });
+    for (const run of staleCoachRuns) {
+      await this.prisma.client.$transaction(async (tx) => {
+        const changed = await tx.aiRun.updateMany({
+          where: { id: run.id, status: { in: ['QUEUED', 'RUNNING'] } },
+          data: { status: 'FAILED', errorMsg: '生成服务已重启，请重新发送', durationMs: 90_000 },
+        });
+        if (changed.count && run.assistantMessage) {
+          await tx.message.update({
+            where: { id: run.assistantMessage.id },
+            data: {
+              contentType: 'SYSTEM_NOTICE',
+              content: '生成服务已重启，请重新发送',
+              metadata: { taskStatus: 'FAILED', taskType: 'COACH_CHAT' },
+            },
+          });
+        }
+      });
+    }
+
     const staleRows = await this.prisma.client.message.findMany({
       where: {
         conversationId,

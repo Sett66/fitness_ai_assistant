@@ -1,10 +1,12 @@
 import { AiCoreError, runCoachChatStream } from '@fitness/ai-core';
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import type {
   AiTaskType,
   CoachChatObservability,
   CoachChatOutput,
   CoachMessageAcceptedResponse,
+  CoachStreamStartResponse,
   CoachToolTraceItem,
   ConversationWithMessages,
   CreateCoachMessageInput,
@@ -13,9 +15,11 @@ import type {
 } from '@fitness/shared';
 import {
   CoachMessageAcceptedResponseSchema,
+  CoachStreamStartResponseSchema,
   ConversationListResponseSchema,
   ConversationWithMessagesSchema,
   CreateCoachMessageSchema,
+  StartCoachStreamSchema,
   CreateConversationSchema,
   LLM_MODELS,
   MessageSchema,
@@ -39,8 +43,9 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import type { CoachChatTraceSession } from '../../infra/observability/coach-chat-trace.session';
 import { LangfuseCoachTraceService } from '../../infra/observability/langfuse-coach-trace.service';
 import { MealLogsService } from '../meal-logs/meal-logs.service';
+import { CoachStreamRegistryService } from './coach-stream-registry.service';
 
-export type SseEmitFn = (event: string, data: unknown) => void;
+export type SseEmitFn = (event: string, data: unknown) => Promise<void>;
 
 const DEFAULT_MESSAGE_LIMIT = 50;
 const MAX_CHAT_IMAGES = 5;
@@ -78,6 +83,13 @@ function formatConversationPreview(
 @Injectable()
 export class ConversationsService {
   private readonly logger = new Logger(ConversationsService.name);
+  private readonly activeStreams = new Map<string, AbortController>();
+  private readonly streamPartialText = new Map<string, string>();
+  private readonly pendingStreamPublishes = new Map<string, Promise<void>>();
+  private readonly streamFlushers = new Map<string, () => Promise<void>>();
+  private readonly streamTextSequences = new Map<string, number>();
+  private readonly streamLastSequences = new Map<string, number>();
+  private readonly streamToolTraces = new Map<string, CoachToolTraceItem[]>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -91,6 +103,7 @@ export class ConversationsService {
     private readonly conversationTask: ConversationTaskService,
     private readonly conversationSideEffects: ConversationSideEffectService,
     private readonly langfuseCoachTrace: LangfuseCoachTraceService,
+    private readonly coachStreams: CoachStreamRegistryService,
   ) {}
 
   async getDefault(user: JwtUserPayload): Promise<ConversationWithMessages> {
@@ -267,17 +280,30 @@ export class ConversationsService {
     });
   }
 
-  async postMessageStream(
+  async startMessageStream(
     user: JwtUserPayload,
     conversationId: string,
     body: unknown,
-    emit: SseEmitFn,
-  ): Promise<void> {
+  ): Promise<CoachStreamStartResponse> {
     await this.assertConversationOwner(user.userId, conversationId);
-    const input = parseWith(CreateCoachMessageSchema, body) as CreateCoachMessageInput;
-
-    if (input.action !== 'CHAT') {
-      throw new BizException('VALIDATION_FAILED', '流式接口仅支持 CHAT', 400);
+    await this.conversationSideEffects.reconcileStaleAssistantMessages(conversationId);
+    const input = parseWith(StartCoachStreamSchema, body) as CreateCoachMessageInput & {
+      clientRequestId: string;
+    };
+    const existing = await this.prisma.client.aiRun.findUnique({
+      where: { clientRequestId: input.clientRequestId },
+      include: { triggerMessage: true, assistantMessage: true },
+    });
+    if (existing) {
+      if (existing.userId !== user.userId || existing.conversationId !== conversationId) {
+        throw new BizException('FORBIDDEN', 'clientRequestId 已被其他请求使用', 403);
+      }
+      return CoachStreamStartResponseSchema.parse({
+        streamId: existing.id,
+        userMessageId: existing.triggerMessageId,
+        assistantMessageId: existing.assistantMessage?.id,
+        status: existing.status,
+      });
     }
 
     const rawUserText = String(input.content ?? '').trim();
@@ -291,72 +317,136 @@ export class ConversationsService {
     const model = LLM_MODELS.DEEPSEEK_V4_FLASH;
     const startedAt = Date.now();
 
-    await this.conversationTask.assertDailyLimit(user.userId, 'COACH_CHAT');
+    try {
+      await this.coachStreams.assertAvailable();
+    } catch {
+      throw new BizException(
+        'COACH_STREAM_INFRA_UNAVAILABLE',
+        errorMessagesZhCN.COACH_STREAM_INFRA_UNAVAILABLE,
+        503,
+      );
+    }
 
     const displayContent =
       rawUserText ||
       (imageObjectKeys.length === 1 ? '[图片]' : `[${imageObjectKeys.length} 张图片]`);
-
-    const userMessage = await this.prisma.client.message.create({
-      data: {
-        conversationId,
-        role: 'USER',
-        contentType: imageObjectKeys.length > 0 ? 'IMAGE' : 'TEXT',
-        content: displayContent,
-        metadata: {
-          action: 'CHAT',
-          ...(imageObjectKeys.length ? { imageObjectKeys } : {}),
-          ...(input.locationContext ? { locationContext: input.locationContext } : {}),
-        },
-      },
-    });
-
-    await this.maybeSetConversationTitle(conversationId, displayContent, true);
 
     const { latestUserText } = await this.coachImageContext.augmentChatUserText(
       user.userId,
       rawUserText,
       imageObjectKeys,
     );
+    const runId = randomUUID();
+    try {
+      await this.coachStreams.initialize(runId);
+    } catch {
+      throw new BizException(
+        'COACH_STREAM_INFRA_UNAVAILABLE',
+        errorMessagesZhCN.COACH_STREAM_INFRA_UNAVAILABLE,
+        503,
+      );
+    }
 
-    const pendingAssistant = await this.prisma.client.message.create({
-      data: {
-        conversationId,
-        role: 'ASSISTANT',
-        contentType: 'SYSTEM_NOTICE',
-        content: this.pendingLabel('CHAT'),
-        metadata: { taskStatus: 'RUNNING', action: 'CHAT' },
+    let userMessage!: Awaited<ReturnType<typeof this.prisma.client.message.create>>;
+    let pendingAssistant!: Awaited<ReturnType<typeof this.prisma.client.message.create>>;
+    let run!: Awaited<ReturnType<typeof this.prisma.client.aiRun.create>>;
+    try {
+      await this.conversationTask.assertDailyLimit(user.userId, 'COACH_CHAT');
+      ({ userMessage, pendingAssistant, run } = await this.prisma.client.$transaction(
+        async (tx) => {
+          const createdUserMessage = await tx.message.create({
+            data: {
+              conversationId,
+              role: 'USER',
+              contentType: imageObjectKeys.length > 0 ? 'IMAGE' : 'TEXT',
+              content: displayContent,
+              metadata: {
+                action: 'CHAT',
+                ...(imageObjectKeys.length ? { imageObjectKeys } : {}),
+                ...(input.locationContext ? { locationContext: input.locationContext } : {}),
+              },
+            },
+          });
+          const createdRun = await tx.aiRun.create({
+            data: {
+              id: runId,
+              clientRequestId: input.clientRequestId,
+              userId: user.userId,
+              taskType: 'COACH_CHAT',
+              model,
+              status: 'RUNNING',
+              inputJson: {
+                content: latestUserText,
+                rawUserText: rawUserText || undefined,
+                imageObjectKeys: imageObjectKeys.length ? imageObjectKeys : undefined,
+                conversationId,
+                timezoneOffsetMinutes,
+                ...(input.locationContext ? { locationContext: input.locationContext } : {}),
+              } as Prisma.InputJsonValue,
+              conversationId,
+              triggerMessageId: createdUserMessage.id,
+            },
+          });
+          const createdAssistant = await tx.message.create({
+            data: {
+              conversationId,
+              role: 'ASSISTANT',
+              contentType: 'SYSTEM_NOTICE',
+              content: this.pendingLabel('CHAT'),
+              metadata: { taskStatus: 'RUNNING', action: 'CHAT', aiRunId: createdRun.id },
+              aiRunId: createdRun.id,
+            },
+          });
+          return {
+            userMessage: createdUserMessage,
+            pendingAssistant: createdAssistant,
+            run: createdRun,
+          };
+        },
+      ));
+    } catch (err: unknown) {
+      await this.coachStreams.delete(runId).catch(() => undefined);
+      const prismaCode =
+        typeof err === 'object' && err !== null && 'code' in err
+          ? String((err as { code: unknown }).code)
+          : undefined;
+      if (prismaCode !== 'P2002') throw err;
+      const duplicate = await this.prisma.client.aiRun.findUnique({
+        where: { clientRequestId: input.clientRequestId },
+        include: { triggerMessage: true, assistantMessage: true },
+      });
+      if (
+        duplicate &&
+        duplicate.userId === user.userId &&
+        duplicate.conversationId === conversationId
+      ) {
+        return CoachStreamStartResponseSchema.parse({
+          streamId: duplicate.id,
+          userMessageId: duplicate.triggerMessageId,
+          assistantMessageId: duplicate.assistantMessage?.id,
+          status: duplicate.status,
+        });
+      }
+      const active = await this.prisma.client.aiRun.findFirst({
+        where: { conversationId, taskType: 'COACH_CHAT', status: { in: ['QUEUED', 'RUNNING'] } },
+        include: { triggerMessage: true, assistantMessage: true },
+      });
+      if (active) {
+        throw new BizException(
+          'COACH_STREAM_ALREADY_RUNNING',
+          errorMessagesZhCN.COACH_STREAM_ALREADY_RUNNING,
+          409,
+          { streamId: active.id },
+        );
+      }
+      throw err;
+    }
+
+    await this.maybeSetConversationTitle(conversationId, displayContent, true).catch(
+      (err: unknown) => {
+        this.logger.warn(`Coach 会话标题更新失败: ${this.toStreamErrorMessage(err)}`);
       },
-    });
-
-    const run = await this.prisma.client.aiRun.create({
-      data: {
-        userId: user.userId,
-        taskType: 'COACH_CHAT',
-        model,
-        status: 'RUNNING',
-        inputJson: {
-          content: latestUserText,
-          rawUserText: rawUserText || undefined,
-          imageObjectKeys: imageObjectKeys.length ? imageObjectKeys : undefined,
-          conversationId,
-          timezoneOffsetMinutes,
-          ...(input.locationContext ? { locationContext: input.locationContext } : {}),
-        } as Prisma.InputJsonValue,
-        conversationId,
-        triggerMessageId: userMessage.id,
-      },
-    });
-
-    await this.prisma.client.message.update({
-      where: { id: pendingAssistant.id },
-      data: { aiRunId: run.id },
-    });
-
-    emit('accepted', {
-      userMessageId: userMessage.id,
-      pendingAssistantMessageId: pendingAssistant.id,
-    });
+    );
 
     const coachAgentEnabled = this.agentConfig.isCoachAgentEnabled();
     const traceSession = this.langfuseCoachTrace.beginCoachChatTrace({
@@ -368,8 +458,85 @@ export class ConversationsService {
       userInput: latestUserText,
     });
 
+    const abortController = new AbortController();
+    this.activeStreams.set(run.id, abortController);
+    this.streamPartialText.set(run.id, '');
+    this.streamTextSequences.set(run.id, 0);
+    this.streamLastSequences.set(run.id, 0);
+    this.streamToolTraces.set(run.id, []);
+    const timeout = setTimeout(
+      () => abortController.abort(new Error('COACH_STREAM_TIMEOUT')),
+      Math.max(0, 90_000 - (Date.now() - startedAt)),
+    );
+    timeout.unref?.();
+
+    let publishQueue = Promise.resolve();
+    let lastTextSequence = 0;
+    let pendingText = '';
+    let firstDeltaSent = false;
+    let textFlushTimer: ReturnType<typeof setTimeout> | undefined;
+    const queueEvent = (event: string, payload: Record<string, unknown>): Promise<void> => {
+      publishQueue = publishQueue.then(async () => {
+        const streamEvent = await this.coachStreams.publish(
+          run.id,
+          event as Parameters<CoachStreamRegistryService['publish']>[1],
+          event === 'done' || event === 'cancelled' ? { ...payload, lastTextSequence } : payload,
+        );
+        if (!streamEvent) return;
+        this.streamLastSequences.set(run.id, streamEvent.data.sequence as number);
+        if (event === 'delta' && typeof payload.text === 'string') {
+          lastTextSequence = streamEvent.data.sequence as number;
+          this.streamTextSequences.set(run.id, lastTextSequence);
+          this.streamPartialText.set(
+            run.id,
+            `${this.streamPartialText.get(run.id) ?? ''}${payload.text}`,
+          );
+        }
+        if (event === 'done' || event === 'cancelled' || event === 'error') {
+          await this.coachStreams.shortenRetention(run.id);
+        }
+      });
+      this.pendingStreamPublishes.set(run.id, publishQueue);
+      void publishQueue.catch(() => undefined);
+      return publishQueue;
+    };
+    const flushText = async (): Promise<void> => {
+      if (textFlushTimer) clearTimeout(textFlushTimer);
+      textFlushTimer = undefined;
+      if (!pendingText) return;
+      const text = pendingText;
+      pendingText = '';
+      await queueEvent('delta', { text });
+    };
+    this.streamFlushers.set(run.id, flushText);
+    const emit: SseEmitFn = async (event, data) => {
+      const payload = (data ?? {}) as Record<string, unknown>;
+      if (event === 'delta' && typeof payload.text === 'string' && payload.text) {
+        pendingText += payload.text;
+        if (!firstDeltaSent) {
+          firstDeltaSent = true;
+          await flushText();
+          return;
+        }
+        if (textFlushTimer) clearTimeout(textFlushTimer);
+        textFlushTimer = setTimeout(() => void flushText().catch(() => undefined), 32);
+        return;
+      }
+      if (event === 'done' || event === 'cancelled' || event === 'error') {
+        await flushText();
+      } else if (pendingText) {
+        await flushText();
+      }
+      await queueEvent(event, payload);
+    };
+
     const runStream = async (): Promise<void> => {
       try {
+        const currentRun = await this.prisma.client.aiRun.findUnique({
+          where: { id: run.id },
+          select: { status: true },
+        });
+        if (currentRun?.status !== 'RUNNING') return;
         const history = await this.coachChatHistory.load(conversationId, {
           excludeMessageIds: [userMessage.id, pendingAssistant.id],
         });
@@ -396,9 +563,15 @@ export class ConversationsService {
               model,
               emit,
               traceSession,
+              signal: abortController.signal,
+              flushBeforeTerminal: async () => {
+                await flushText();
+                await publishQueue;
+              },
             });
             return;
           } catch (agentErr: unknown) {
+            if (abortController.signal.aborted) throw agentErr;
             // Tool-loop failures must degrade to plain streaming rather than fail the conversation.
             this.logger.warn(`Coach Agent 降级为纯聊天: ${this.toStreamErrorMessage(agentErr)}`);
           }
@@ -409,19 +582,22 @@ export class ConversationsService {
           {
             model,
             client: traceSession?.createTracedDeepSeekClient(),
+            signal: abortController.signal,
           },
         );
 
         let result = await stream.next();
         while (!result.done) {
-          emit('delta', { text: result.value.text });
+          await emit('delta', { text: result.value.delta });
           result = await stream.next();
         }
 
         const finalResult = result.value;
         const suggestedActions = finalResult.suggestedActions ?? [];
+        await flushText();
+        await publishQueue;
 
-        await this.persistCoachChatSuccess({
+        const persisted = await this.persistCoachChatSuccess({
           pendingAssistantId: pendingAssistant.id,
           userMessageId: userMessage.id,
           runId: run.id,
@@ -431,17 +607,46 @@ export class ConversationsService {
           usage: finalResult.usage,
           startedAt,
           observability: traceSession?.getObservabilityPointer() ?? undefined,
+          lastTextSequence: this.streamTextSequences.get(run.id) ?? 0,
+          terminalSequence: (this.streamLastSequences.get(run.id) ?? 0) + 1,
         });
+        if (!persisted) return;
 
         traceSession?.complete({ output: finalResult.reply });
 
-        emit('done', {
-          assistantMessageId: pendingAssistant.id,
-          userMessageId: userMessage.id,
+        await emit('done', {
+          finalText: finalResult.reply,
           suggestedActions,
+          toolTrace: [],
           usage: finalResult.usage,
         });
       } catch (err: unknown) {
+        await publishQueue.catch(() => undefined);
+        if (
+          abortController.signal.aborted &&
+          abortController.signal.reason instanceof Error &&
+          abortController.signal.reason.message === 'USER_CANCELLED'
+        ) {
+          const partial = this.streamPartialText.get(run.id) ?? '';
+          const wasCancelled = await this.persistCoachChatCancellation({
+            runId: run.id,
+            assistantMessageId: pendingAssistant.id,
+            conversationId,
+            partial,
+            startedAt,
+            lastTextSequence: this.streamTextSequences.get(run.id) ?? 0,
+            terminalSequence: (this.streamLastSequences.get(run.id) ?? 0) + 1,
+            toolTrace: this.streamToolTraces.get(run.id) ?? [],
+          });
+          if (wasCancelled) {
+            traceSession?.complete({ output: partial });
+            await emit('cancelled', {
+              finalText: partial,
+              toolTrace: this.streamToolTraces.get(run.id) ?? [],
+            });
+          }
+          return;
+        }
         const message = this.toStreamErrorMessage(err);
         const code =
           err instanceof AiCoreError
@@ -452,35 +657,278 @@ export class ConversationsService {
 
         traceSession?.fail(message);
 
-        await this.prisma.client.message.update({
-          where: { id: pendingAssistant.id },
-          data: {
-            contentType: 'SYSTEM_NOTICE',
-            content: message,
-            metadata: { taskStatus: 'FAILED', taskType: 'COACH_CHAT' } as Prisma.InputJsonValue,
-          },
-        });
+        await flushText().catch(() => undefined);
+        await publishQueue.catch(() => undefined);
 
-        await this.prisma.client.aiRun.update({
-          where: { id: run.id },
-          data: {
-            status: 'FAILED',
-            errorMsg: message,
-            durationMs: Date.now() - startedAt,
-          },
+        const failed = await this.persistCoachChatFailure({
+          runId: run.id,
+          assistantMessageId: pendingAssistant.id,
+          message,
+          startedAt,
+          terminalSequence: (this.streamLastSequences.get(run.id) ?? 0) + 1,
         });
-
-        emit('error', { message, code });
+        if (failed) await emit('error', { message, code: code ?? 'COACH_STREAM_FAILED' });
       } finally {
+        if (textFlushTimer) clearTimeout(textFlushTimer);
+        clearTimeout(timeout);
+        this.activeStreams.delete(run.id);
+        this.streamPartialText.delete(run.id);
+        this.streamToolTraces.delete(run.id);
+        this.pendingStreamPublishes.delete(run.id);
+        this.streamFlushers.delete(run.id);
+        this.streamTextSequences.delete(run.id);
+        this.streamLastSequences.delete(run.id);
         void traceSession?.flushAsync();
       }
     };
 
-    if (traceSession) {
-      await traceSession.run(runStream);
-    } else {
-      await runStream();
+    void (traceSession ? traceSession.run(runStream) : runStream()).catch((err: unknown) => {
+      this.logger.error(`Coach 流后台任务异常: ${this.toStreamErrorMessage(err)}`);
+    });
+
+    return CoachStreamStartResponseSchema.parse({
+      streamId: run.id,
+      userMessageId: userMessage.id,
+      assistantMessageId: pendingAssistant.id,
+      status: run.status,
+    });
+  }
+
+  async subscribeMessageStream(
+    user: JwtUserPayload,
+    conversationId: string,
+    streamId: string,
+    afterSequence: number,
+    write: (event: string, data: unknown) => void,
+    isDisconnected: () => boolean,
+  ): Promise<void> {
+    await this.assertConversationOwner(user.userId, conversationId);
+    const findRun = () =>
+      this.prisma.client.aiRun.findFirst({
+        where: { id: streamId, userId: user.userId, conversationId, taskType: 'COACH_CHAT' },
+        include: { assistantMessage: true },
+      });
+    let run = await findRun();
+    if (!run) throw new BizException('NOT_FOUND', '流任务不存在', 404);
+
+    if (run.status === 'RUNNING' && !(await this.coachStreams.hasSequence(streamId))) {
+      throw new BizException('COACH_STREAM_EXPIRED', errorMessagesZhCN.COACH_STREAM_EXPIRED, 410);
     }
+
+    let cursor = afterSequence;
+    let heartbeatAt = Date.now();
+    let statusCheckAt = Date.now();
+    while (!isDisconnected()) {
+      if (await this.coachStreams.hasEvents(streamId)) {
+        const events = await this.coachStreams.readAfter(streamId, cursor);
+        for (const item of events) {
+          const sequence = Number(item.data.sequence ?? 0);
+          if (sequence <= cursor) continue;
+          write(item.event, item.data);
+          cursor = sequence;
+          if (item.event === 'done' || item.event === 'cancelled' || item.event === 'error') return;
+        }
+      }
+
+      if (Date.now() - statusCheckAt >= 1000) {
+        statusCheckAt = Date.now();
+        run = await findRun();
+        if (!run) return;
+        if (run.status !== 'RUNNING') {
+          const synthesized = this.buildTerminalStreamEvent(run, cursor + 1);
+          write(synthesized.event, synthesized.data);
+          return;
+        }
+      }
+
+      if (Date.now() - heartbeatAt >= 5000) {
+        write('ping', {});
+        heartbeatAt = Date.now();
+      }
+      await this.coachStreams.waitForEvents(200);
+    }
+  }
+
+  async cancelMessageStream(
+    user: JwtUserPayload,
+    conversationId: string,
+    streamId: string,
+  ): Promise<{ streamId: string; status: string }> {
+    await this.assertConversationOwner(user.userId, conversationId);
+    const run = await this.prisma.client.aiRun.findFirst({
+      where: { id: streamId, userId: user.userId, conversationId, taskType: 'COACH_CHAT' },
+      include: { assistantMessage: true },
+    });
+    if (!run?.assistantMessage) throw new BizException('NOT_FOUND', '流任务不存在', 404);
+    if (run.status !== 'RUNNING') return { streamId, status: run.status };
+
+    this.activeStreams.get(streamId)?.abort(new Error('USER_CANCELLED'));
+    await this.streamFlushers
+      .get(streamId)?.()
+      .catch(() => undefined);
+    await this.pendingStreamPublishes.get(streamId)?.catch(() => undefined);
+    const partial = this.streamPartialText.get(streamId) ?? '';
+    const cancelled = await this.persistCoachChatCancellation({
+      runId: streamId,
+      assistantMessageId: run.assistantMessage.id,
+      conversationId,
+      partial,
+      startedAt: run.createdAt.getTime(),
+      lastTextSequence: this.streamTextSequences.get(streamId) ?? 0,
+      terminalSequence: (this.streamLastSequences.get(streamId) ?? 0) + 1,
+      toolTrace: this.streamToolTraces.get(streamId) ?? [],
+    });
+    if (cancelled) {
+      try {
+        await this.coachStreams.publish(streamId, 'cancelled', {
+          lastTextSequence: this.streamTextSequences.get(streamId) ?? 0,
+          finalText: partial,
+          toolTrace: this.streamToolTraces.get(streamId) ?? [],
+        });
+        await this.coachStreams.shortenRetention(streamId);
+      } catch (err: unknown) {
+        this.logger.warn(`Coach 取消终态暂未写入 Redis: ${this.toStreamErrorMessage(err)}`);
+      }
+      return { streamId, status: 'CANCELLED' };
+    }
+    const current = await this.prisma.client.aiRun.findUnique({ where: { id: streamId } });
+    return { streamId, status: current?.status ?? 'FAILED' };
+  }
+
+  private buildTerminalStreamEvent(
+    run: {
+      status: string;
+      errorMsg: string | null;
+      outputJson: unknown;
+      assistantMessage: { content: string; contentType: string; metadata: unknown } | null;
+    },
+    sequence: number,
+  ): { event: 'done' | 'cancelled' | 'error'; data: Record<string, unknown> } {
+    if (run.status === 'DONE') {
+      const output = (run.outputJson ?? {}) as {
+        reply?: string;
+        suggestedActions?: unknown;
+        toolTrace?: unknown;
+        usage?: unknown;
+        lastTextSequence?: number;
+        terminalSequence?: number;
+      };
+      return {
+        event: 'done',
+        data: {
+          sequence: Math.max(sequence, Number(output.terminalSequence ?? 0)),
+          lastTextSequence: Number(output.lastTextSequence ?? 0),
+          finalText: run.assistantMessage?.content ?? output.reply ?? '',
+          suggestedActions: output.suggestedActions ?? [],
+          toolTrace: output.toolTrace ?? [],
+          usage: output.usage,
+        },
+      };
+    }
+    if (run.status === 'CANCELLED') {
+      const output = (run.outputJson ?? {}) as {
+        lastTextSequence?: number;
+        terminalSequence?: number;
+        toolTrace?: unknown;
+      };
+      return {
+        event: 'cancelled',
+        data: {
+          sequence: Math.max(sequence, Number(output.terminalSequence ?? 0)),
+          lastTextSequence: Number(output.lastTextSequence ?? 0),
+          finalText:
+            run.assistantMessage?.contentType === 'TEXT' ? run.assistantMessage.content : '',
+          toolTrace: output.toolTrace ?? [],
+        },
+      };
+    }
+    return {
+      event: 'error',
+      data: {
+        sequence: Math.max(
+          sequence,
+          Number(((run.outputJson ?? {}) as { terminalSequence?: number }).terminalSequence ?? 0),
+        ),
+        code: 'COACH_STREAM_FAILED',
+        message: run.errorMsg ?? '回答生成失败，请重试',
+      },
+    };
+  }
+
+  private async persistCoachChatCancellation(params: {
+    runId: string;
+    assistantMessageId: string;
+    conversationId: string;
+    partial: string;
+    startedAt: number;
+    lastTextSequence?: number;
+    terminalSequence?: number;
+    toolTrace?: CoachToolTraceItem[];
+  }): Promise<boolean> {
+    return this.prisma.client.$transaction(async (tx) => {
+      const transitioned = await tx.aiRun.updateMany({
+        where: { id: params.runId, status: 'RUNNING' },
+        data: {
+          status: 'CANCELLED',
+          outputJson: {
+            reply: params.partial,
+            lastTextSequence: params.lastTextSequence ?? 0,
+            terminalSequence: params.terminalSequence ?? 1,
+            toolTrace: params.toolTrace ?? [],
+          } as Prisma.InputJsonValue,
+          durationMs: Date.now() - params.startedAt,
+        },
+      });
+      if (transitioned.count === 0) return false;
+      await tx.message.update({
+        where: { id: params.assistantMessageId },
+        data: {
+          contentType: params.partial ? 'TEXT' : 'SYSTEM_NOTICE',
+          content: params.partial || '已停止生成',
+          metadata: {
+            taskStatus: 'CANCELLED',
+            taskType: 'COACH_CHAT',
+            ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
+            ...(params.partial ? { incomplete: true } : {}),
+          } as Prisma.InputJsonValue,
+        },
+      });
+      await tx.conversation.update({
+        where: { id: params.conversationId },
+        data: { updatedAt: new Date() },
+      });
+      return true;
+    });
+  }
+
+  private async persistCoachChatFailure(params: {
+    runId: string;
+    assistantMessageId: string;
+    message: string;
+    startedAt: number;
+    terminalSequence: number;
+  }): Promise<boolean> {
+    return this.prisma.client.$transaction(async (tx) => {
+      const transitioned = await tx.aiRun.updateMany({
+        where: { id: params.runId, status: 'RUNNING' },
+        data: {
+          status: 'FAILED',
+          errorMsg: params.message,
+          outputJson: { terminalSequence: params.terminalSequence } as Prisma.InputJsonValue,
+          durationMs: Date.now() - params.startedAt,
+        },
+      });
+      if (transitioned.count === 0) return false;
+      await tx.message.update({
+        where: { id: params.assistantMessageId },
+        data: {
+          contentType: 'SYSTEM_NOTICE',
+          content: params.message,
+          metadata: { taskStatus: 'FAILED', taskType: 'COACH_CHAT' } as Prisma.InputJsonValue,
+        },
+      });
+      return true;
+    });
   }
 
   private async runCoachAgentStreamPath(params: {
@@ -501,6 +949,8 @@ export class ConversationsService {
     model: string;
     emit: SseEmitFn;
     traceSession?: CoachChatTraceSession | null;
+    signal: AbortSignal;
+    flushBeforeTerminal: () => Promise<void>;
   }): Promise<void> {
     const agentClient = params.traceSession?.createTracedDeepSeekClient({
       stream: 'coach-agent-final-stream',
@@ -520,31 +970,46 @@ export class ConversationsService {
         conversationId: params.conversationId,
         triggerMessageId: params.userMessageId,
       },
-      { model: params.model, client: agentClient },
+      { model: params.model, client: agentClient, signal: params.signal },
     );
 
     let finalReply = '';
     let suggestedActions: CoachChatOutput['suggestedActions'] = [];
     let usage = { tokenIn: 0, tokenOut: 0, costCny: 0 };
     let toolTrace: CoachToolTraceItem[] = [];
+    let lastVisibleText = '';
 
     for await (const event of runner) {
       if (event.type === 'delta') {
         finalReply = event.text;
-        params.emit('delta', { text: event.text });
+        if (event.text.startsWith(lastVisibleText)) {
+          const appended = event.text.slice(lastVisibleText.length);
+          if (appended) await params.emit('delta', { text: appended });
+          lastVisibleText = event.text;
+        }
       } else if (event.type === 'tool_start') {
-        params.emit('tool_start', { name: event.name, label: event.label });
+        await params.emit('tool_start', { name: event.name, label: event.label });
       } else if (event.type === 'tool_end') {
-        params.emit('tool_end', { name: event.name, ok: event.ok, summary: event.summary });
+        const traces = this.streamToolTraces.get(params.runId) ?? [];
+        traces.push({
+          name: event.name,
+          outputSummary: event.summary?.slice(0, 512),
+          durationMs: 0,
+          ok: event.ok,
+        });
+        this.streamToolTraces.set(params.runId, traces);
+        await params.emit('tool_end', { name: event.name, ok: event.ok, summary: event.summary });
       } else if (event.type === 'done') {
         finalReply = event.reply;
         suggestedActions = event.suggestedActions ?? [];
         usage = event.usage;
         toolTrace = event.toolTrace;
+        this.streamToolTraces.set(params.runId, toolTrace);
       }
     }
 
-    await this.persistCoachChatSuccess({
+    await params.flushBeforeTerminal();
+    const persisted = await this.persistCoachChatSuccess({
       pendingAssistantId: params.pendingAssistantId,
       userMessageId: params.userMessageId,
       runId: params.runId,
@@ -555,13 +1020,15 @@ export class ConversationsService {
       startedAt: params.startedAt,
       toolTrace,
       observability: params.traceSession?.getObservabilityPointer() ?? undefined,
+      lastTextSequence: this.streamTextSequences.get(params.runId) ?? 0,
+      terminalSequence: (this.streamLastSequences.get(params.runId) ?? 0) + 1,
     });
+    if (!persisted) return;
 
     params.traceSession?.complete({ output: finalReply });
 
-    params.emit('done', {
-      assistantMessageId: params.pendingAssistantId,
-      userMessageId: params.userMessageId,
+    await params.emit('done', {
+      finalText: finalReply,
       suggestedActions,
       toolTrace,
       usage,
@@ -579,42 +1046,49 @@ export class ConversationsService {
     startedAt: number;
     toolTrace?: CoachToolTraceItem[];
     observability?: CoachChatObservability;
-  }): Promise<void> {
-    await this.prisma.client.message.update({
-      where: { id: params.pendingAssistantId },
-      data: {
-        contentType: 'TEXT',
-        content: params.reply,
-        metadata: {
-          taskStatus: 'DONE',
-          taskType: 'COACH_CHAT',
-          suggestedActions: params.suggestedActions,
-          ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
-        } as Prisma.InputJsonValue,
-        aiRunId: params.runId,
-      },
-    });
-
-    await this.prisma.client.aiRun.update({
-      where: { id: params.runId },
-      data: {
-        status: 'DONE',
-        outputJson: {
-          reply: params.reply,
-          suggestedActions: params.suggestedActions,
-          ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
-          ...(params.observability ? { observability: params.observability } : {}),
-        } as Prisma.InputJsonValue,
-        tokenIn: params.usage.tokenIn,
-        tokenOut: params.usage.tokenOut,
-        costCny: params.usage.costCny,
-        durationMs: Date.now() - params.startedAt,
-      },
-    });
-
-    await this.prisma.client.conversation.update({
-      where: { id: params.conversationId },
-      data: { updatedAt: new Date() },
+    lastTextSequence?: number;
+    terminalSequence?: number;
+  }): Promise<boolean> {
+    return this.prisma.client.$transaction(async (tx) => {
+      const transitioned = await tx.aiRun.updateMany({
+        where: { id: params.runId, status: 'RUNNING' },
+        data: {
+          status: 'DONE',
+          outputJson: {
+            reply: params.reply,
+            suggestedActions: params.suggestedActions,
+            ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
+            ...(params.observability ? { observability: params.observability } : {}),
+            usage: params.usage,
+            lastTextSequence: params.lastTextSequence ?? 0,
+            terminalSequence: params.terminalSequence ?? 1,
+          } as Prisma.InputJsonValue,
+          tokenIn: params.usage.tokenIn,
+          tokenOut: params.usage.tokenOut,
+          costCny: params.usage.costCny,
+          durationMs: Date.now() - params.startedAt,
+        },
+      });
+      if (transitioned.count === 0) return false;
+      await tx.message.update({
+        where: { id: params.pendingAssistantId },
+        data: {
+          contentType: 'TEXT',
+          content: params.reply,
+          metadata: {
+            taskStatus: 'DONE',
+            taskType: 'COACH_CHAT',
+            suggestedActions: params.suggestedActions,
+            ...(params.toolTrace?.length ? { toolTrace: params.toolTrace } : {}),
+          } as Prisma.InputJsonValue,
+          aiRunId: params.runId,
+        },
+      });
+      await tx.conversation.update({
+        where: { id: params.conversationId },
+        data: { updatedAt: new Date() },
+      });
+      return true;
     });
   }
 

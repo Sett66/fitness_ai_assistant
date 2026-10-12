@@ -59,7 +59,7 @@ export class CoachChatHistoryService {
       where: {
         conversationId,
         role: { in: ['USER', 'ASSISTANT'] },
-        contentType: { in: ['TEXT', 'IMAGE', 'PLAN_CARD', 'MEAL_VISION_CARD'] },
+        contentType: { in: ['TEXT', 'IMAGE', 'PLAN_CARD', 'MEAL_VISION_CARD', 'SYSTEM_NOTICE'] },
         ...(excludeIds.length ? { id: { notIn: excludeIds } } : {}),
       },
       orderBy: { createdAt: 'desc' },
@@ -71,11 +71,22 @@ export class CoachChatHistoryService {
       .filter((row) => row.content && row.content !== '思考中…')
       .filter((row) => {
         const meta = (row.metadata ?? {}) as Record<string, unknown>;
-        return meta.taskStatus !== 'RUNNING';
+        if (row.contentType === 'SYSTEM_NOTICE' && meta.taskStatus !== 'CANCELLED') return false;
+        return meta.taskStatus !== 'RUNNING' && meta.taskStatus !== 'FAILED';
       })
       .map((row) => ({
         role: row.role as 'USER' | 'ASSISTANT',
-        content: formatCoachHistoryContent(row.contentType, row.content, row.metadata),
+        content: (() => {
+          const formatted = formatCoachHistoryContent(row.contentType, row.content, row.metadata);
+          const meta = (row.metadata ?? {}) as Record<string, unknown>;
+          if (row.role === 'ASSISTANT' && meta.incomplete === true) {
+            return `[上一条助手回答被用户主动停止，以下内容不完整。仅用于理解上下文，不得视为完整建议或既定结论。]\n${formatted}`;
+          }
+          if (row.role === 'ASSISTANT' && meta.taskStatus === 'CANCELLED') {
+            return '[上一条回答在生成正文前被用户停止。]';
+          }
+          return formatted;
+        })(),
         createdAt: row.createdAt,
       }));
   }

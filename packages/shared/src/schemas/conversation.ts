@@ -146,20 +146,33 @@ export const CoachChatOutputSchema = z.object({
 });
 export type CoachChatOutput = z.infer<typeof CoachChatOutputSchema>;
 
-export const CoachStreamAcceptedEventSchema = z.object({
-  userMessageId: IdSchema,
-  pendingAssistantMessageId: IdSchema,
+export const StartCoachStreamSchema = CreateCoachMessageSchema.and(
+  z.object({
+    clientRequestId: z.string().uuid(),
+  }),
+).refine((value) => value.action === 'CHAT', {
+  message: '流式接口仅支持 CHAT',
 });
-export type CoachStreamAcceptedEvent = z.infer<typeof CoachStreamAcceptedEventSchema>;
+export type StartCoachStreamInput = z.infer<typeof StartCoachStreamSchema>;
+
+export const CoachStreamStartResponseSchema = z.object({
+  streamId: IdSchema,
+  userMessageId: IdSchema,
+  assistantMessageId: IdSchema,
+  status: z.enum(['QUEUED', 'RUNNING', 'DONE', 'FAILED', 'CANCELLED']),
+});
+export type CoachStreamStartResponse = z.infer<typeof CoachStreamStartResponseSchema>;
 
 export const CoachStreamDeltaEventSchema = z.object({
+  sequence: z.number().int().positive(),
   text: z.string(),
 });
 export type CoachStreamDeltaEvent = z.infer<typeof CoachStreamDeltaEventSchema>;
 
 export const CoachStreamDoneEventSchema = z.object({
-  assistantMessageId: IdSchema,
-  userMessageId: IdSchema,
+  sequence: z.number().int().positive(),
+  lastTextSequence: z.number().int().nonnegative(),
+  finalText: z.string(),
   suggestedActions: CoachChatOutputSchema.shape.suggestedActions,
   toolTrace: z.array(CoachToolTraceItemSchema).optional(),
   usage: z
@@ -172,8 +185,17 @@ export const CoachStreamDoneEventSchema = z.object({
 });
 export type CoachStreamDoneEvent = z.infer<typeof CoachStreamDoneEventSchema>;
 
+export const CoachStreamCancelledEventSchema = z.object({
+  sequence: z.number().int().positive(),
+  lastTextSequence: z.number().int().nonnegative(),
+  finalText: z.string(),
+  toolTrace: z.array(CoachToolTraceItemSchema).optional(),
+});
+export type CoachStreamCancelledEvent = z.infer<typeof CoachStreamCancelledEventSchema>;
+
 export const CoachStreamErrorEventSchema = z.object({
+  sequence: z.number().int().positive(),
+  code: z.string(),
   message: z.string(),
-  code: z.string().optional(),
 });
 export type CoachStreamErrorEvent = z.infer<typeof CoachStreamErrorEventSchema>;

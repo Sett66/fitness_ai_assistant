@@ -519,6 +519,7 @@ model Media {
 
 model AiRun {
   id               String       @id @default(cuid())
+  clientRequestId  String?      @unique
   userId           String
   taskType         AiTaskType
   model            String
@@ -546,6 +547,7 @@ model AiRun {
   @@index([userId, createdAt])
   @@index([status])
   @@index([conversationId])
+  @@index([conversationId, taskType, status])
 }
 
 enum MessageRole {

@@ -112,13 +112,14 @@ export async function* runCoachAgentStream(
     model,
     messages: finalMessages,
     temperature: 0.7,
+    signal: options.signal,
   })) {
     rawReply = chunk.text;
     if (chunk.usage) {
       streamUsage = mergeLlmUsage(streamUsage, chunk.usage);
     }
     const sanitized = stripDsmlMarkup(rawReply);
-    yield { type: 'delta', text: sanitized || rawReply };
+    if (sanitized) yield { type: 'delta', text: sanitized };
   }
 
   const reply = finalizeAgentReply(rawReply, graphState.messages);
@@ -131,6 +132,7 @@ export async function* runCoachAgentStream(
   const actionsResult = await inferSuggestedActions(input.latestUserText, reply, {
     model,
     client,
+    signal: options.signal,
   });
 
   const doneEvent: CoachAgentStreamDoneEvent = {

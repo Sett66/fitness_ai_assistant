@@ -64,6 +64,8 @@ type ChatComposerProps = {
   onChangeText: (text: string) => void;
   onSend: () => void;
   onStop?: () => void;
+  onReconnect?: () => void;
+  reconnectRequired?: boolean;
   onPickGallery?: () => void;
   onPickCamera?: () => void;
   onPickFile?: () => void;
@@ -81,6 +83,8 @@ export function ChatComposer({
   onChangeText,
   onSend,
   onStop,
+  onReconnect,
+  reconnectRequired,
   onPickGallery,
   onPickCamera,
   onPickFile,
@@ -128,7 +132,13 @@ export function ChatComposer({
         <Input
           value={value}
           onChangeText={onChangeText}
-          placeholder={streaming ? 'Alex 正在回复…' : '和 Alex 聊聊…'}
+          placeholder={
+            streaming
+              ? reconnectRequired
+                ? '连接中断，可重新连接或停止'
+                : 'Alex 正在回复…'
+              : '和 Alex 聊聊…'
+          }
           multiline
           editable={!inputDisabled}
           className="flex-1 min-h-[44px] max-h-[120px]"
@@ -146,6 +156,12 @@ export function ChatComposer({
             <View style={{ transform: [{ rotate: menuOpen ? '45deg' : '0deg' }] }}>
               <Plus size={22} color={menuOpen ? '#D0FD3E' : '#FAFAFA'} strokeWidth={1.5} />
             </View>
+          </Pressable>
+        ) : null}
+
+        {streaming && reconnectRequired ? (
+          <Pressable onPress={onReconnect} className="px-2 py-2">
+            <Text className="text-sm text-accent">重新连接</Text>
           </Pressable>
         ) : null}
 

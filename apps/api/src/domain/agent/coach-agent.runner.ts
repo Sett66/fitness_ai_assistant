@@ -32,7 +32,7 @@ export class CoachAgentRunner {
   run(
     userId: string,
     input: CoachAgentRunInput,
-    options?: { model?: string; client?: CoachChatLlmClient },
+    options?: { model?: string; client?: CoachChatLlmClient; signal?: AbortSignal },
   ): AsyncGenerator<CoachAgentRunnerEvent> {
     const sessionToolCounts: Partial<Record<CoachToolName, number>> = {};
 
@@ -65,6 +65,7 @@ export class CoachAgentRunner {
         model: options?.model,
         client: options?.client,
         invokeTool,
+        signal: options?.signal,
       },
     );
   }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Alert, View } from 'react-native';
+import { Alert, AppState, View } from 'react-native';
 
 import { pick, types } from '@react-native-documents/picker';
 
@@ -18,6 +18,9 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import {
   abortCoachChatStream,
+  unsubscribeCoachChatStream,
+  reconnectCoachChatStream,
+  resumeCoachMessageStream,
   coachPollTimeoutForAction,
   uploadMealPhotoForCoach,
   uploadReportForCoach,
@@ -187,9 +190,56 @@ export function CoachScreen() {
     listRef.current?.scrollToEnd();
   }, [messages.length, footerHeight, activeConversationId, isStreaming]);
 
+  const resumeConversationStream = useCallback(async () => {
+    if (!activeConversationId) return;
+    const state = useCoachStreamStore.getState();
+    if ((state.reconnectRequired || state.isStreaming) && state.streamId) {
+      await reconnectCoachChatStream().catch(() => undefined);
+      return;
+    }
+    const rows = conversation.data?.messages ?? [];
+    const assistantIndex = rows.findLastIndex(
+      (message) =>
+        message.role === 'ASSISTANT' &&
+        (message.metadata as Record<string, unknown> | null)?.taskStatus === 'RUNNING' &&
+        Boolean(message.aiRunId),
+    );
+    if (assistantIndex < 0) return;
+    const assistant = rows[assistantIndex]!;
+    const userMessage = rows
+      .slice(0, assistantIndex)
+      .findLast((message) => message.role === 'USER');
+    if (!assistant.aiRunId || !userMessage) return;
+    const metadata = (userMessage.metadata ?? {}) as Record<string, unknown>;
+    const imageKeys = Array.isArray(metadata.imageObjectKeys)
+      ? metadata.imageObjectKeys.filter((key): key is string => typeof key === 'string')
+      : undefined;
+    await resumeCoachMessageStream({
+      conversationId: activeConversationId,
+      streamId: assistant.aiRunId,
+      userMessageId: userMessage.id,
+      assistantMessageId: assistant.id,
+      userContent: userMessage.content,
+      userImageObjectKeys: imageKeys,
+    }).catch(() => undefined);
+  }, [activeConversationId, conversation.data?.messages]);
+
+  useEffect(() => {
+    void resumeConversationStream();
+  }, [resumeConversationStream]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void conversation.refetch().then(() => resumeConversationStream());
+      } else unsubscribeCoachChatStream();
+    });
+    return () => subscription.remove();
+  }, [conversation.refetch, resumeConversationStream]);
+
   const switchConversation = useCallback(
     (id: string) => {
-      abortCoachChatStream();
+      unsubscribeCoachChatStream();
       useCoachStreamStore.getState().reset();
       setText('');
       setActiveConversationId(id);
@@ -212,7 +262,21 @@ export function CoachScreen() {
   };
 
   const handleStopStream = () => {
-    abortCoachChatStream();
+    if (!useCoachStreamStore.getState().streamId) {
+      unsubscribeCoachChatStream();
+      useCoachStreamStore.getState().reset();
+      sendChatStream.reset();
+      return;
+    }
+    void (async () => {
+      const status = await abortCoachChatStream();
+      if (conversationId && (status === 'CANCELLED' || status === 'DONE')) {
+        unsubscribeCoachChatStream();
+        await qc.refetchQueries({ queryKey: queryKeys.coachConversation(conversationId) });
+        useCoachStreamStore.getState().reset();
+        sendChatStream.reset();
+      }
+    })().catch(() => undefined);
   };
 
   const handleGenerateWorkout = (input: GenerateWorkoutPlanInput) => {
@@ -486,7 +550,7 @@ export function CoachScreen() {
   const handleCreateNewConversation = () => {
     if (isCreatingConversation) return;
 
-    abortCoachChatStream();
+    unsubscribeCoachChatStream();
 
     useCoachStreamStore.getState().reset();
 
@@ -562,6 +626,8 @@ export function CoachScreen() {
               onChangeText={setText}
               onSend={handleSendChat}
               onStop={handleStopStream}
+              onReconnect={() => void reconnectCoachChatStream()}
+              reconnectRequired={streamState.reconnectRequired}
               sending={sendMessage.isPending || sendChatStream.isPending}
               streaming={isStreaming}
               attachmentsDisabled={isComposerBusy}

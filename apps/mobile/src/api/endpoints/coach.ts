@@ -2,12 +2,15 @@ import {
   ConversationListResponseSchema,
   ConversationWithMessagesSchema,
   CoachMessageAcceptedResponseSchema,
-  CoachStreamAcceptedEventSchema,
+  CoachStreamCancelledEventSchema,
   CoachStreamDeltaEventSchema,
   CoachStreamDoneEventSchema,
+  CoachStreamErrorEventSchema,
+  CoachStreamStartResponseSchema,
   CoachStreamToolEndEventSchema,
   CoachStreamToolStartEventSchema,
   CreateCoachMessageSchema,
+  StartCoachStreamSchema,
   CreateConversationSchema,
   type ConversationWithMessages,
   type CreateCoachMessageInput,
@@ -43,6 +46,138 @@ import {
   AI_POLL_TIMEOUT_PLAN_MS,
   DEFAULT_TIMEZONE_OFFSET_MINUTES,
 } from '../../env';
+
+let activeCoachStream: { conversationId: string; streamId: string } | null = null;
+let streamSubscriptionGeneration = 0;
+
+function createClientRequestId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+    const value = Math.floor(Math.random() * 16);
+    return (character === 'x' ? value : (value & 0x3) | 0x8).toString(16);
+  });
+}
+
+const reconnectDelays = [500, 1000, 2000, 4000, 8000, 16000];
+
+async function startCoachStream(conversationId: string, body: unknown): Promise<unknown> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await apiFetch<unknown>(`/conversations/${conversationId}/messages/stream`, {
+        method: 'POST',
+        body,
+      });
+    } catch (err) {
+      const retryable = !(err instanceof ApiError) || err.status === 0 || err.status >= 500;
+      if (!retryable || attempt >= 2) throw err;
+      await new Promise<void>((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+}
+
+async function subscribeCoachStream(
+  conversationId: string,
+  streamId: string,
+  deltaThrottle: ReturnType<typeof createCoachDeltaThrottle>,
+): Promise<void> {
+  const store = useCoachStreamStore.getState();
+  const subscriptionGeneration = streamSubscriptionGeneration;
+  activeCoachStream = { conversationId, streamId };
+  let terminal = false;
+  let retryCount = 0;
+
+  while (!terminal && subscriptionGeneration === streamSubscriptionGeneration) {
+    let receivedBusinessEvent = false;
+    try {
+      await apiStreamSSE(
+        `/conversations/${conversationId}/message-streams/${streamId}`,
+        (event, data) => {
+          if (event === 'ping') return;
+          if (event === 'delta') {
+            const parsed = CoachStreamDeltaEventSchema.parse(data);
+            if (store.acceptSequence(parsed.sequence)) {
+              receivedBusinessEvent = true;
+              deltaThrottle.push(parsed.text);
+            }
+          } else if (event === 'tool_start') {
+            const parsed = CoachStreamToolStartEventSchema.parse(data);
+            if (store.acceptSequence(parsed.sequence)) {
+              receivedBusinessEvent = true;
+              store.startTool({
+                name: parsed.name,
+                label: coachToolProgressLabel(parsed.name, parsed.label),
+              });
+            }
+          } else if (event === 'tool_end') {
+            const parsed = CoachStreamToolEndEventSchema.parse(data);
+            if (store.acceptSequence(parsed.sequence)) {
+              receivedBusinessEvent = true;
+              store.endTool({ name: parsed.name, ok: parsed.ok, summary: parsed.summary });
+            }
+          } else if (event === 'done') {
+            const parsed = CoachStreamDoneEventSchema.parse(data);
+            if (!store.acceptSequence(parsed.sequence)) return;
+            receivedBusinessEvent = true;
+            deltaThrottle.flush();
+            if (useCoachStreamStore.getState().assistantContent !== parsed.finalText) {
+              useCoachStreamStore.getState().correctAssistantContent(parsed.finalText);
+            }
+            useCoachStreamStore.getState().finishStream({
+              suggestedActions: parsed.suggestedActions ?? undefined,
+            });
+            terminal = true;
+          } else if (event === 'cancelled') {
+            const parsed = CoachStreamCancelledEventSchema.parse(data);
+            if (!store.acceptSequence(parsed.sequence)) return;
+            receivedBusinessEvent = true;
+            deltaThrottle.flush();
+            if (useCoachStreamStore.getState().assistantContent !== parsed.finalText) {
+              useCoachStreamStore.getState().correctAssistantContent(parsed.finalText);
+            }
+            useCoachStreamStore.getState().stopStream();
+            terminal = true;
+          } else if (event === 'error') {
+            const parsed = CoachStreamErrorEventSchema.parse(data);
+            if (!store.acceptSequence(parsed.sequence)) return;
+            receivedBusinessEvent = true;
+            deltaThrottle.dispose();
+            useCoachStreamStore.getState().failStream(parsed.message);
+            terminal = true;
+          }
+        },
+        {
+          timeoutMs: 100_000,
+          afterSequence: useCoachStreamStore.getState().lastProcessedSequence,
+        },
+      );
+    } catch (err) {
+      if (
+        err instanceof ApiError &&
+        (err.code === 'STREAM_ABORTED' || err.code === 'STREAM_UNSUBSCRIBED')
+      ) {
+        throw err;
+      }
+      if (subscriptionGeneration !== streamSubscriptionGeneration) {
+        throw new ApiError('流式订阅已断开', 0, 'STREAM_UNSUBSCRIBED');
+      }
+      const retryable = err instanceof ApiError && (err.status === 0 || err.status >= 500);
+      if (!retryable) throw err;
+    }
+
+    if (terminal) break;
+    if (receivedBusinessEvent) retryCount = 0;
+    if (retryCount >= reconnectDelays.length) {
+      useCoachStreamStore.getState().setReconnectRequired();
+      throw new ApiError('连接中断，可点击重新连接', 0, 'STREAM_RECONNECT_REQUIRED');
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, reconnectDelays[retryCount]!));
+    if (subscriptionGeneration !== streamSubscriptionGeneration) {
+      throw new ApiError('流式订阅已断开', 0, 'STREAM_UNSUBSCRIBED');
+    }
+    retryCount += 1;
+  }
+
+  activeCoachStream = null;
+}
 
 export async function fetchConversationsList() {
   const json = await apiFetch<unknown>('/conversations', { noCache: true });
@@ -120,6 +255,7 @@ export function useSendCoachChatStream() {
       content: string;
       draftImages?: CoachDraftAttachment[];
     }) => {
+      const operationGeneration = streamSubscriptionGeneration;
       const streamStore = useCoachStreamStore.getState();
       streamStore.reset();
 
@@ -145,9 +281,13 @@ export function useSendCoachChatStream() {
       }
 
       const locationContext = await resolveLocationContextForChat(params.content);
+      if (operationGeneration !== streamSubscriptionGeneration) {
+        throw new ApiError('发送已取消', 0, 'STREAM_UNSUBSCRIBED');
+      }
 
-      const body = CreateCoachMessageSchema.parse({
+      const body = StartCoachStreamSchema.parse({
         action: 'CHAT',
+        clientRequestId: createClientRequestId(),
         content: params.content.trim() || undefined,
         imageObjectKeys,
         timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES,
@@ -155,52 +295,74 @@ export function useSendCoachChatStream() {
       });
 
       const deltaThrottle = createCoachDeltaThrottle((text) => {
-        streamStore.setAssistantContent(text);
+        streamStore.appendAssistantDelta(text);
       });
+      let subscribedStreamId: string | null = null;
 
       try {
-        await apiStreamSSE(
-          `/conversations/${params.conversationId}/messages/stream`,
-          body,
-          (event, data) => {
-            if (event === 'accepted') {
-              const parsed = CoachStreamAcceptedEventSchema.parse(data);
-              streamStore.startStream({
-                userMessageId: parsed.userMessageId,
-                userContent: displayUserContent,
-                assistantMessageId: parsed.pendingAssistantMessageId,
-                userImageObjectKeys: imageObjectKeys,
-                userImagePreviewUris: params.draftImages?.map((asset) => asset.uri),
-              });
-            } else if (event === 'delta') {
-              const parsed = CoachStreamDeltaEventSchema.parse(data);
-              deltaThrottle.push(parsed.text);
-            } else if (event === 'tool_start') {
-              const parsed = CoachStreamToolStartEventSchema.parse(data);
-              streamStore.startTool({
-                name: parsed.name,
-                label: coachToolProgressLabel(parsed.name, parsed.label),
-              });
-            } else if (event === 'tool_end') {
-              const parsed = CoachStreamToolEndEventSchema.parse(data);
-              streamStore.endTool({
-                name: parsed.name,
-                ok: parsed.ok,
-                summary: parsed.summary,
-              });
-            } else if (event === 'done') {
-              const parsed = CoachStreamDoneEventSchema.parse(data);
-              deltaThrottle.flush();
-              streamStore.finishStream({
-                suggestedActions: parsed.suggestedActions ?? undefined,
-              });
-            }
-          },
-          { timeoutMs: AI_POLL_TIMEOUT_MS },
-        );
+        let started;
+        try {
+          started = CoachStreamStartResponseSchema.parse(
+            await startCoachStream(params.conversationId, body),
+          );
+        } catch (err) {
+          const existingStreamId =
+            err instanceof ApiError && err.code === 'COACH_STREAM_ALREADY_RUNNING'
+              ? err.details?.streamId
+              : undefined;
+          if (typeof existingStreamId !== 'string') throw err;
+          if (operationGeneration !== streamSubscriptionGeneration)
+            return { streamId: existingStreamId, detached: true };
+          const currentConversation = ConversationWithMessagesSchema.parse(
+            await apiFetch<unknown>(`/conversations/${params.conversationId}`, { noCache: true }),
+          );
+          const assistant = currentConversation.messages.find(
+            (message) => message.role === 'ASSISTANT' && message.aiRunId === existingStreamId,
+          );
+          if (!assistant) throw err;
+          const assistantIndex = currentConversation.messages.findIndex(
+            (message) => message.id === assistant.id,
+          );
+          const previousUser = currentConversation.messages
+            .slice(0, assistantIndex)
+            .findLast((message) => message.role === 'USER');
+          if (!previousUser) throw err;
+          const imageKeys = (
+            previousUser.metadata?.imageObjectKeys as unknown[] | undefined
+          )?.filter((key): key is string => typeof key === 'string');
+          streamStore.startStream({
+            streamId: existingStreamId,
+            userMessageId: previousUser.id,
+            userContent: previousUser.content,
+            assistantMessageId: assistant.id,
+            userImageObjectKeys: imageKeys,
+          });
+          subscribedStreamId = existingStreamId;
+          await subscribeCoachStream(params.conversationId, existingStreamId, deltaThrottle);
+          return { streamId: existingStreamId, detached: false };
+        }
+        if (operationGeneration !== streamSubscriptionGeneration) {
+          return { streamId: started.streamId, detached: true };
+        }
+        streamStore.startStream({
+          streamId: started.streamId,
+          userMessageId: started.userMessageId,
+          userContent: displayUserContent,
+          assistantMessageId: started.assistantMessageId,
+          userImageObjectKeys: imageObjectKeys,
+          userImagePreviewUris: params.draftImages?.map((asset) => asset.uri),
+        });
+        subscribedStreamId = started.streamId;
+        await subscribeCoachStream(params.conversationId, started.streamId, deltaThrottle);
+        return { streamId: started.streamId, detached: false };
       } catch (err) {
-        if (err instanceof ApiError && err.code === 'STREAM_ABORTED') {
-          deltaThrottle.flush();
+        if (
+          err instanceof ApiError &&
+          (err.code === 'STREAM_ABORTED' || err.code === 'STREAM_UNSUBSCRIBED')
+        ) {
+          if (useCoachStreamStore.getState().streamId === subscribedStreamId) {
+            deltaThrottle.flush();
+          }
         } else {
           deltaThrottle.dispose();
         }
@@ -210,11 +372,13 @@ export function useSendCoachChatStream() {
       }
     },
 
-    onSuccess: async (_data, variables) => {
+    onSuccess: async (data, variables) => {
       await qc.refetchQueries({
         queryKey: queryKeys.coachConversation(variables.conversationId),
       });
-      useCoachStreamStore.getState().reset();
+      if (!data?.detached && useCoachStreamStore.getState().streamId === data?.streamId) {
+        useCoachStreamStore.getState().reset();
+      }
 
       const conversation = qc.getQueryData<ConversationWithMessages>(
         queryKeys.coachConversation(variables.conversationId),
@@ -241,14 +405,83 @@ export function useSendCoachChatStream() {
 
         return;
       }
+      if (
+        err instanceof ApiError &&
+        (err.code === 'STREAM_UNSUBSCRIBED' || err.code === 'STREAM_RECONNECT_REQUIRED')
+      ) {
+        if (err.code === 'STREAM_RECONNECT_REQUIRED') {
+          useCoachStreamStore.getState().setReconnectRequired();
+        }
+        return;
+      }
 
       useCoachStreamStore.getState().failStream(err.message);
+      if (variables?.conversationId) {
+        void qc.invalidateQueries({
+          queryKey: queryKeys.coachConversation(variables.conversationId),
+        });
+      }
     },
   });
 }
 
-export function abortCoachChatStream(): void {
-  abortActiveSseStream();
+export async function abortCoachChatStream(): Promise<string | undefined> {
+  const stream = activeCoachStream;
+  if (stream) {
+    const result = await apiFetch<{ streamId: string; status: string }>(
+      `/conversations/${stream.conversationId}/message-streams/${stream.streamId}/cancel`,
+      {
+        method: 'POST',
+        body: {},
+      },
+    );
+    if (result.status === 'CANCELLED') useCoachStreamStore.getState().stopStream();
+    return result.status;
+  }
+  return undefined;
+}
+
+export function unsubscribeCoachChatStream(): void {
+  streamSubscriptionGeneration += 1;
+  abortActiveSseStream('STREAM_UNSUBSCRIBED');
+}
+
+export async function reconnectCoachChatStream(): Promise<void> {
+  const stream = activeCoachStream;
+  const state = useCoachStreamStore.getState();
+  if (!stream || !state.streamId || state.streamId !== stream.streamId) return;
+  state.clearReconnectRequired();
+  const throttle = createCoachDeltaThrottle((text) => {
+    useCoachStreamStore.getState().appendAssistantDelta(text);
+  });
+  try {
+    await subscribeCoachStream(stream.conversationId, stream.streamId, throttle);
+  } finally {
+    if (useCoachStreamStore.getState().streamId === stream.streamId) throttle.flush();
+    throttle.dispose();
+  }
+}
+
+export async function resumeCoachMessageStream(params: {
+  conversationId: string;
+  streamId: string;
+  userMessageId: string;
+  assistantMessageId: string;
+  userContent: string;
+  userImageObjectKeys?: string[];
+}): Promise<void> {
+  const current = useCoachStreamStore.getState();
+  if (current.isStreaming && current.streamId === params.streamId) return;
+  current.startStream(params);
+  const throttle = createCoachDeltaThrottle((text) => {
+    useCoachStreamStore.getState().appendAssistantDelta(text);
+  });
+  try {
+    await subscribeCoachStream(params.conversationId, params.streamId, throttle);
+  } finally {
+    if (useCoachStreamStore.getState().streamId === params.streamId) throttle.flush();
+    throttle.dispose();
+  }
 }
 
 export function useSendCoachMessage() {

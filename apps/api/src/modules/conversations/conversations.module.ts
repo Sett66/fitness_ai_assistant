@@ -5,11 +5,12 @@ import { MealLogsModule } from '../meal-logs/meal-logs.module';
 
 import { ConversationsController } from './conversations.controller';
 import { ConversationsService } from './conversations.service';
+import { CoachStreamRegistryService } from './coach-stream-registry.service';
 
 @Module({
   imports: [PrismaModule, MealLogsModule],
   controllers: [ConversationsController],
-  providers: [ConversationsService],
+  providers: [ConversationsService, CoachStreamRegistryService],
   exports: [ConversationsService],
 })
 export class ConversationsModule {}

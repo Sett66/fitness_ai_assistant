@@ -7,6 +7,7 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly code?: string,
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -97,14 +98,20 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     let code: string | undefined;
+    let details: Record<string, unknown> | undefined;
     try {
-      const errJson = (await res.json()) as { message?: string; code?: string };
+      const errJson = (await res.json()) as {
+        message?: string;
+        code?: string;
+        details?: Record<string, unknown>;
+      };
       message = errJson.message ?? message;
       code = errJson.code;
+      details = errJson.details;
     } catch {
       // ignore
     }
-    throw new ApiError(message, res.status, code);
+    throw new ApiError(message, res.status, code, details);
   }
 
   if (res.status === 204) {
@@ -183,12 +190,13 @@ export type SseStreamHandle = {
 };
 
 let activeSseXhr: XMLHttpRequest | null = null;
-let sseAbortRequested = false;
+let sseAbortCode: string | null = null;
 
 /** 中止当前进行中的 SSE 流式请求（Coach 停止生成）。 */
-export function abortActiveSseStream(): void {
-  sseAbortRequested = true;
-  activeSseXhr?.abort();
+export function abortActiveSseStream(code = 'STREAM_ABORTED'): void {
+  if (!activeSseXhr) return;
+  sseAbortCode = code;
+  activeSseXhr.abort();
   activeSseXhr = null;
 }
 
@@ -219,17 +227,15 @@ function parseSseChunk(buffer: string, onEvent: SseEventHandler): string {
 }
 
 /**
- * POST + SSE 流式响应（Coach CHAT 等）。RN 下用 XHR 增量读取，避免 fetch ReadableStream 类型限制。
+ * SSE 订阅（Coach CHAT 等）。RN 下用 XHR 增量读取，避免 fetch ReadableStream 类型限制。
  */
 export async function apiStreamSSE(
   path: string,
-  body: unknown,
   onEvent: SseEventHandler,
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; afterSequence?: number },
 ): Promise<void> {
   const timeoutMs = options?.timeoutMs ?? 120_000;
   const url = `${API_BASE_URL}${path}`;
-  const payload = JSON.stringify(body);
 
   const runXhr = (authToken: string | null): Promise<void> =>
     new Promise((resolve, reject) => {
@@ -237,7 +243,14 @@ export async function apiStreamSSE(
       activeSseXhr = xhr;
       let buffer = '';
       let lastIndex = 0;
+      let lastActivityAt = Date.now();
       let streamError: ApiError | null = null;
+      const inactivityTimer = setInterval(() => {
+        if (Date.now() - lastActivityAt > 15_000) {
+          xhr.abort();
+          reject(new ApiError('流式连接无响应', 0));
+        }
+      }, 5000);
       const timer = setTimeout(() => {
         xhr.abort();
         reject(new ApiError('流式请求超时', 408));
@@ -245,6 +258,7 @@ export async function apiStreamSSE(
 
       const cleanup = () => {
         clearTimeout(timer);
+        clearInterval(inactivityTimer);
         if (activeSseXhr === xhr) {
           activeSseXhr = null;
         }
@@ -254,11 +268,27 @@ export async function apiStreamSSE(
         const chunk = xhr.responseText.slice(lastIndex);
         lastIndex = xhr.responseText.length;
         if (!chunk) return;
+        lastActivityAt = Date.now();
         buffer += chunk;
         buffer = parseSseChunk(buffer, (event, data) => {
-          if (event === 'error') {
+          if (
+            event === 'error' &&
+            !(typeof data === 'object' && data !== null && 'sequence' in data)
+          ) {
             const errPayload = data as { message?: string; code?: string };
-            streamError = new ApiError(errPayload.message ?? '流式请求失败', 500, errPayload.code);
+            const status =
+              errPayload.code === 'COACH_STREAM_EXPIRED'
+                ? 410
+                : errPayload.code === 'NOT_FOUND'
+                  ? 404
+                  : errPayload.code === 'FORBIDDEN'
+                    ? 403
+                    : 500;
+            streamError = new ApiError(
+              errPayload.message ?? '流式请求失败',
+              status,
+              errPayload.code,
+            );
             return;
           }
           onEvent(event, data);
@@ -292,22 +322,23 @@ export async function apiStreamSSE(
       };
       xhr.onabort = () => {
         cleanup();
-        if (sseAbortRequested) {
-          sseAbortRequested = false;
-          reject(new ApiError('流式请求已取消', 0, 'STREAM_ABORTED'));
+        if (sseAbortCode) {
+          const code = sseAbortCode;
+          sseAbortCode = null;
+          reject(new ApiError('流式订阅已断开', 0, code));
           return;
         }
         reject(new ApiError('流式请求已取消', 0));
       };
 
-      xhr.open('POST', url);
+      const separator = path.includes('?') ? '&' : '?';
+      xhr.open('GET', `${url}${separator}afterSequence=${options?.afterSequence ?? 0}`);
       xhr.setRequestHeader('Accept', 'text/event-stream');
-      xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Cache-Control', 'no-cache');
       if (authToken) {
         xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
       }
-      xhr.send(payload);
+      xhr.send();
     });
 
   let token = getAccessToken();

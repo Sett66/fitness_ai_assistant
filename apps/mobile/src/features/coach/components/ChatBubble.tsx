@@ -150,8 +150,14 @@ function ChatBubbleComponent({
           onLayout={onLayout}
           onLayoutStable={onLayoutStable}
         />
+        {!isUser && meta.incomplete === true ? (
+          <Text className="mt-2 text-xs text-muted-foreground">已停止生成</Text>
+        ) : null}
         {!isUser ? (
-          <SuggestedActionChips actions={parseSuggestedActions(meta)} onPress={onSuggestedAction} />
+          <SuggestedActionChips
+            actions={meta.incomplete === true ? [] : parseSuggestedActions(meta)}
+            onPress={onSuggestedAction}
+          />
         ) : null}
       </View>
     </View>

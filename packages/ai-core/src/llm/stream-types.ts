@@ -5,6 +5,7 @@ export type TextChatInput = {
   model: string;
   messages: AgentChatMessage[] | ChatMessage[];
   temperature?: number;
+  signal?: AbortSignal;
 };
 
 export type TextStreamChunk = {

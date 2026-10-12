@@ -34,7 +34,7 @@ export function createCoachDeltaThrottle(
     onFlush(text);
   };
   const push = (text: string) => {
-    pending = text;
+    pending = `${pending ?? ''}${text}`;
     if (!hasFlushedOnce) {
       hasFlushedOnce = true;
       flushNow();

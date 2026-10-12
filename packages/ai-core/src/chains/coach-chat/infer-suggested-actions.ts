@@ -8,7 +8,7 @@ import type { CoachChatOutput } from './schema';
 export const inferSuggestedActions = async (
   latestUserText: string,
   reply: string,
-  options?: { model?: string; client?: CoachChatLlmClient },
+  options?: { model?: string; client?: CoachChatLlmClient; signal?: AbortSignal },
 ): Promise<{ suggestedActions?: CoachChatOutput['suggestedActions']; usage: LlmUsage }> => {
   const client = options?.client ?? createDeepSeekClient();
   const messages: ChatMessage[] = [
@@ -23,6 +23,7 @@ export const inferSuggestedActions = async (
     model: options?.model ?? LLM_MODELS.DEEPSEEK_V4_PRO,
     messages,
     temperature: 0.2,
+    signal: options?.signal,
   });
 
   try {

@@ -21,7 +21,7 @@ export type CoachChatStreamResult = {
 
 export async function* runCoachChatStream(
   input: unknown,
-  options?: { model?: string; client?: CoachChatLlmClient },
+  options?: { model?: string; client?: CoachChatLlmClient; signal?: AbortSignal },
 ): AsyncGenerator<CoachChatStreamChunk, CoachChatStreamResult> {
   const parsed = RunCoachChatInputSchema.parse(input);
   const client = options?.client ?? createDeepSeekClient();
@@ -62,7 +62,12 @@ export async function* runCoachChatStream(
   let streamUsage: LlmUsage = { tokenIn: 0, tokenOut: 0, costCny: 0 };
   let reply = '';
 
-  for await (const chunk of client.streamText({ model, messages, temperature: 0.7 })) {
+  for await (const chunk of client.streamText({
+    model,
+    messages,
+    temperature: 0.7,
+    signal: options?.signal,
+  })) {
     reply = chunk.text;
     if (chunk.usage) {
       streamUsage = chunk.usage;
@@ -73,6 +78,7 @@ export async function* runCoachChatStream(
   const actionsResult = await inferSuggestedActions(parsed.latestUserText, reply, {
     model,
     client,
+    signal: options?.signal,
   });
 
   return {

@@ -30,6 +30,7 @@ export type ChatWithToolsInput = {
   temperature?: number;
   /** Langfuse generation name override for ReAct iterations */
   tracingGenerationName?: string;
+  signal?: AbortSignal;
 };
 
 export type ChatWithToolsOutput = {

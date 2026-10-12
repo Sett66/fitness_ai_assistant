@@ -16,15 +16,15 @@ pnpm --filter api start:cron     # 定时任务（当前多为占位）
 
 ## 模块概览
 
-| 模块              | 说明                                                |
-| ----------------- | --------------------------------------------------- |
-| auth / users      | 注册登录、档案、力量等级                            |
-| exercises / foods | 库查询                                              |
-| uploads           | 预签名上传（`clientPublicEndpoint` 供模拟器/真机）  |
-| ai-tasks          | 异步任务投递与轮询                                  |
-| meal-logs         | 饮食日志与 daily-summary                            |
-| plans             | 计划 CRUD、训练打卡 sessions                        |
-| **conversations** | 多轮会话；`POST .../messages/stream` SSE Coach CHAT |
+| 模块              | 说明                                                             |
+| ----------------- | ---------------------------------------------------------------- |
+| auth / users      | 注册登录、档案、力量等级                                         |
+| exercises / foods | 库查询                                                           |
+| uploads           | 预签名上传（`clientPublicEndpoint` 供模拟器/真机）               |
+| ai-tasks          | 异步任务投递与轮询                                               |
+| meal-logs         | 饮食日志与 daily-summary                                         |
+| plans             | 计划 CRUD、训练打卡 sessions                                     |
+| **conversations** | 多轮会话；Coach CHAT 通过幂等启动、可恢复 SSE 订阅与显式取消实现 |
 
 ## 目录结构
 

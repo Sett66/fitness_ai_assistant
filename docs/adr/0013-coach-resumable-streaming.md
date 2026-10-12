@@ -58,7 +58,7 @@ Content-Type: application/json
 - `AiRun` 新增 nullable unique 字段 `clientRequestId`
 - `streamId` 直接使用 `AiRun.id`，不再创建第二套会话标识
 - 相同 `clientRequestId` 返回已有结果，不重复创建消息、不重复扣除日限、不重复启动模型
-- 启动前必须确认 Redis 可用；无法初始化流会话时返回 `503 STREAM_INFRA_UNAVAILABLE`
+- 启动前必须确认 Redis 可用；无法初始化流会话时返回 `503 COACH_STREAM_INFRA_UNAVAILABLE`
 - Redis 初始化与数据库事务之间发生竞态失败时必须补偿，不得留下用户可见的永久 `RUNNING` 占位
 - 生成任务在 API 进程内脱离订阅连接运行；订阅断开不等于取消生成
 

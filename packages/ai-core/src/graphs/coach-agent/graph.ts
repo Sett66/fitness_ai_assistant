@@ -28,6 +28,7 @@ export type CreateCoachAgentGraphOptions = {
   invokeTool: InvokeToolFn;
   model?: string;
   client?: CoachChatLlmClient;
+  signal?: AbortSignal;
 };
 
 const CoachAgentStateAnnotation = Annotation.Root({
@@ -105,6 +106,7 @@ export function createCoachAgentGraph(options: CreateCoachAgentGraphOptions) {
       tools: COACH_AGENT_TOOL_DEFINITIONS,
       temperature: 0.3,
       tracingGenerationName: `coach-agent-react-${state.iteration}`,
+      signal: options.signal,
     });
 
     const assistantMessage = response.message;
@@ -129,6 +131,7 @@ export function createCoachAgentGraph(options: CreateCoachAgentGraphOptions) {
     const pendingEvents: CoachAgentStreamEvent[] = [];
 
     for (const toolCall of lastMessage.tool_calls) {
+      if (options.signal?.aborted) throw options.signal.reason;
       const name = parseToolName(toolCall.function.name);
       const label = COACH_TOOL_LABELS[name];
       pendingEvents.push({ type: 'tool_start', name, label });
@@ -145,6 +148,7 @@ export function createCoachAgentGraph(options: CreateCoachAgentGraphOptions) {
 
       try {
         const result = await options.invokeTool(name, parsedInput);
+        if (options.signal?.aborted) throw options.signal.reason;
         const durationMs = Date.now() - startedAt;
         toolTraceItems.push({
           name,
@@ -165,6 +169,7 @@ export function createCoachAgentGraph(options: CreateCoachAgentGraphOptions) {
           tool_call_id: toolCall.id,
         });
       } catch (err: unknown) {
+        if (options.signal?.aborted) throw err;
         const message = err instanceof Error ? err.message : String(err);
         const durationMs = Date.now() - startedAt;
         const observation = `工具执行失败：${message}`;

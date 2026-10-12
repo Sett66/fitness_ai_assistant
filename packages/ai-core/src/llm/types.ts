@@ -17,6 +17,7 @@ export type JsonChatInput = {
   model: string;
   messages: ChatMessage[];
   temperature?: number;
+  signal?: AbortSignal;
 };
 
 export type JsonChatOutput = {

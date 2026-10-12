@@ -6,6 +6,7 @@ import { getAssistantPlaceholder } from './coach-tool-display';
 type StreamSnapshot = Pick<
   ReturnType<typeof useCoachStreamStore.getState>,
   | 'isStreaming'
+  | 'isCancelled'
   | 'userMessageId'
   | 'userContent'
   | 'userImageObjectKeys'
@@ -55,12 +56,18 @@ export function mergeStreamMessages(messages: Message[], stream: StreamSnapshot)
     const existingAssistant = assistantIdx >= 0 ? result[assistantIdx] : undefined;
     const toolPlaceholder = getAssistantPlaceholder(stream.toolActivities, stream.isStreaming);
     const assistantContent =
-      stream.assistantContent || toolPlaceholder || existingAssistant?.content || '思考中…';
+      stream.isCancelled && !stream.assistantContent
+        ? '已停止生成'
+        : stream.assistantContent || toolPlaceholder || existingAssistant?.content || '思考中…';
     const metadata: Record<string, unknown> = {
       taskStatus: stream.isStreaming ? 'RUNNING' : 'DONE',
       taskType: 'COACH_CHAT',
       action: 'CHAT',
     };
+    if (stream.isCancelled) {
+      metadata.taskStatus = 'CANCELLED';
+      if (stream.assistantContent) metadata.incomplete = true;
+    }
     if (stream.suggestedActions?.length) {
       metadata.suggestedActions = stream.suggestedActions;
     }

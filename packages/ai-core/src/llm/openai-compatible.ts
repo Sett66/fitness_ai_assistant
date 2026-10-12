@@ -64,6 +64,7 @@ export class OpenAiCompatibleJsonClient implements JsonChatClient {
         tool_choice: 'auto',
         temperature: input.temperature ?? 0.3,
       }),
+      signal: input.signal,
     });
 
     const payload = (await response.json().catch(() => ({}))) as ChatCompletionResponse;
@@ -110,6 +111,7 @@ export class OpenAiCompatibleJsonClient implements JsonChatClient {
         temperature: input.temperature ?? 0.2,
         response_format: { type: 'json_object' },
       }),
+      signal: input.signal,
     });
 
     const payload = (await response.json().catch(() => ({}))) as ChatCompletionResponse;
@@ -153,6 +155,7 @@ export class OpenAiCompatibleJsonClient implements JsonChatClient {
         stream: true,
         stream_options: { include_usage: true },
       }),
+      signal: input.signal,
     });
 
     if (!response.ok) {

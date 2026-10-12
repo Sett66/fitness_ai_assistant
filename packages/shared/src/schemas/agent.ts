@@ -108,12 +108,14 @@ export const UpdateMemoryInputSchema = z.object({ value: z.string().trim().min(1
 export type UpdateMemoryInput = z.infer<typeof UpdateMemoryInputSchema>;
 
 export const CoachStreamToolStartEventSchema = z.object({
+  sequence: z.number().int().positive(),
   name: CoachToolNameSchema,
   label: z.string().max(64).optional(),
 });
 export type CoachStreamToolStartEvent = z.infer<typeof CoachStreamToolStartEventSchema>;
 
 export const CoachStreamToolEndEventSchema = z.object({
+  sequence: z.number().int().positive(),
   name: CoachToolNameSchema,
   ok: z.boolean(),
   summary: z.string().max(512).optional(),
