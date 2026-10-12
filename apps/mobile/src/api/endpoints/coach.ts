@@ -12,9 +12,12 @@ import {
   CreateCoachMessageSchema,
   StartCoachStreamSchema,
   CreateConversationSchema,
+  RetryCoachMessageSchema,
+  isCoachImagePlaceholderContent,
   type ConversationWithMessages,
   type CreateCoachMessageInput,
   type CreateConversationInput,
+  type Message,
 } from '@fitness/shared';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -39,6 +42,10 @@ import { coachToolProgressLabel } from '../../features/coach/coach-tool-labels';
 import { createCoachDeltaThrottle } from '../../features/coach/coach-stream-delta-throttle';
 import type { CoachDraftAttachment } from '../../features/coach/coach-draft-attachments';
 import { pollRunningConversationTasks } from '../../features/coach/poll-conversation-tasks';
+import {
+  clearFailedDelivery,
+  extractCoachImageObjectKeys,
+} from '../../features/coach/coach-message-retry';
 
 import {
   AI_POLL_INTERVAL_MS,
@@ -59,13 +66,17 @@ function createClientRequestId(): string {
 
 const reconnectDelays = [500, 1000, 2000, 4000, 8000, 16000];
 
-async function startCoachStream(conversationId: string, body: unknown): Promise<unknown> {
+async function startCoachStream(
+  conversationId: string,
+  body: unknown,
+  retryMessageId?: string,
+): Promise<unknown> {
+  const path = retryMessageId
+    ? `/conversations/${conversationId}/messages/${retryMessageId}/retry`
+    : `/conversations/${conversationId}/messages/stream`;
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await apiFetch<unknown>(`/conversations/${conversationId}/messages/stream`, {
-        method: 'POST',
-        body,
-      });
+      return await apiFetch<unknown>(path, { method: 'POST', body });
     } catch (err) {
       const retryable = !(err instanceof ApiError) || err.status === 0 || err.status >= 500;
       if (!retryable || attempt >= 2) throw err;
@@ -254,45 +265,67 @@ export function useSendCoachChatStream() {
       conversationId: string;
       content: string;
       draftImages?: CoachDraftAttachment[];
+      /** 原地重试的失败用户消息（复用其文字与已上传图片） */
+      retryMessage?: Message;
     }) => {
       const operationGeneration = streamSubscriptionGeneration;
       const streamStore = useCoachStreamStore.getState();
       streamStore.reset();
 
-      const displayUserContent =
-        params.content.trim() ||
-        (params.draftImages?.length === 1
-          ? '[图片]'
-          : `[${params.draftImages?.length ?? 0} 张图片]`);
+      const retryMessage = params.retryMessage;
+      const retryImageKeys = retryMessage ? extractCoachImageObjectKeys(retryMessage) : [];
+      const displayUserContent = retryMessage
+        ? retryMessage.content
+        : params.content.trim() ||
+          (params.draftImages?.length === 1
+            ? '[图片]'
+            : `[${params.draftImages?.length ?? 0} 张图片]`);
+
+      if (retryMessage) {
+        markRetryingInCache(qc, params.conversationId, retryMessage.id);
+      }
 
       // 立即乐观展示用户气泡与「思考中」占位，避免上传/定位等待期间界面空白
       streamStore.beginUserMessage({
         userContent: displayUserContent,
         userImagePreviewUris: params.draftImages?.map((asset) => asset.uri),
+        userMessageId: retryMessage?.id,
       });
 
-      let imageObjectKeys: string[] | undefined;
-      if (params.draftImages?.length) {
+      let imageObjectKeys: string[] | undefined = retryMessage ? retryImageKeys : undefined;
+      if (!retryMessage && params.draftImages?.length) {
         imageObjectKeys = await Promise.all(
-          params.draftImages.map((asset) =>
-            uploadMealPhotoForCoach(asset.uri, asset.mime, asset.sizeBytes),
+          params.draftImages.map(
+            (asset) =>
+              asset.objectKey ?? uploadMealPhotoForCoach(asset.uri, asset.mime, asset.sizeBytes),
           ),
         );
       }
 
-      const locationContext = await resolveLocationContextForChat(params.content);
+      const locationText = retryMessage
+        ? isCoachImagePlaceholderContent(retryMessage.content)
+          ? ''
+          : retryMessage.content
+        : params.content;
+      const locationContext = await resolveLocationContextForChat(locationText);
       if (operationGeneration !== streamSubscriptionGeneration) {
         throw new ApiError('发送已取消', 0, 'STREAM_UNSUBSCRIBED');
       }
 
-      const body = StartCoachStreamSchema.parse({
-        action: 'CHAT',
-        clientRequestId: createClientRequestId(),
-        content: params.content.trim() || undefined,
-        imageObjectKeys,
-        timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES,
-        locationContext,
-      });
+      const body = retryMessage
+        ? RetryCoachMessageSchema.parse({
+            clientRequestId: createClientRequestId(),
+            timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES,
+            locationContext,
+          })
+        : StartCoachStreamSchema.parse({
+            action: 'CHAT',
+            clientRequestId: createClientRequestId(),
+            content: params.content.trim() || undefined,
+            imageObjectKeys,
+            timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES,
+            locationContext,
+          });
 
       const deltaThrottle = createCoachDeltaThrottle((text) => {
         streamStore.appendAssistantDelta(text);
@@ -303,7 +336,7 @@ export function useSendCoachChatStream() {
         let started;
         try {
           started = CoachStreamStartResponseSchema.parse(
-            await startCoachStream(params.conversationId, body),
+            await startCoachStream(params.conversationId, body, retryMessage?.id),
           );
         } catch (err) {
           const existingStreamId =
@@ -415,14 +448,55 @@ export function useSendCoachChatStream() {
         return;
       }
 
-      useCoachStreamStore.getState().failStream(err.message);
+      const store = useCoachStreamStore.getState();
+      const streamStarted = store.streamId != null;
+      const failedOverlayUserId = store.userMessageId;
+      if (!streamStarted && !getCoachSendFailedMessageId(err)) {
+        // 业务拒绝（次数上限等）/ 上传失败：不保留消息，由调用方提示并回填输入框
+        rejectedBeforeStart.add(err);
+        store.reset();
+      } else {
+        store.failStream(err.message);
+      }
       if (variables?.conversationId) {
-        void qc.invalidateQueries({
-          queryKey: queryKeys.coachConversation(variables.conversationId),
-        });
+        void qc
+          .refetchQueries({ queryKey: queryKeys.coachConversation(variables.conversationId) })
+          .finally(() => {
+            // 服务端已落库为 FAILED 的用户消息接管展示，移除本地覆盖层避免重复气泡
+            if (
+              !streamStarted &&
+              useCoachStreamStore.getState().userMessageId === failedOverlayUserId
+            ) {
+              useCoachStreamStore.getState().reset();
+            }
+          });
       }
     },
   });
+}
+
+const rejectedBeforeStart = new WeakSet<object>();
+
+/** 发送在流启动前被拒绝且未保留为失败消息（需提示并回填输入框）；仅在 mutate 级 onError 中可靠 */
+export function isCoachSendRejected(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && rejectedBeforeStart.has(err);
+}
+
+/** 流启动前失败但服务端已保留为 FAILED 的用户消息 id */
+export function getCoachSendFailedMessageId(err: unknown): string | undefined {
+  if (!(err instanceof ApiError)) return undefined;
+  const id = err.details?.failedUserMessageId;
+  return typeof id === 'string' ? id : undefined;
+}
+
+function markRetryingInCache(
+  qc: ReturnType<typeof useQueryClient>,
+  conversationId: string,
+  messageId: string,
+) {
+  qc.setQueryData<ConversationWithMessages>(queryKeys.coachConversation(conversationId), (prev) =>
+    prev ? { ...prev, messages: clearFailedDelivery(prev.messages, messageId) } : prev,
+  );
 }
 
 export async function abortCoachChatStream(): Promise<string | undefined> {

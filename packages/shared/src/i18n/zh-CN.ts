@@ -49,6 +49,7 @@ export const errorMessagesZhCN: Readonly<Record<ErrorCode, string>> = {
   COACH_STREAM_ALREADY_RUNNING: '当前对话仍有一条回答正在生成',
   COACH_STREAM_EXPIRED: '生成事件已过期，请刷新对话查看最终状态',
   COACH_STREAM_INFRA_UNAVAILABLE: '流式服务暂不可用，请稍后重试',
+  COACH_MESSAGE_NOT_RETRYABLE: '这条消息已无法重新发送',
 
   PLAN_NOT_FOUND: '计划不存在',
   PLAN_IN_PROGRESS: '正在生成中，请稍候',

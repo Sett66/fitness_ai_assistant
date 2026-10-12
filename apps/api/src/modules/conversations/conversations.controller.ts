@@ -52,6 +52,16 @@ export class ConversationsController {
     return this.conversations.startMessageStream(user, id, body);
   }
 
+  @Post(':id/messages/:messageId/retry')
+  async retryMessageStream(
+    @CurrentUser() user: JwtUserPayload,
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+    @Body() body: unknown,
+  ) {
+    return this.conversations.retryMessageStream(user, id, messageId, body);
+  }
+
   @Get(':id/message-streams/:streamId')
   async subscribeMessageStream(
     @CurrentUser() user: JwtUserPayload,

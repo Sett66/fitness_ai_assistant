@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { type Queue } from 'bullmq';
+import { resolveQwenVlModel } from '@fitness/ai-core';
 import type { AiTaskAcceptedResponse, AiTaskStatusResponse } from '@fitness/shared';
 import { CreateAiRunSchema, errorMessagesZhCN, getAiTaskDailyLimit } from '@fitness/shared';
 
@@ -25,7 +26,7 @@ export class AiTasksService {
       data: {
         userId: user.userId,
         taskType: input.taskType,
-        model: input.model,
+        model: resolveQwenVlModel(input.model),
         status: 'QUEUED',
         inputJson: input.inputJson ?? {},
       },

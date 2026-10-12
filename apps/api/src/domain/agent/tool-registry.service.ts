@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { formatCurrentDatetimeLine } from '@fitness/ai-core';
+import { formatCurrentDatetimeLine, resolveQwenVlModel } from '@fitness/ai-core';
 import type { CoachToolName, LocationContext } from '@fitness/shared';
 import {
   EnqueueMealVisionInputSchema,
@@ -435,7 +435,7 @@ export class ToolRegistryService {
       conversationId,
       triggerMessageId,
       taskType: 'MEAL_VISION',
-      model: LLM_MODELS.QWEN_VL_MAX,
+      model: resolveQwenVlModel(),
       inputJson: {
         objectKey: imageObjectKey,
         mealType: parsed.mealType,

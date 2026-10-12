@@ -1,11 +1,10 @@
 import type { HealthReportMetrics } from '@fitness/shared';
 import {
   HealthReportMetricsSchema,
-  LLM_MODELS,
   normalizeReportMetrics,
   sanitizeReportMetricsJson,
 } from '@fitness/shared';
-import { createQwenVlClient } from '../../llm/qwen-vl';
+import { createQwenVlClient, resolveQwenVlModel } from '../../llm/qwen-vl';
 import type { JsonChatClient, LlmUsage } from '../../llm/types';
 import { parseJsonWithSchema } from '../../parsers/json-zod';
 import { REPORT_EXTRACT_PROMPT } from '../../prompts/report-extract';
@@ -23,7 +22,7 @@ export const runReportExtract = async (
 ): Promise<ReportExtractOutput> => {
   const parsedInput: RunReportExtractInput = RunReportExtractInputSchema.parse(input);
   const response = await (options?.client ?? createQwenVlClient()).generateJson({
-    model: options?.model ?? LLM_MODELS.QWEN_VL_MAX,
+    model: resolveQwenVlModel(options?.model),
     temperature: 0.1,
     messages: [
       {

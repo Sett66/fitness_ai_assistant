@@ -5,6 +5,8 @@ export type CoachDraftAttachment = {
   uri: string;
   mime: string;
   sizeBytes: number;
+  /** 已上传（编辑失败消息时回填），发送时跳过上传 */
+  objectKey?: string;
 };
 
 type CoachDraftAttachmentsProps = {

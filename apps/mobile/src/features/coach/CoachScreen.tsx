@@ -10,7 +10,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import type { MealType } from '@fitness/shared';
+import { isCoachImagePlaceholderContent, type MealType, type Message } from '@fitness/shared';
 
 import { ErrorText, LoadingScreen, Screen } from '@fitness/ui';
 
@@ -27,10 +27,13 @@ import {
   useCoachConversation,
   useConversationsList,
   fetchConversationsList,
+  isCoachSendRejected,
   useCreateConversation,
   useSendCoachChatStream,
   useSendCoachMessage,
 } from '../../api/endpoints/coach';
+import { fetchUploadReadUrls } from '../../api/endpoints/media';
+import { extractCoachImageObjectKeys } from './coach-message-retry';
 import { queryKeys } from '../../api/queryKeys';
 import { useCoachSessionStore } from './coach-session-store';
 
@@ -258,8 +261,60 @@ export function CoachScreen() {
     setText('');
     setDraftAttachments([]);
 
-    sendChatStream.mutate({ conversationId, content, draftImages: attachments });
+    sendChatStream.mutate(
+      { conversationId, content, draftImages: attachments },
+      {
+        onError: (err) => {
+          if (!isCoachSendRejected(err)) return;
+          setText((current) => current || content);
+          setDraftAttachments((current) => (current.length ? current : attachments));
+          Alert.alert('发送失败', err.message);
+        },
+      },
+    );
   };
+
+  const handleRetryMessage = useCallback(
+    (message: Message) => {
+      if (!conversationId || isComposerBusy) return;
+      sendChatStream.mutate(
+        { conversationId, content: '', retryMessage: message },
+        {
+          onError: (err) => {
+            if (isCoachSendRejected(err)) Alert.alert('重新发送失败', err.message);
+          },
+        },
+      );
+    },
+    [conversationId, isComposerBusy, sendChatStream.mutate],
+  );
+
+  const handleEditMessage = useCallback(
+    (message: Message) => {
+      if (isComposerBusy) return;
+      const objectKeys = extractCoachImageObjectKeys(message);
+      setText(isCoachImagePlaceholderContent(message.content) ? '' : message.content);
+      if (objectKeys.length === 0) {
+        setDraftAttachments([]);
+        return;
+      }
+      void fetchUploadReadUrls(objectKeys)
+        .then((result) => {
+          const urlByKey = new Map(result.items.map((item) => [item.objectKey, item.url]));
+          setDraftAttachments(
+            objectKeys.map((objectKey) => ({
+              id: objectKey,
+              uri: urlByKey.get(objectKey) ?? '',
+              mime: 'image/jpeg',
+              sizeBytes: 0,
+              objectKey,
+            })),
+          );
+        })
+        .catch(() => Alert.alert('图片加载失败', '原消息的图片暂时无法回填，可重新选择'));
+    },
+    [isComposerBusy],
+  );
 
   const handleStopStream = () => {
     if (!useCoachStreamStore.getState().streamId) {
@@ -580,9 +635,9 @@ export function CoachScreen() {
             <View className="px-4 pb-2">
               {sendMessage.error ? <ErrorText message={sendMessage.error.message} /> : null}
 
-              {sendChatStream.error ? <ErrorText message={sendChatStream.error.message} /> : null}
-
-              {streamState.error ? <ErrorText message={streamState.error} /> : null}
+              {streamState.reconnectRequired && streamState.error ? (
+                <ErrorText message={streamState.error} />
+              ) : null}
             </View>
 
             <View className="flex-1">
@@ -599,6 +654,8 @@ export function CoachScreen() {
                   onOpenPlan={openPlan}
                   onOpenMealVision={openMealVision}
                   onSuggestedAction={handleSuggestedAction}
+                  onRetryMessage={handleRetryMessage}
+                  onEditMessage={handleEditMessage}
                 />
               )}
             </View>

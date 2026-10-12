@@ -5,6 +5,7 @@ import type { CoachAction, Message } from '@fitness/shared';
 import { ChatBubble } from './ChatBubble';
 import { CoachToolStatus } from './CoachToolStatus';
 import type { CoachToolActivity } from '../coach-stream-store';
+import { isRetryableFailedMessage } from '../coach-message-retry';
 
 export type ChatMessageListHandle = {
   scrollToEnd: () => void;
@@ -19,6 +20,8 @@ type ChatMessageListProps = {
   isStreaming?: boolean;
   toolActivities?: CoachToolActivity[];
   hasStreamAssistantContent?: boolean;
+  onRetryMessage?: (message: Message) => void;
+  onEditMessage?: (message: Message) => void;
 };
 
 /** Inverted list: offset 0 = visual bottom (newest). */
@@ -36,9 +39,15 @@ export const ChatMessageList = forwardRef<ChatMessageListHandle, ChatMessageList
       isStreaming = false,
       toolActivities = [],
       hasStreamAssistantContent = false,
+      onRetryMessage,
+      onEditMessage,
     },
     ref,
   ) {
+    const retryableMessageId = useMemo(
+      () => messages.find((message) => isRetryableFailedMessage(messages, message))?.id ?? null,
+      [messages],
+    );
     const flatListRef = useRef<FlatList<Message>>(null);
     const autoFollowRef = useRef(true);
     const userDraggingRef = useRef(false);
@@ -178,6 +187,9 @@ export const ChatMessageList = forwardRef<ChatMessageListHandle, ChatMessageList
                 onOpenPlan={onOpenPlan}
                 onOpenMealVision={onOpenMealVision}
                 onSuggestedAction={onSuggestedAction}
+                retryable={item.id === retryableMessageId}
+                onRetry={onRetryMessage}
+                onEdit={onEditMessage}
                 onLayout={isNewestAssistant ? handleNewestAssistantLayout : undefined}
                 onLayoutStable={
                   isNewestAssistant && !isStreaming ? handleNewestAssistantLayout : undefined

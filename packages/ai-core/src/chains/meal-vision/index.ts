@@ -1,6 +1,5 @@
 import type { MealVisionResult, NutritionDailySummary } from '@fitness/shared';
-import { LLM_MODELS } from '@fitness/shared';
-import { createQwenVlClient } from '../../llm/qwen-vl';
+import { createQwenVlClient, resolveQwenVlModel } from '../../llm/qwen-vl';
 import type { JsonChatClient, LlmUsage } from '../../llm/types';
 import { parseJsonWithSchema } from '../../parsers/json-zod';
 import { MEAL_VISION_PROMPT } from '../../prompts/meal-vision';
@@ -24,7 +23,7 @@ export const runMealVision = async (
 ): Promise<MealVisionOutput> => {
   const parsedInput: RunMealVisionInput = RunMealVisionInputSchema.parse(input);
   const response = await (options?.client ?? createQwenVlClient()).generateJson({
-    model: options?.model ?? LLM_MODELS.QWEN_VL_MAX,
+    model: resolveQwenVlModel(options?.model),
     temperature: 0.1,
     messages: [
       {

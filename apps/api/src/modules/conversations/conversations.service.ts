@@ -1,4 +1,4 @@
-import { AiCoreError, runCoachChatStream } from '@fitness/ai-core';
+import { AiCoreError, resolveQwenVlModel, runCoachChatStream } from '@fitness/ai-core';
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type {
@@ -14,6 +14,7 @@ import type {
   Message,
 } from '@fitness/shared';
 import {
+  COACH_MESSAGE_DELIVERY_FAILED,
   CoachMessageAcceptedResponseSchema,
   CoachStreamStartResponseSchema,
   ConversationListResponseSchema,
@@ -22,12 +23,16 @@ import {
   StartCoachStreamSchema,
   CreateConversationSchema,
   LLM_MODELS,
+  LocationContextSchema,
   MessageSchema,
+  RetryCoachMessageSchema,
   errorMessagesZhCN,
+  isCoachImagePlaceholderContent,
 } from '@fitness/shared';
 import type { Prisma } from '@fitness/db';
 
 import type { JwtUserPayload } from '../../common/decorators/current-user.decorator';
+import { markUserMessageDeliveryFailed } from '../../domain/coach-message-delivery';
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { AgentConfigService } from '../../config/agent-config.service';
@@ -43,6 +48,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service';
 import type { CoachChatTraceSession } from '../../infra/observability/coach-chat-trace.session';
 import { LangfuseCoachTraceService } from '../../infra/observability/langfuse-coach-trace.service';
 import { MealLogsService } from '../meal-logs/meal-logs.service';
+// import { createCoachStreamFaultInjector } from './coach-stream-fault';
 import { CoachStreamRegistryService } from './coach-stream-registry.service';
 
 export type SseEmitFn = (event: string, data: unknown) => Promise<void>;
@@ -90,6 +96,12 @@ export class ConversationsService {
   private readonly streamTextSequences = new Map<string, number>();
   private readonly streamLastSequences = new Map<string, number>();
   private readonly streamToolTraces = new Map<string, CoachToolTraceItem[]>();
+  // 弱网手测故障注入（coach-stream-fault.ts）；需要时再打开
+  // private readonly streamFault = createCoachStreamFaultInjector(
+  //   process.env.COACH_STREAM_FAULT,
+  //   process.env.NODE_ENV,
+  //   this.logger,
+  // );
 
   constructor(
     private readonly prisma: PrismaService,
@@ -290,21 +302,12 @@ export class ConversationsService {
     const input = parseWith(StartCoachStreamSchema, body) as CreateCoachMessageInput & {
       clientRequestId: string;
     };
-    const existing = await this.prisma.client.aiRun.findUnique({
-      where: { clientRequestId: input.clientRequestId },
-      include: { triggerMessage: true, assistantMessage: true },
-    });
-    if (existing) {
-      if (existing.userId !== user.userId || existing.conversationId !== conversationId) {
-        throw new BizException('FORBIDDEN', 'clientRequestId 已被其他请求使用', 403);
-      }
-      return CoachStreamStartResponseSchema.parse({
-        streamId: existing.id,
-        userMessageId: existing.triggerMessageId,
-        assistantMessageId: existing.assistantMessage?.id,
-        status: existing.status,
-      });
-    }
+    const existing = await this.findStreamByClientRequestId(
+      user,
+      conversationId,
+      input.clientRequestId,
+    );
+    if (existing) return existing;
 
     const rawUserText = String(input.content ?? '').trim();
     const imageObjectKeys = normalizeImageObjectKeys(input);
@@ -312,38 +315,246 @@ export class ConversationsService {
       throw new BizException('VALIDATION_FAILED', errorMessagesZhCN.VALIDATION_FAILED, 400);
     }
 
-    const timezoneOffsetMinutes = input.timezoneOffsetMinutes ?? 480;
+    const priorFailedAttempt = await this.prisma.client.message.findFirst({
+      where: {
+        conversationId,
+        role: 'USER',
+        metadata: { path: ['clientRequestId'], equals: input.clientRequestId },
+      },
+      select: { id: true },
+    });
+
+    return this.launchCoachStream(user, conversationId, {
+      clientRequestId: input.clientRequestId,
+      rawUserText,
+      imageObjectKeys,
+      timezoneOffsetMinutes: input.timezoneOffsetMinutes,
+      locationContext: input.locationContext,
+      retryMessageId: priorFailedAttempt?.id,
+    });
+  }
+
+  /** 原地重试：仅允许会话中最后一条 USER 消息且其 deliveryStatus 为 FAILED */
+  async retryMessageStream(
+    user: JwtUserPayload,
+    conversationId: string,
+    messageId: string,
+    body: unknown,
+  ): Promise<CoachStreamStartResponse> {
+    await this.assertConversationOwner(user.userId, conversationId);
+    await this.conversationSideEffects.reconcileStaleAssistantMessages(conversationId);
+    const input = parseWith(RetryCoachMessageSchema, body);
+    const existing = await this.findStreamByClientRequestId(
+      user,
+      conversationId,
+      input.clientRequestId,
+    );
+    if (existing) return existing;
+
+    const message = await this.prisma.client.message.findFirst({
+      where: { id: messageId, conversationId, role: 'USER' },
+    });
+    const meta = (message?.metadata ?? {}) as Record<string, unknown>;
+    if (
+      !message ||
+      meta.deliveryStatus !== COACH_MESSAGE_DELIVERY_FAILED ||
+      meta.action !== 'CHAT'
+    ) {
+      throw new BizException(
+        'COACH_MESSAGE_NOT_RETRYABLE',
+        errorMessagesZhCN.COACH_MESSAGE_NOT_RETRYABLE,
+        409,
+      );
+    }
+    const laterUserMessage = await this.prisma.client.message.findFirst({
+      where: { conversationId, role: 'USER', createdAt: { gt: message.createdAt } },
+      select: { id: true },
+    });
+    if (laterUserMessage) {
+      throw new BizException(
+        'COACH_MESSAGE_NOT_RETRYABLE',
+        errorMessagesZhCN.COACH_MESSAGE_NOT_RETRYABLE,
+        409,
+      );
+    }
+
+    const imageObjectKeys = Array.isArray(meta.imageObjectKeys)
+      ? meta.imageObjectKeys.filter((key): key is string => typeof key === 'string')
+      : [];
+    const rawUserText =
+      imageObjectKeys.length > 0 && isCoachImagePlaceholderContent(message.content)
+        ? ''
+        : message.content.trim();
+    const storedLocation = LocationContextSchema.safeParse(meta.locationContext);
+
+    return this.launchCoachStream(user, conversationId, {
+      clientRequestId: input.clientRequestId,
+      rawUserText,
+      imageObjectKeys,
+      timezoneOffsetMinutes: input.timezoneOffsetMinutes,
+      locationContext:
+        input.locationContext ?? (storedLocation.success ? storedLocation.data : undefined),
+      retryMessageId: message.id,
+    });
+  }
+
+  private async findStreamByClientRequestId(
+    user: JwtUserPayload,
+    conversationId: string,
+    clientRequestId: string,
+  ): Promise<CoachStreamStartResponse | null> {
+    const existing = await this.prisma.client.aiRun.findUnique({
+      where: { clientRequestId },
+      include: { triggerMessage: true, assistantMessage: true },
+    });
+    if (!existing) return null;
+    if (existing.userId !== user.userId || existing.conversationId !== conversationId) {
+      throw new BizException('FORBIDDEN', 'clientRequestId 已被其他请求使用', 403);
+    }
+    return CoachStreamStartResponseSchema.parse({
+      streamId: existing.id,
+      userMessageId: existing.triggerMessageId,
+      assistantMessageId: existing.assistantMessage?.id,
+      status: existing.status,
+    });
+  }
+
+  /**
+   * 流启动前（基础设施 / 图片读取）失败时保留用户消息为 FAILED，便于用户原地重试；
+   * 每日次数、并发冲突等业务拒绝不保留。
+   */
+  private async recordPreStartFailure(
+    conversationId: string,
+    params: {
+      clientRequestId: string;
+      rawUserText: string;
+      imageObjectKeys: string[];
+      locationContext?: LocationContext;
+      retryMessageId?: string;
+      displayContent: string;
+    },
+    err: unknown,
+  ): Promise<never> {
+    const reason = err instanceof BizException ? err.message : '发送失败，请稍后重新发送';
+    let failedUserMessageId = params.retryMessageId;
+    try {
+      if (params.retryMessageId) {
+        const current = await this.prisma.client.message.findUnique({
+          where: { id: params.retryMessageId },
+          select: { metadata: true },
+        });
+        await this.prisma.client.message.update({
+          where: { id: params.retryMessageId },
+          data: {
+            metadata: {
+              ...((current?.metadata ?? {}) as Record<string, unknown>),
+              deliveryStatus: COACH_MESSAGE_DELIVERY_FAILED,
+              failureReason: reason,
+            } as Prisma.InputJsonValue,
+          },
+        });
+      } else {
+        const created = await this.prisma.client.message.create({
+          data: {
+            conversationId,
+            role: 'USER',
+            contentType: params.imageObjectKeys.length > 0 ? 'IMAGE' : 'TEXT',
+            content: params.displayContent,
+            metadata: {
+              action: 'CHAT',
+              ...(params.imageObjectKeys.length ? { imageObjectKeys: params.imageObjectKeys } : {}),
+              ...(params.locationContext ? { locationContext: params.locationContext } : {}),
+              clientRequestId: params.clientRequestId,
+              deliveryStatus: COACH_MESSAGE_DELIVERY_FAILED,
+              failureReason: reason,
+            } as Prisma.InputJsonValue,
+          },
+        });
+        failedUserMessageId = created.id;
+      }
+    } catch (persistErr: unknown) {
+      this.logger.warn(`保存发送失败的消息时出错: ${this.toStreamErrorMessage(persistErr)}`);
+      failedUserMessageId = undefined;
+    }
+
+    this.logger.warn(`Coach 流启动失败: ${this.toStreamErrorMessage(err)}`);
+    const details = failedUserMessageId ? { failedUserMessageId } : undefined;
+    if (err instanceof BizException) {
+      throw new BizException(err.code, err.message, err.httpStatus, {
+        ...err.details,
+        ...details,
+      });
+    }
+    throw new BizException('INTERNAL_ERROR', reason, 500, details);
+  }
+
+  private async launchCoachStream(
+    user: JwtUserPayload,
+    conversationId: string,
+    params: {
+      clientRequestId: string;
+      rawUserText: string;
+      imageObjectKeys: string[];
+      timezoneOffsetMinutes?: number;
+      locationContext?: LocationContext;
+      retryMessageId?: string;
+    },
+  ): Promise<CoachStreamStartResponse> {
+    const input = {
+      clientRequestId: params.clientRequestId,
+      locationContext: params.locationContext,
+    };
+    const { rawUserText, imageObjectKeys, retryMessageId } = params;
+    const timezoneOffsetMinutes = params.timezoneOffsetMinutes ?? 480;
     // 聊天回复优先速度：使用 DeepSeek V4 Flash（计划生成等重任务仍走 Pro）
     const model = LLM_MODELS.DEEPSEEK_V4_FLASH;
     const startedAt = Date.now();
-
-    try {
-      await this.coachStreams.assertAvailable();
-    } catch {
-      throw new BizException(
-        'COACH_STREAM_INFRA_UNAVAILABLE',
-        errorMessagesZhCN.COACH_STREAM_INFRA_UNAVAILABLE,
-        503,
-      );
-    }
 
     const displayContent =
       rawUserText ||
       (imageObjectKeys.length === 1 ? '[图片]' : `[${imageObjectKeys.length} 张图片]`);
 
-    const { latestUserText } = await this.coachImageContext.augmentChatUserText(
-      user.userId,
-      rawUserText,
-      imageObjectKeys,
-    );
     const runId = randomUUID();
+    let latestUserText: string;
+    let imageDescribeFailed: boolean;
     try {
-      await this.coachStreams.initialize(runId);
-    } catch {
-      throw new BizException(
-        'COACH_STREAM_INFRA_UNAVAILABLE',
-        errorMessagesZhCN.COACH_STREAM_INFRA_UNAVAILABLE,
-        503,
+      try {
+        await this.coachStreams.assertAvailable();
+      } catch {
+        throw new BizException(
+          'COACH_STREAM_INFRA_UNAVAILABLE',
+          errorMessagesZhCN.COACH_STREAM_INFRA_UNAVAILABLE,
+          503,
+        );
+      }
+
+      ({ latestUserText, imageDescribeFailed } = await this.coachImageContext.augmentChatUserText(
+        user.userId,
+        rawUserText,
+        imageObjectKeys,
+      ));
+      try {
+        await this.coachStreams.initialize(runId);
+      } catch {
+        throw new BizException(
+          'COACH_STREAM_INFRA_UNAVAILABLE',
+          errorMessagesZhCN.COACH_STREAM_INFRA_UNAVAILABLE,
+          503,
+        );
+      }
+    } catch (err: unknown) {
+      if (err instanceof AiCoreError && err.code === 'AI_CORE_UNSUPPORTED_TASK') throw err;
+      return this.recordPreStartFailure(
+        conversationId,
+        {
+          clientRequestId: params.clientRequestId,
+          rawUserText,
+          imageObjectKeys,
+          locationContext: params.locationContext,
+          retryMessageId,
+          displayContent,
+        },
+        err,
       );
     }
 
@@ -354,19 +565,21 @@ export class ConversationsService {
       await this.conversationTask.assertDailyLimit(user.userId, 'COACH_CHAT');
       ({ userMessage, pendingAssistant, run } = await this.prisma.client.$transaction(
         async (tx) => {
-          const createdUserMessage = await tx.message.create({
-            data: {
-              conversationId,
-              role: 'USER',
-              contentType: imageObjectKeys.length > 0 ? 'IMAGE' : 'TEXT',
-              content: displayContent,
-              metadata: {
-                action: 'CHAT',
-                ...(imageObjectKeys.length ? { imageObjectKeys } : {}),
-                ...(input.locationContext ? { locationContext: input.locationContext } : {}),
-              },
-            },
-          });
+          const createdUserMessage = retryMessageId
+            ? await this.reviveFailedUserMessage(tx, conversationId, retryMessageId)
+            : await tx.message.create({
+                data: {
+                  conversationId,
+                  role: 'USER',
+                  contentType: imageObjectKeys.length > 0 ? 'IMAGE' : 'TEXT',
+                  content: displayContent,
+                  metadata: {
+                    action: 'CHAT',
+                    ...(imageObjectKeys.length ? { imageObjectKeys } : {}),
+                    ...(input.locationContext ? { locationContext: input.locationContext } : {}),
+                  },
+                },
+              });
           const createdRun = await tx.aiRun.create({
             data: {
               id: runId,
@@ -379,6 +592,7 @@ export class ConversationsService {
                 content: latestUserText,
                 rawUserText: rawUserText || undefined,
                 imageObjectKeys: imageObjectKeys.length ? imageObjectKeys : undefined,
+                imageDescribeFailed: imageDescribeFailed || undefined,
                 conversationId,
                 timezoneOffsetMinutes,
                 ...(input.locationContext ? { locationContext: input.locationContext } : {}),
@@ -512,6 +726,7 @@ export class ConversationsService {
     const emit: SseEmitFn = async (event, data) => {
       const payload = (data ?? {}) as Record<string, unknown>;
       if (event === 'delta' && typeof payload.text === 'string' && payload.text) {
+        // await this.streamFault?.delayDelta();
         pendingText += payload.text;
         if (!firstDeltaSent) {
           firstDeltaSent = true;
@@ -663,6 +878,7 @@ export class ConversationsService {
         const failed = await this.persistCoachChatFailure({
           runId: run.id,
           assistantMessageId: pendingAssistant.id,
+          userMessageId: userMessage.id,
           message,
           startedAt,
           terminalSequence: (this.streamLastSequences.get(run.id) ?? 0) + 1,
@@ -901,9 +1117,40 @@ export class ConversationsService {
     });
   }
 
+  /** 重试事务内：清除 FAILED 标记，删除其后残留的失败助手提示 */
+  private async reviveFailedUserMessage(
+    tx: Prisma.TransactionClient,
+    conversationId: string,
+    messageId: string,
+  ) {
+    const message = await tx.message.findUnique({ where: { id: messageId } });
+    const meta = (message?.metadata ?? {}) as Record<string, unknown>;
+    if (!message || meta.deliveryStatus !== COACH_MESSAGE_DELIVERY_FAILED) {
+      throw new BizException(
+        'COACH_MESSAGE_NOT_RETRYABLE',
+        errorMessagesZhCN.COACH_MESSAGE_NOT_RETRYABLE,
+        409,
+      );
+    }
+    const { deliveryStatus: _status, failureReason: _reason, ...restMeta } = meta;
+    await tx.message.deleteMany({
+      where: {
+        conversationId,
+        role: 'ASSISTANT',
+        createdAt: { gt: message.createdAt },
+        metadata: { path: ['taskStatus'], equals: 'FAILED' },
+      },
+    });
+    return tx.message.update({
+      where: { id: messageId },
+      data: { metadata: restMeta as Prisma.InputJsonValue },
+    });
+  }
+
   private async persistCoachChatFailure(params: {
     runId: string;
     assistantMessageId: string;
+    userMessageId: string;
     message: string;
     startedAt: number;
     terminalSequence: number;
@@ -927,6 +1174,7 @@ export class ConversationsService {
           metadata: { taskStatus: 'FAILED', taskType: 'COACH_CHAT' } as Prisma.InputJsonValue,
         },
       });
+      await markUserMessageDeliveryFailed(tx, params.userMessageId);
       return true;
     });
   }
@@ -1193,7 +1441,7 @@ export class ConversationsService {
     if (input.action === 'MEAL_VISION') {
       return {
         taskType: 'MEAL_VISION',
-        model: LLM_MODELS.QWEN_VL_MAX,
+        model: resolveQwenVlModel(),
         inputJson: {
           objectKey: input.imageObjectKey,
           mealType: input.mealType,

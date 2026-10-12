@@ -27,7 +27,12 @@ type CoachStreamState = {
   error: string | null;
   isCancelled: boolean;
   reconnectRequired: boolean;
-  beginUserMessage: (params: { userContent: string; userImagePreviewUris?: string[] }) => void;
+  beginUserMessage: (params: {
+    userContent: string;
+    userImagePreviewUris?: string[];
+    /** 重试时复用服务端已有的用户消息 */
+    userMessageId?: string;
+  }) => void;
   startStream: (params: {
     streamId?: string;
     userMessageId: string;
@@ -69,12 +74,12 @@ const initialState = {
 
 export const useCoachStreamStore = create<CoachStreamState>((set) => ({
   ...initialState,
-  beginUserMessage: ({ userContent, userImagePreviewUris }) => {
+  beginUserMessage: ({ userContent, userImagePreviewUris, userMessageId }) => {
     const stamp = Date.now();
     set({
       ...initialState,
       isStreaming: true,
-      userMessageId: `local-user-${stamp}`,
+      userMessageId: userMessageId ?? `local-user-${stamp}`,
       userContent,
       userImagePreviewUris: userImagePreviewUris?.length ? userImagePreviewUris : null,
       assistantMessageId: `local-assistant-${stamp}`,

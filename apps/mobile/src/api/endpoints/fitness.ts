@@ -1,6 +1,7 @@
 import {
   CreateManualMealLogSchema,
   CreateMealLogSchema,
+  LLM_MODELS,
   NutritionDailySummarySchema,
   paginatedSchema,
   MealLogResponseSchema,
@@ -224,7 +225,7 @@ export function useMealVision() {
         method: 'POST',
         body: {
           taskType: 'MEAL_VISION',
-          model: 'qwen-vl-max',
+          model: LLM_MODELS.QWEN_VL_MAX,
           inputJson: {
             objectKey: signed.objectKey,
             mealType: params.mealType,

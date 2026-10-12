@@ -15,6 +15,7 @@ type StreamSnapshot = Pick<
   | 'assistantContent'
   | 'suggestedActions'
   | 'toolActivities'
+  | 'error'
 >;
 
 export function mergeStreamMessages(messages: Message[], stream: StreamSnapshot): Message[] {
@@ -55,12 +56,18 @@ export function mergeStreamMessages(messages: Message[], stream: StreamSnapshot)
     const assistantIdx = result.findIndex((m) => m.id === stream.assistantMessageId);
     const existingAssistant = assistantIdx >= 0 ? result[assistantIdx] : undefined;
     const toolPlaceholder = getAssistantPlaceholder(stream.toolActivities, stream.isStreaming);
-    const assistantContent =
-      stream.isCancelled && !stream.assistantContent
+    const isFailed = !stream.isStreaming && !stream.isCancelled && stream.error != null;
+    const existingFailedContent =
+      (existingAssistant?.metadata as Record<string, unknown> | null)?.taskStatus === 'FAILED'
+        ? existingAssistant?.content
+        : undefined;
+    const assistantContent = isFailed
+      ? existingFailedContent || `回复失败：${stream.error}`
+      : stream.isCancelled && !stream.assistantContent
         ? '已停止生成'
         : stream.assistantContent || toolPlaceholder || existingAssistant?.content || '思考中…';
     const metadata: Record<string, unknown> = {
-      taskStatus: stream.isStreaming ? 'RUNNING' : 'DONE',
+      taskStatus: isFailed ? 'FAILED' : stream.isStreaming ? 'RUNNING' : 'DONE',
       taskType: 'COACH_CHAT',
       action: 'CHAT',
     };
@@ -76,7 +83,7 @@ export function mergeStreamMessages(messages: Message[], stream: StreamSnapshot)
       id: stream.assistantMessageId,
       conversationId: result[0]?.conversationId ?? '',
       role: 'ASSISTANT',
-      contentType: stream.assistantContent ? 'TEXT' : 'SYSTEM_NOTICE',
+      contentType: stream.assistantContent && !isFailed ? 'TEXT' : 'SYSTEM_NOTICE',
       content: assistantContent,
       metadata,
       createdAt: existingAssistant?.createdAt ?? now,

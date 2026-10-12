@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import type { Queue } from 'bullmq';
+import { resolveQwenVlModel } from '@fitness/ai-core';
 import type { Prisma } from '@fitness/db';
 import type {
   CreateHealthReportResponse,
@@ -80,7 +81,7 @@ export class ReportsService {
         data: {
           userId: user.userId,
           taskType: 'REPORT_ANALYZE',
-          model: LLM_MODELS.QWEN_VL_MAX,
+          model: resolveQwenVlModel(),
           status: 'QUEUED',
           inputJson: { reportId: createdReport.id },
         },

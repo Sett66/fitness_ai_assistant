@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { COACH_MESSAGE_DELIVERY_FAILED } from '@fitness/shared';
 
 import { PrismaService } from '../infra/prisma/prisma.service';
 import { ConversationSideEffectService } from './conversation-side-effect.service';
@@ -72,6 +73,7 @@ export class CoachChatHistoryService {
       .filter((row) => {
         const meta = (row.metadata ?? {}) as Record<string, unknown>;
         if (row.contentType === 'SYSTEM_NOTICE' && meta.taskStatus !== 'CANCELLED') return false;
+        if (meta.deliveryStatus === COACH_MESSAGE_DELIVERY_FAILED) return false;
         return meta.taskStatus !== 'RUNNING' && meta.taskStatus !== 'FAILED';
       })
       .map((row) => ({

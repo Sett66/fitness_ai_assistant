@@ -8,11 +8,15 @@ export type { ReportAssessOutput, ReportAssessResult } from './chains/report-ass
 export { runSocialModerate } from './chains/social-moderate';
 export type { SocialModerateOutput, SocialModerateResult } from './chains/social-moderate';
 export { runMealVisionAdvice, mergeLlmUsage } from './chains/meal-vision/advice';
-export { describeCoachImages, buildAugmentedUserText } from './chains/coach-image-describe';
+export {
+  describeCoachImages,
+  buildAugmentedUserText,
+  buildImageUnavailableUserText,
+} from './chains/coach-image-describe';
 export type { DescribeCoachImagesResult } from './chains/coach-image-describe';
 export { createDeepSeekClient } from './llm/deepseek';
 export { createJsonClientForModel } from './llm/factory';
-export { createQwenVlClient } from './llm/qwen-vl';
+export { createQwenVlClient, resolveQwenVlModel } from './llm/qwen-vl';
 export type { CoachChatLlmClient } from './llm/tracing-client';
 export { wrapLlmClientWithTracing } from './llm/tracing-client';
 export type {

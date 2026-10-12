@@ -3,6 +3,7 @@ import type { Prisma } from '@fitness/db';
 import type { AiTaskType, MessageContentType } from '@fitness/shared';
 
 import { PrismaService } from '../infra/prisma/prisma.service';
+import { markUserMessageDeliveryFailed } from './coach-message-delivery';
 
 @Injectable()
 export class ConversationSideEffectService {
@@ -24,6 +25,7 @@ export class ConversationSideEffectService {
         conversationId: true,
         taskType: true,
         inputJson: true,
+        triggerMessageId: true,
         assistantMessage: { select: { id: true } },
       },
     });
@@ -32,13 +34,19 @@ export class ConversationSideEffectService {
     }
 
     if (output.status === 'FAILED') {
-      await this.prisma.client.message.update({
-        where: { id: run.assistantMessage.id },
-        data: {
-          contentType: 'SYSTEM_NOTICE',
-          content: output.errorMsg ?? '任务失败',
-          metadata: { taskStatus: 'FAILED', taskType: run.taskType },
-        },
+      const assistantMessageId = run.assistantMessage.id;
+      await this.prisma.client.$transaction(async (tx) => {
+        await tx.message.update({
+          where: { id: assistantMessageId },
+          data: {
+            contentType: 'SYSTEM_NOTICE',
+            content: output.errorMsg ?? '任务失败',
+            metadata: { taskStatus: 'FAILED', taskType: run.taskType },
+          },
+        });
+        if (run.taskType === 'COACH_CHAT') {
+          await markUserMessageDeliveryFailed(tx, run.triggerMessageId);
+        }
       });
       return;
     }
@@ -74,7 +82,7 @@ export class ConversationSideEffectService {
         status: { in: ['QUEUED', 'RUNNING'] },
         createdAt: { lt: new Date(Date.now() - 90_000) },
       },
-      select: { id: true, assistantMessage: { select: { id: true } } },
+      select: { id: true, triggerMessageId: true, assistantMessage: { select: { id: true } } },
     });
     for (const run of staleCoachRuns) {
       await this.prisma.client.$transaction(async (tx) => {
@@ -92,6 +100,7 @@ export class ConversationSideEffectService {
             },
           });
         }
+        if (changed.count) await markUserMessageDeliveryFailed(tx, run.triggerMessageId);
       });
     }
 

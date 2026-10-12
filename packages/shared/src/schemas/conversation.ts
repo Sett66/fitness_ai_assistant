@@ -155,6 +155,23 @@ export const StartCoachStreamSchema = CreateCoachMessageSchema.and(
 });
 export type StartCoachStreamInput = z.infer<typeof StartCoachStreamSchema>;
 
+/** 原地重试最后一条发送失败的 CHAT 用户消息（复用原文字与已上传图片） */
+export const RetryCoachMessageSchema = z.object({
+  clientRequestId: z.string().uuid(),
+  timezoneOffsetMinutes: z.number().int().min(-720).max(840).optional(),
+  locationContext: LocationContextSchema.optional(),
+});
+export type RetryCoachMessageInput = z.infer<typeof RetryCoachMessageSchema>;
+
+/** 用户消息 metadata.deliveryStatus：FAILED 的消息不进入工作记忆，仅最后一条可重试 */
+export const COACH_MESSAGE_DELIVERY_FAILED = 'FAILED';
+
+/** 纯图片消息落库时的占位文案（`[图片]` / `[N 张图片]` / `[餐照]`） */
+export function isCoachImagePlaceholderContent(content: string): boolean {
+  const text = content.trim();
+  return text === '[图片]' || text === '[餐照]' || /^\[\d+ 张图片\]$/.test(text);
+}
+
 export const CoachStreamStartResponseSchema = z.object({
   streamId: IdSchema,
   userMessageId: IdSchema,

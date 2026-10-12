@@ -10,7 +10,7 @@ export const LLM_MODELS = {
   DEEPSEEK_V4_FLASH: 'deepseek-v4-flash',
   /** @deprecated 部分账号已迁移至 V4，请用 DEEPSEEK_V4_PRO */
   DEEPSEEK_V3_2: 'deepseek-v3.2',
-  /** Qwen-VL-Max（DashScope），用于食物图像识别 */
+  /** 默认视觉模型别名（DashScope 已下线该名）；实际模型由 ai-core `resolveQwenVlModel` 按 `QWEN_VL_MODEL` 解析 */
   QWEN_VL_MAX: 'qwen-vl-max',
 } as const;
 export type LlmModelKey = keyof typeof LLM_MODELS;

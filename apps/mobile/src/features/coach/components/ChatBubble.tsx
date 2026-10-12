@@ -1,6 +1,11 @@
-import type { CoachAction, Message } from '@fitness/shared';
+import {
+  COACH_MESSAGE_DELIVERY_FAILED,
+  isCoachImagePlaceholderContent,
+  type CoachAction,
+  type Message,
+} from '@fitness/shared';
 import { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 
 import { Card } from '@fitness/ui';
 
@@ -19,6 +24,10 @@ type ChatBubbleProps = {
   onSuggestedAction?: (action: SuggestedAction['action']) => void;
   onLayout?: () => void;
   onLayoutStable?: () => void;
+  /** 失败的用户消息是否仍可原地重试（仅最后一条） */
+  retryable?: boolean;
+  onRetry?: (message: Message) => void;
+  onEdit?: (message: Message) => void;
 };
 
 function parseSuggestedActions(meta: Record<string, unknown>): SuggestedAction[] {
@@ -59,11 +68,6 @@ function SuggestedActionChips({
   );
 }
 
-function isImagePlaceholder(content: string): boolean {
-  const text = content.trim();
-  return text === '[图片]' || text === '[餐照]' || /^\[\d+ 张图片\]$/.test(text);
-}
-
 function extractImageObjectKeys(meta: Record<string, unknown>): string[] {
   const keys: string[] = [];
   if (Array.isArray(meta.imageObjectKeys)) {
@@ -88,17 +92,21 @@ function ChatBubbleComponent({
   onSuggestedAction,
   onLayout,
   onLayoutStable,
+  retryable,
+  onRetry,
+  onEdit,
 }: ChatBubbleProps) {
   const isUser = message.role === 'USER';
   const meta = (message.metadata ?? {}) as Record<string, unknown>;
   const isRunning = meta.taskStatus === 'RUNNING';
+  const isFailed = !isUser && meta.taskStatus === 'FAILED';
   const imageObjectKeys = extractImageObjectKeys(meta);
   const imagePreviewUris = Array.isArray(meta.imagePreviewUris)
     ? (meta.imagePreviewUris as string[])
     : [];
   const hasImages = imageObjectKeys.length > 0 || imagePreviewUris.length > 0;
   const displayContent =
-    isUser && hasImages && isImagePlaceholder(message.content) ? '' : message.content;
+    isUser && hasImages && isCoachImagePlaceholderContent(message.content) ? '' : message.content;
 
   if (message.contentType === 'PLAN_CARD') {
     const planId = typeof meta.planId === 'string' ? meta.planId : null;
@@ -134,32 +142,64 @@ function ChatBubbleComponent({
     );
   }
 
+  const isDeliveryFailed = isUser && meta.deliveryStatus === COACH_MESSAGE_DELIVERY_FAILED;
+  const failureReason = typeof meta.failureReason === 'string' ? meta.failureReason : undefined;
+  const openFailedMenu = () => {
+    Alert.alert('发送失败', failureReason, [
+      ...(onEdit ? [{ text: '编辑', onPress: () => onEdit(message) }] : []),
+      ...(retryable && onRetry ? [{ text: '重新发送', onPress: () => onRetry(message) }] : []),
+      { text: '取消', style: 'cancel' as const },
+    ]);
+  };
+  const Row = isDeliveryFailed ? Pressable : View;
+
   return (
-    <View className={`mb-3 flex-row ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <View
-        className={`max-w-[85%] min-w-0 shrink rounded-2xl px-4 py-3 overflow-hidden ${
-          isUser ? 'bg-accent' : isRunning ? 'bg-muted/30' : 'bg-card border border-border'
-        }`}
+    <View className="mb-3">
+      <Row
+        className={`flex-row ${isUser ? 'justify-end' : 'justify-start'}`}
+        {...(isDeliveryFailed ? { onLongPress: openFailedMenu, delayLongPress: 300 } : {})}
       >
-        {isUser && hasImages ? (
-          <ChatMessageImages objectKeys={imageObjectKeys} previewUris={imagePreviewUris} />
-        ) : null}
-        <CoachMessageBody
-          content={displayContent}
-          isUser={isUser}
-          onLayout={onLayout}
-          onLayoutStable={onLayoutStable}
-        />
-        {!isUser && meta.incomplete === true ? (
-          <Text className="mt-2 text-xs text-muted-foreground">已停止生成</Text>
-        ) : null}
-        {!isUser ? (
-          <SuggestedActionChips
-            actions={meta.incomplete === true ? [] : parseSuggestedActions(meta)}
-            onPress={onSuggestedAction}
+        <View
+          className={`max-w-[85%] min-w-0 shrink rounded-2xl px-4 py-3 overflow-hidden ${
+            isUser
+              ? 'bg-accent'
+              : isRunning
+                ? 'bg-muted/30'
+                : isFailed
+                  ? 'bg-card border border-destructive'
+                  : 'bg-card border border-border'
+          }`}
+        >
+          {isUser && hasImages ? (
+            <ChatMessageImages objectKeys={imageObjectKeys} previewUris={imagePreviewUris} />
+          ) : null}
+          <CoachMessageBody
+            content={displayContent}
+            isUser={isUser}
+            onLayout={onLayout}
+            onLayoutStable={onLayoutStable}
           />
-        ) : null}
-      </View>
+          {!isUser && meta.incomplete === true ? (
+            <Text className="mt-2 text-xs text-muted-foreground">已停止生成</Text>
+          ) : null}
+          {!isUser ? (
+            <SuggestedActionChips
+              actions={meta.incomplete === true ? [] : parseSuggestedActions(meta)}
+              onPress={onSuggestedAction}
+            />
+          ) : null}
+        </View>
+      </Row>
+      {isDeliveryFailed ? (
+        <View className="mt-1 flex-row items-center justify-end gap-3">
+          <Text className="text-xs text-destructive">发送失败</Text>
+          {retryable && onRetry ? (
+            <Pressable accessibilityLabel="重新发送" hitSlop={8} onPress={() => onRetry(message)}>
+              <Text className="text-xs font-medium text-accent">↻ 重新发送</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -172,6 +212,9 @@ export const ChatBubble = memo(ChatBubbleComponent, (prev, next) => {
     prev.message.role === next.message.role &&
     JSON.stringify(prev.message.metadata) === JSON.stringify(next.message.metadata) &&
     prev.onLayout === next.onLayout &&
-    prev.onLayoutStable === next.onLayoutStable
+    prev.onLayoutStable === next.onLayoutStable &&
+    prev.retryable === next.retryable &&
+    prev.onRetry === next.onRetry &&
+    prev.onEdit === next.onEdit
   );
 });
