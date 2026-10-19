@@ -1,6 +1,10 @@
 import { useCoachStreamStore } from '../../features/coach/coach-stream-store';
 import { ApiError, apiStreamSSE } from '../client';
-import { reconnectCoachChatStream, resumeCoachMessageStream } from './coach';
+import {
+  reconnectCoachChatStream,
+  resumeCoachMessageStream,
+  unsubscribeCoachChatStream,
+} from './coach';
 
 jest.mock('../client', () => {
   class MockApiError extends Error {
@@ -90,12 +94,146 @@ async function settle<T>(promise: Promise<T>): Promise<T> {
 
 beforeEach(() => {
   jest.useFakeTimers();
+  unsubscribeCoachChatStream();
   mockedSse.mockReset();
   useCoachStreamStore.getState().reset();
 });
 
 afterEach(() => {
+  unsubscribeCoachChatStream();
   jest.useRealTimers();
+});
+
+describe('订阅所有权与缓冲顺序', () => {
+  function controlledConnections() {
+    const connections: { emit: Emit; close: () => void }[] = [];
+    mockedSse.mockImplementation(
+      (_path, emit) => new Promise<void>((close) => connections.push({ emit, close })),
+    );
+    return connections;
+  }
+
+  it('重复恢复复用同一连接和缓冲，终态校正前正文已按顺序拼接', async () => {
+    const connections = controlledConnections();
+    const first = resume();
+    await jest.advanceTimersByTimeAsync(0);
+    connections[0]!.emit(...delta(1, 'A'));
+    connections[0]!.emit(...delta(2, 'B'));
+    const reconnect = reconnectCoachChatStream();
+    const duplicate = resume();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockedSse).toHaveBeenCalledTimes(1);
+
+    connections[0]!.emit(...delta(3, 'C'));
+    await jest.advanceTimersByTimeAsync(32);
+    expect(useCoachStreamStore.getState().assistantContent).toBe('ABC');
+    connections[0]!.emit(...done(4, 'ABC'));
+    connections[0]!.close();
+    await Promise.all([first, reconnect, duplicate]);
+  });
+
+  it('断开同步刷入缓冲；旧回调和旧清理不能污染替代订阅', async () => {
+    const connections = controlledConnections();
+    const oldResult = resume().catch((err: unknown) => err);
+    await jest.advanceTimersByTimeAsync(0);
+    connections[0]!.emit(...delta(1, 'A'));
+    connections[0]!.emit(...delta(2, 'B'));
+    expect(useCoachStreamStore.getState().assistantContent).toBe('A');
+
+    unsubscribeCoachChatStream();
+    expect(useCoachStreamStore.getState().assistantContent).toBe('AB');
+    expect(mockedSse.mock.calls[0]![2]?.signal?.aborted).toBe(true);
+    const replacement = reconnectCoachChatStream();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(afterSequences()).toEqual([0, 2]);
+    connections[1]!.emit(...delta(3, 'C'));
+    connections[0]!.emit(...delta(99, '旧连接'));
+    connections[0]!.emit(...done(100, '错误快照'));
+    connections[0]!.close();
+    await expect(oldResult).resolves.toMatchObject({ code: 'STREAM_UNSUBSCRIBED' });
+    const duplicate = reconnectCoachChatStream();
+    await jest.advanceTimersByTimeAsync(32);
+    expect(mockedSse).toHaveBeenCalledTimes(2);
+    expect(useCoachStreamStore.getState().assistantContent).toBe('ABC');
+    expect(useCoachStreamStore.getState().lastProcessedSequence).toBe(3);
+    connections[1]!.emit(...done(4, 'ABC'));
+    connections[1]!.close();
+    await Promise.all([replacement, duplicate]);
+  });
+
+  it('切换流后，旧流的定时缓冲和终态不能写入新会话', async () => {
+    const connections = controlledConnections();
+    const oldResult = resume().catch((err: unknown) => err);
+    await jest.advanceTimersByTimeAsync(0);
+    connections[0]!.emit(...delta(1, '旧'));
+    connections[0]!.emit(...delta(2, '缓冲'));
+    const next = resumeCoachMessageStream({
+      conversationId: 'conv-2',
+      streamId: 'run-2',
+      userMessageId: 'user-2',
+      assistantMessageId: 'assistant-2',
+      userContent: '新问题',
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    connections[1]!.emit(...delta(1, '新回答'));
+    connections[0]!.emit(...cancelled(3, '旧内容'));
+    connections[0]!.close();
+    await expect(oldResult).resolves.toMatchObject({ code: 'STREAM_UNSUBSCRIBED' });
+    await jest.advanceTimersByTimeAsync(32);
+    expect(useCoachStreamStore.getState().assistantContent).toBe('新回答');
+    expect(useCoachStreamStore.getState().isCancelled).toBe(false);
+    connections[1]!.emit(...done(2, '新回答'));
+    connections[1]!.close();
+    await next;
+  });
+
+  it('退避等待期间重复恢复不会另开连接，取消后旧重试不再启动', async () => {
+    const connections = controlledConnections();
+    mockedSse.mockRejectedValueOnce(networkError());
+    const oldResult = resume().catch((err: unknown) => err);
+    await jest.advanceTimersByTimeAsync(0);
+    const duplicateResult = reconnectCoachChatStream().catch((err: unknown) => err);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockedSse).toHaveBeenCalledTimes(1);
+    unsubscribeCoachChatStream();
+    const next = reconnectCoachChatStream();
+    await jest.advanceTimersByTimeAsync(500);
+    expect(mockedSse).toHaveBeenCalledTimes(2);
+    await expect(oldResult).resolves.toMatchObject({ code: 'STREAM_UNSUBSCRIBED' });
+    await expect(duplicateResult).resolves.toMatchObject({ code: 'STREAM_UNSUBSCRIBED' });
+    connections[0]!.emit(...done(1, '恢复成功', 0));
+    connections[0]!.close();
+    await next;
+  });
+
+  it('自动重试后也拒绝同一订阅内上一条连接的延迟事件', async () => {
+    const connections = controlledConnections();
+    let oldEmit: Emit | undefined;
+    mockedSse.mockImplementationOnce(async (_path, emit) => {
+      oldEmit = emit;
+      emit(...delta(1, 'A'));
+      emit(...delta(2, 'B'));
+      throw networkError();
+    });
+    const result = resume();
+    await jest.advanceTimersByTimeAsync(500);
+    oldEmit!(...delta(99, '过期事件'));
+    connections[0]!.emit(...delta(3, 'C'));
+    await jest.advanceTimersByTimeAsync(32);
+    expect(useCoachStreamStore.getState().assistantContent).toBe('ABC');
+    expect(useCoachStreamStore.getState().lastProcessedSequence).toBe(3);
+    connections[0]!.emit(...done(4, 'ABC'));
+    connections[0]!.close();
+    await result;
+  });
+
+  it('刚启动就取消时不建立网络连接', async () => {
+    controlledConnections();
+    const result = resume().catch((err: unknown) => err);
+    unsubscribeCoachChatStream();
+    await expect(result).resolves.toMatchObject({ code: 'STREAM_UNSUBSCRIBED' });
+    expect(mockedSse).not.toHaveBeenCalled();
+  });
 });
 
 describe('序号补播', () => {

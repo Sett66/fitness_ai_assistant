@@ -232,19 +232,27 @@ function parseSseChunk(buffer: string, onEvent: SseEventHandler): string {
 export async function apiStreamSSE(
   path: string,
   onEvent: SseEventHandler,
-  options?: { timeoutMs?: number; afterSequence?: number },
+  options?: { timeoutMs?: number; afterSequence?: number; signal?: AbortSignal },
 ): Promise<void> {
   const timeoutMs = options?.timeoutMs ?? 120_000;
   const url = `${API_BASE_URL}${path}`;
 
   const runXhr = (authToken: string | null): Promise<void> =>
     new Promise((resolve, reject) => {
+      if (options?.signal?.aborted) {
+        reject(new ApiError('流式订阅已断开', 0, 'STREAM_UNSUBSCRIBED'));
+        return;
+      }
       const xhr = new XMLHttpRequest();
       activeSseXhr = xhr;
       let buffer = '';
       let lastIndex = 0;
       let lastActivityAt = Date.now();
       let streamError: ApiError | null = null;
+      const abortSubscription = () => {
+        xhr.abort();
+        reject(new ApiError('流式订阅已断开', 0, 'STREAM_UNSUBSCRIBED'));
+      };
       const inactivityTimer = setInterval(() => {
         if (Date.now() - lastActivityAt > 15_000) {
           xhr.abort();
@@ -259,6 +267,7 @@ export async function apiStreamSSE(
       const cleanup = () => {
         clearTimeout(timer);
         clearInterval(inactivityTimer);
+        options?.signal?.removeEventListener('abort', abortSubscription);
         if (activeSseXhr === xhr) {
           activeSseXhr = null;
         }
@@ -322,6 +331,10 @@ export async function apiStreamSSE(
       };
       xhr.onabort = () => {
         cleanup();
+        if (options?.signal?.aborted) {
+          reject(new ApiError('流式订阅已断开', 0, 'STREAM_UNSUBSCRIBED'));
+          return;
+        }
         if (sseAbortCode) {
           const code = sseAbortCode;
           sseAbortCode = null;
@@ -338,6 +351,7 @@ export async function apiStreamSSE(
       if (authToken) {
         xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
       }
+      options?.signal?.addEventListener('abort', abortSubscription, { once: true });
       xhr.send();
     });
 
