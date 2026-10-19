@@ -682,6 +682,16 @@ model Reaction {
   @@index([userId])
 }
 
+// 取消点赞后仍保留版本；targetKey 为 post:<id> 或 comment:<id>。
+// 不依赖 Reaction 的生命周期，防止删除后旧请求重新创建点赞。
+model SocialLikeRevision {
+  userId    String
+  targetKey String
+  revision  Int    @default(0)
+
+  @@id([userId, targetKey])
+}
+
 model CommentReaction {
   commentId String
   userId    String

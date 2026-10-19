@@ -1,5 +1,4 @@
 import type { Comment } from '@fitness/db';
-import { Prisma } from '@fitness/db';
 import type { SocialAuthor } from '@fitness/shared';
 
 import { BizException } from '../../common/exceptions/biz-exception';
@@ -29,13 +28,6 @@ function commentRow(overrides: Partial<Comment> = {}): Comment {
 
 function author(id: string, displayName: string): SocialAuthor {
   return { id, displayName, avatarUrl: null };
-}
-
-function createP2002(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-    code: 'P2002',
-    clientVersion: '5.22.0',
-  });
 }
 
 type TxMocks = {
@@ -240,90 +232,24 @@ describe('CommentsService list', () => {
   });
 });
 
-describe('CommentsService like / unlike', () => {
-  it('首次点赞：create 成功才 increment', async () => {
-    const { service, prisma, tx } = createService();
-    prisma.client.comment.findFirst.mockResolvedValue(commentRow());
-    tx.commentReaction.create.mockResolvedValue({});
-    tx.comment.update.mockResolvedValue({ likeCount: 1 });
-    prisma.client.$transaction.mockImplementation(async (fn: (client: TxMocks) => unknown) =>
-      fn(tx),
-    );
-
-    const result = await service.like({ userId: USER_A }, COMMENT_ID);
-
-    expect(tx.commentReaction.create).toHaveBeenCalledWith({
-      data: { commentId: COMMENT_ID, userId: USER_A },
-    });
-    expect(tx.comment.update).toHaveBeenCalledWith({
-      where: { id: COMMENT_ID },
-      data: { likeCount: { increment: 1 } },
-      select: { likeCount: true },
-    });
-    expect(result).toEqual({ commentId: COMMENT_ID, likeCount: 1, likedByMe: true });
-  });
-
-  it('P2002 分支不 increment', async () => {
-    const { service, prisma, tx } = createService();
-    prisma.client.comment.findFirst.mockResolvedValue(commentRow({ likeCount: 1 }));
-    tx.commentReaction.create.mockRejectedValue(createP2002());
-    prisma.client.$transaction.mockImplementation(async (fn: (client: TxMocks) => unknown) =>
-      fn(tx),
-    );
-    prisma.client.comment.findUniqueOrThrow.mockResolvedValue({ likeCount: 1 });
-
-    const result = await service.like({ userId: USER_A }, COMMENT_ID);
-
-    expect(tx.comment.update).not.toHaveBeenCalled();
-    expect(prisma.client.comment.findUniqueOrThrow).toHaveBeenCalledWith({
-      where: { id: COMMENT_ID },
-      select: { likeCount: true },
-    });
-    expect(result).toEqual({ commentId: COMMENT_ID, likeCount: 1, likedByMe: true });
-  });
-
-  it('取消赞：deleteMany count=0 时不 decrement', async () => {
-    const { service, prisma, tx } = createService();
-    prisma.client.comment.findFirst.mockResolvedValue(commentRow());
-    tx.commentReaction.deleteMany.mockResolvedValue({ count: 0 });
-    tx.comment.findUniqueOrThrow.mockResolvedValue({ likeCount: 0 });
-    prisma.client.$transaction.mockImplementation(async (fn: (client: TxMocks) => unknown) =>
-      fn(tx),
-    );
-
-    const result = await service.unlike({ userId: USER_A }, COMMENT_ID);
-
-    expect(tx.comment.update).not.toHaveBeenCalled();
-    expect(result).toEqual({ commentId: COMMENT_ID, likeCount: 0, likedByMe: false });
-  });
-
-  it('取消赞：真正删掉记录才 decrement', async () => {
-    const { service, prisma, tx } = createService();
-    prisma.client.comment.findFirst.mockResolvedValue(commentRow({ likeCount: 1 }));
-    tx.commentReaction.deleteMany.mockResolvedValue({ count: 1 });
-    tx.comment.update.mockResolvedValue({ likeCount: 0 });
-    prisma.client.$transaction.mockImplementation(async (fn: (client: TxMocks) => unknown) =>
-      fn(tx),
-    );
-
-    const result = await service.unlike({ userId: USER_A }, COMMENT_ID);
-
-    expect(tx.comment.update).toHaveBeenCalledWith({
-      where: { id: COMMENT_ID },
-      data: { likeCount: { decrement: 1 } },
-      select: { likeCount: true },
-    });
-    expect(result).toEqual({ commentId: COMMENT_ID, likeCount: 0, likedByMe: false });
-  });
-
-  it('已删评论返回 SOCIAL_COMMENT_NOT_FOUND', async () => {
+describe('CommentsService 条件点赞入口', () => {
+  it('已删除评论不进入点赞事务', async () => {
     const { service, prisma } = createService();
     prisma.client.comment.findFirst.mockResolvedValue(null);
-
-    await expect(service.like({ userId: USER_A }, COMMENT_ID)).rejects.toMatchObject({
+    await expect(
+      service.setLikeState({ userId: USER_A }, COMMENT_ID, true, { expectedRevision: 0 }),
+    ).rejects.toMatchObject({ code: 'SOCIAL_COMMENT_NOT_FOUND', httpStatus: 404 });
+    await expect(service.getLikeState({ userId: USER_A }, COMMENT_ID)).rejects.toMatchObject({
       code: 'SOCIAL_COMMENT_NOT_FOUND',
       httpStatus: 404,
     });
+    expect(prisma.client.$transaction).not.toHaveBeenCalled();
+  });
+  it('不允许省略版本绕过条件写入', async () => {
+    const { service, prisma } = createService();
+    await expect(
+      service.setLikeState({ userId: USER_A }, COMMENT_ID, false, {}),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(prisma.client.$transaction).not.toHaveBeenCalled();
   });
 });

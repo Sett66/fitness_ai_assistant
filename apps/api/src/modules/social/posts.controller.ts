@@ -38,13 +38,18 @@ export class PostsController {
   }
 
   @Put(':id/like')
-  like(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
-    return this.posts.like(user, id);
+  like(@CurrentUser() user: JwtUserPayload, @Param('id') id: string, @Body() body: unknown) {
+    return this.posts.setLikeState(user, id, true, body);
   }
 
   @Delete(':id/like')
-  unlike(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
-    return this.posts.unlike(user, id);
+  unlike(@CurrentUser() user: JwtUserPayload, @Param('id') id: string, @Body() body: unknown) {
+    return this.posts.setLikeState(user, id, false, body);
+  }
+
+  @Get(':id/like')
+  likeState(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
+    return this.posts.getLikeState(user, id);
   }
 
   @Delete(':id')

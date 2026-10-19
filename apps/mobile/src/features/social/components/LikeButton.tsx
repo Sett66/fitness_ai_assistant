@@ -3,8 +3,8 @@ import type { CommentSummary, PostSummary } from '@fitness/shared';
 import { Heart } from '@fitness/ui';
 
 import {
-  useCommentLikePending,
-  usePostLikePending,
+  useCommentLikeTarget,
+  usePostLikeTarget,
   useToggleCommentLike,
   useTogglePostLike,
 } from '../../../api/endpoints/social';
@@ -56,14 +56,16 @@ type LikeButtonProps = {
 
 export function LikeButton({ post }: LikeButtonProps) {
   const toggle = useTogglePostLike();
-  const pending = usePostLikePending(post.id);
+  const target = usePostLikeTarget(post.id);
+  const likedByMe = target ?? post.likedByMe;
+  const likeCount = Math.max(0, post.likeCount + Number(likedByMe) - Number(post.likedByMe));
 
   return (
     <HeartLikeButton
-      likedByMe={post.likedByMe}
-      likeCount={post.likeCount}
-      pending={pending}
-      onPress={() => toggle(post.id, post.likedByMe)}
+      likedByMe={likedByMe}
+      likeCount={likeCount}
+      pending={target !== undefined}
+      onPress={() => toggle(post.id, likedByMe)}
     />
   );
 }
@@ -74,14 +76,16 @@ type CommentLikeButtonProps = {
 
 export function CommentLikeButton({ comment }: CommentLikeButtonProps) {
   const toggle = useToggleCommentLike();
-  const pending = useCommentLikePending(comment.postId, comment.id);
+  const target = useCommentLikeTarget(comment.postId, comment.id);
+  const likedByMe = target ?? comment.likedByMe;
+  const likeCount = Math.max(0, comment.likeCount + Number(likedByMe) - Number(comment.likedByMe));
 
   return (
     <HeartLikeButton
-      likedByMe={comment.likedByMe}
-      likeCount={comment.likeCount}
-      pending={pending}
-      onPress={() => toggle({ id: comment.id, postId: comment.postId }, comment.likedByMe)}
+      likedByMe={likedByMe}
+      likeCount={likeCount}
+      pending={target !== undefined}
+      onPress={() => toggle({ id: comment.id, postId: comment.postId }, likedByMe)}
       size={16}
       className="flex-row items-center gap-1 self-start py-1"
     />

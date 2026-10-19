@@ -37,13 +37,18 @@ export class CommentsController {
   }
 
   @Put('comments/:id/like')
-  like(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
-    return this.comments.like(user, id);
+  like(@CurrentUser() user: JwtUserPayload, @Param('id') id: string, @Body() body: unknown) {
+    return this.comments.setLikeState(user, id, true, body);
   }
 
   @Delete('comments/:id/like')
-  unlike(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
-    return this.comments.unlike(user, id);
+  unlike(@CurrentUser() user: JwtUserPayload, @Param('id') id: string, @Body() body: unknown) {
+    return this.comments.setLikeState(user, id, false, body);
+  }
+
+  @Get('comments/:id/like')
+  likeState(@CurrentUser() user: JwtUserPayload, @Param('id') id: string) {
+    return this.comments.getLikeState(user, id);
   }
 
   @Delete('comments/:id')

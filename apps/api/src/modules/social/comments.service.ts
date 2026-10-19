@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { Comment } from '@fitness/db';
-import type { CommentLikeResponse, CommentListResponse, CommentSummary } from '@fitness/shared';
+import type { CommentListResponse, CommentSummary } from '@fitness/shared';
 import {
   CommentListQuerySchema,
   CommentSummarySchema,
   CreateCommentRequestSchema,
+  LikeWriteRequestSchema,
   errorMessagesZhCN,
   findBannedKeyword,
 } from '@fitness/shared';
@@ -13,8 +14,8 @@ import type { JwtUserPayload } from '../../common/decorators/current-user.decora
 import { BizException } from '../../common/exceptions/biz-exception';
 import { parseWith } from '../../common/zod/parse-with';
 import { PrismaService } from '../../infra/prisma/prisma.service';
-import { isUniqueViolation } from './is-unique-violation';
 import { PostsService } from './posts.service';
+import { accessLikeState } from './like-state';
 
 @Injectable()
 export class CommentsService {
@@ -96,58 +97,23 @@ export class CommentsService {
     return mapped;
   }
 
-  /**
-   * 幂等点赞。P2002 必须让交互式事务整体失败后再在事务外读计数：
-   * Postgres 遇唯一冲突会 abort 当前事务，catch 后继续用同一个 `tx` 会 500。
-   */
-  async like(user: JwtUserPayload, commentId: string): Promise<CommentLikeResponse> {
-    const comment = await this.assertVisibleComment(user.userId, commentId);
-
-    try {
-      const updated = await this.prisma.client.$transaction(async (tx) => {
-        await tx.commentReaction.create({
-          data: { commentId, userId: user.userId },
-        });
-        return tx.comment.update({
-          where: { id: commentId },
-          data: { likeCount: { increment: 1 } },
-          select: { likeCount: true },
-        });
-      });
-      return { commentId, likeCount: updated.likeCount, likedByMe: true };
-    } catch (err) {
-      if (isUniqueViolation(err)) {
-        const row = await this.prisma.client.comment.findUniqueOrThrow({
-          where: { id: comment.id },
-          select: { likeCount: true },
-        });
-        return { commentId, likeCount: row.likeCount, likedByMe: true };
-      }
-      throw err;
-    }
+  async getLikeState(user: JwtUserPayload, commentId: string) {
+    await this.assertVisibleComment(user.userId, commentId);
+    return accessLikeState(this.prisma.client, user.userId, { kind: 'comment', id: commentId });
   }
 
-  async unlike(user: JwtUserPayload, commentId: string): Promise<CommentLikeResponse> {
+  async setLikeState(user: JwtUserPayload, commentId: string, likedByMe: boolean, body: unknown) {
+    const { expectedRevision } = parseWith(LikeWriteRequestSchema, body);
     await this.assertVisibleComment(user.userId, commentId);
-
-    const updated = await this.prisma.client.$transaction(async (tx) => {
-      const removed = await tx.commentReaction.deleteMany({
-        where: { commentId, userId: user.userId },
-      });
-      if (removed.count === 0) {
-        return tx.comment.findUniqueOrThrow({
-          where: { id: commentId },
-          select: { likeCount: true },
-        });
-      }
-      return tx.comment.update({
-        where: { id: commentId },
-        data: { likeCount: { decrement: 1 } },
-        select: { likeCount: true },
-      });
-    });
-
-    return { commentId, likeCount: updated.likeCount, likedByMe: false };
+    return accessLikeState(
+      this.prisma.client,
+      user.userId,
+      { kind: 'comment', id: commentId },
+      {
+        expectedRevision,
+        likedByMe,
+      },
+    );
   }
 
   async remove(user: JwtUserPayload, id: string): Promise<void> {

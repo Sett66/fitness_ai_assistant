@@ -103,6 +103,22 @@ export const CommentLikeResponseSchema = z.object({
 });
 export type CommentLikeResponse = z.infer<typeof CommentLikeResponseSchema>;
 
+// 每次被接受的写入（包括目标态未变化）都推进版本，封住迟到的旧请求。
+export const LikeWriteRequestSchema = z.object({
+  expectedRevision: z.number().int().min(0).max(2147483646),
+});
+export type LikeWriteRequest = z.infer<typeof LikeWriteRequestSchema>;
+
+export const LikeStateSchema = z.object({
+  revision: z.number().int().nonnegative(),
+  likedByMe: z.boolean(),
+  likeCount: z.number().int().nonnegative(),
+});
+export type LikeState = z.infer<typeof LikeStateSchema>;
+
+export const LikeWriteResponseSchema = LikeStateSchema.extend({ applied: z.boolean() });
+export type LikeWriteResponse = z.infer<typeof LikeWriteResponseSchema>;
+
 export const CommentSchema = z.object({
   id: IdSchema,
   postId: IdSchema,
